@@ -1,0 +1,10 @@
+.DS_Store
+.idea
+.vscode
+.env*
+.husky
+tmp
+
+node_modules
+dist
+**/coverage
