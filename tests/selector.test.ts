@@ -1,5 +1,5 @@
 import { describe, it } from "vitest";
-import { applySector } from "#/selector";
+import { applySelector } from "#/selector";
 import { OperatorSchema, SelectorSchema } from "#/types";
 
 describe.each([
@@ -48,7 +48,7 @@ describe.each([
   { test: "non_existent", selector: ".foo", input: { bar: 42 } },
 ])("lookup", ({ test, selector, input, expected }) => {
   it(`${test}`, ({ expect }) => {
-    const result = applySector(selector, input);
+    const result = applySelector(selector, input);
     expect(result).toEqual(expected);
   });
 });

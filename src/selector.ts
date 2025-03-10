@@ -1,6 +1,6 @@
 import { SelectorSchema } from "#/types";
 
-export function applySector(expr: string, value: unknown): unknown {
+export function applySelector(expr: string, value: unknown): unknown {
   let result = value;
   const selector = SelectorSchema.parse(expr);
   for (const label of selector) {
