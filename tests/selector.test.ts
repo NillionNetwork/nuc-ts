@@ -48,7 +48,7 @@ describe.each([
   { test: "non_existent", selector: ".foo", input: { bar: 42 } },
 ])("lookup", ({ test, selector, input, expected }) => {
   it(`${test}`, ({ expect }) => {
-    const result = applySelector(selector, input);
+    const result = applySelector(SelectorSchema.parse(selector), input);
     expect(result).toEqual(expected);
   });
 });

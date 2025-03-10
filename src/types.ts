@@ -17,27 +17,39 @@ export const SelectorSchema = z
     (labels) => labels.every((label) => ALPHABET_LABEL.test(label)),
     "invalid attribute character",
   );
-export type Selector = z.input<typeof SelectorSchema>;
+export type Selector = z.infer<typeof SelectorSchema>;
 
-export const EqualsSchema = z.tuple([
-  z.literal("=="),
-  SelectorSchema,
-  z.unknown(),
-]);
+export const EqualsSchema = z
+  .tuple([z.literal("=="), SelectorSchema, z.unknown()])
+  .transform((operator) => {
+    return {
+      type: "equals",
+      selector: operator[1],
+      value: operator[2],
+    };
+  });
 export type Equals = z.infer<typeof EqualsSchema>;
 
-export const NotEqualsSchema = z.tuple([
-  z.literal("!="),
-  SelectorSchema,
-  z.unknown(),
-]);
+export const NotEqualsSchema = z
+  .tuple([z.literal("!="), SelectorSchema, z.unknown()])
+  .transform((operator) => {
+    return {
+      type: "notEquals",
+      selector: operator[1],
+      value: operator[2],
+    };
+  });
 export type NotEquals = z.infer<typeof NotEqualsSchema>;
 
-export const AnyOfSchema = z.tuple([
-  z.literal("anyOf"),
-  SelectorSchema,
-  z.array(z.unknown()),
-]);
+export const AnyOfSchema = z
+  .tuple([z.literal("anyOf"), SelectorSchema, z.array(z.unknown())])
+  .transform((operator) => {
+    return {
+      type: "anyOf",
+      selector: operator[1],
+      values: operator[2],
+    };
+  });
 export type AnyOf = z.infer<typeof AnyOfSchema>;
 
 export const OperatorSchema = z.union([
@@ -47,19 +59,34 @@ export const OperatorSchema = z.union([
 ]);
 export type Operator = z.infer<typeof OperatorSchema>;
 
-export const AndSchema = z.lazy(() =>
-  z.tuple([z.literal("and"), z.array(PolicySchema)]),
-);
+export const AndSchema = z
+  .lazy(() => z.tuple([z.literal("and"), z.array(PolicySchema)]))
+  .transform((connector) => {
+    return {
+      type: "and",
+      policies: connector[1],
+    };
+  });
 export type And = z.infer<typeof AndSchema>;
 
-export const OrSchema = z.lazy(() =>
-  z.tuple([z.literal("or"), z.array(PolicySchema)]),
-);
+export const OrSchema = z
+  .lazy(() => z.tuple([z.literal("or"), z.array(PolicySchema)]))
+  .transform((connector) => {
+    return {
+      type: "or",
+      policies: connector[1],
+    };
+  });
 export type Or = z.infer<typeof OrSchema>;
 
-export const NotSchema = z.lazy(() =>
-  z.tuple([z.literal("not"), PolicySchema]),
-);
+export const NotSchema = z
+  .lazy(() => z.tuple([z.literal("not"), PolicySchema]))
+  .transform((connector) => {
+    return {
+      type: "not",
+      policy: connector[1],
+    };
+  });
 export type Not = z.infer<typeof NotSchema>;
 
 export const ConnectorSchema = z.lazy(() =>

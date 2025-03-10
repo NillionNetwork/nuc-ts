@@ -1,8 +1,7 @@
-import { SelectorSchema } from "#/types";
+import type { Selector } from "#/types";
 
-export function applySelector(expr: string, value: unknown): unknown {
+export function applySelector(selector: Selector, value: unknown): unknown {
   let result = value;
-  const selector = SelectorSchema.parse(expr);
   for (const label of selector) {
     if (typeof result === "object") {
       const record = result as Record<string, unknown>;
