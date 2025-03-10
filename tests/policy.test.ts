@@ -1,11 +1,27 @@
 import { describe, it } from "vitest";
-import { OperatorSchema, PolicySchema } from "#/types";
+import { OperatorSchema, type Policy, PolicySchema } from "#/types";
 
 describe.each([
-  { test: "eq", input: ["==", ".foo", { ".bar": 42 }] },
-  { test: "ne", input: ["!=", ".foo", { ".bar": 42 }] },
-  { test: "anyOf1", input: ["anyOf", ".foo", [42, "hi"]] },
-  { test: "anyOf2", input: ["anyOf", ".foo", [{ foo: 42 }]] },
+  {
+    test: "eq",
+    input: ["==", ".foo", { ".bar": 42 }],
+    expected: ["==", ["foo"], { ".bar": 42 }],
+  },
+  {
+    test: "ne",
+    input: ["!=", ".foo", { ".bar": 42 }],
+    expected: ["!=", ["foo"], { ".bar": 42 }],
+  },
+  {
+    test: "anyOf1",
+    input: ["anyOf", ".foo", [42, "hi"]],
+    expected: ["anyOf", ["foo"], [42, "hi"]],
+  },
+  {
+    test: "anyOf2",
+    input: ["anyOf", ".foo", [{ foo: 42 }]],
+    expected: ["anyOf", ["foo"], [{ foo: 42 }]],
+  },
   {
     test: "and",
     input: [
@@ -13,6 +29,13 @@ describe.each([
       [
         ["==", ".foo", 42],
         ["!=", ".bar", false],
+      ],
+    ],
+    expected: [
+      "and",
+      [
+        ["==", ["foo"], 42],
+        ["!=", ["bar"], false],
       ],
     ],
   },
@@ -25,8 +48,19 @@ describe.each([
         ["!=", ".bar", false],
       ],
     ],
+    expected: [
+      "or",
+      [
+        ["==", ["foo"], 42],
+        ["!=", ["bar"], false],
+      ],
+    ],
   },
-  { test: "not", input: ["not", ["==", ".foo", 42]] },
+  {
+    test: "not",
+    input: ["not", ["==", ".foo", 42]],
+    expected: ["not", ["==", ["foo"], 42]],
+  },
   {
     test: "nested",
     input: [
@@ -42,11 +76,24 @@ describe.each([
         ],
       ],
     ],
+    expected: [
+      "or",
+      [
+        ["==", ["foo"], 42],
+        [
+          "and",
+          [
+            ["!=", ["bar"], 1337],
+            ["not", ["==", ["tar"], true]],
+          ],
+        ],
+      ],
+    ],
   },
-])("valid policy", ({ test, input }) => {
+])("valid policy", ({ test, input, expected }) => {
   it(`${test}`, ({ expect }) => {
-    const result = PolicySchema.parse(input);
-    expect(result).toBeDefined;
+    const result: Policy = PolicySchema.parse(input);
+    expect(result).toEqual(expected);
   });
 });
 
