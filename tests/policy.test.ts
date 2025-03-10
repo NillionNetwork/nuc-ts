@@ -1,4 +1,5 @@
 import { describe, it } from "vitest";
+import { evaluatePolicy } from "#/policy";
 import { OperatorSchema, type Policy, PolicySchema } from "#/types";
 
 describe.each([
@@ -15,12 +16,12 @@ describe.each([
   {
     test: "anyOf1",
     input: ["anyOf", ".foo", [42, "hi"]],
-    expected: { type: "anyOf", selector: ["foo"], values: [42, "hi"] },
+    expected: { type: "anyOf", selector: ["foo"], options: [42, "hi"] },
   },
   {
     test: "anyOf2",
     input: ["anyOf", ".foo", [{ foo: 42 }]],
-    expected: { type: "anyOf", selector: ["foo"], values: [{ foo: 42 }] },
+    expected: { type: "anyOf", selector: ["foo"], options: [{ foo: 42 }] },
   },
   {
     test: "and",
@@ -33,7 +34,7 @@ describe.each([
     ],
     expected: {
       type: "and",
-      policies: [
+      conditions: [
         { type: "equals", selector: ["foo"], value: 42 },
         { type: "notEquals", selector: ["bar"], value: false },
       ],
@@ -50,7 +51,7 @@ describe.each([
     ],
     expected: {
       type: "or",
-      policies: [
+      conditions: [
         { type: "equals", selector: ["foo"], value: 42 },
         { type: "notEquals", selector: ["bar"], value: false },
       ],
@@ -61,7 +62,7 @@ describe.each([
     input: ["not", ["==", ".foo", 42]],
     expected: {
       type: "not",
-      policy: { type: "equals", selector: ["foo"], value: 42 },
+      condition: { type: "equals", selector: ["foo"], value: 42 },
     },
   },
   {
@@ -81,15 +82,15 @@ describe.each([
     ],
     expected: {
       type: "or",
-      policies: [
+      conditions: [
         { type: "equals", selector: ["foo"], value: 42 },
         {
           type: "and",
-          policies: [
+          conditions: [
             { type: "notEquals", selector: ["bar"], value: 1337 },
             {
               type: "not",
-              policy: { type: "equals", selector: ["tar"], value: true },
+              condition: { type: "equals", selector: ["tar"], value: true },
             },
           ],
         },
@@ -120,5 +121,169 @@ describe.each([
 ])("invalid policy", ({ test, input }) => {
   it(`${test}`, ({ expect }) => {
     expect(() => OperatorSchema.parse(input)).toThrowError();
+  });
+});
+
+describe.each([
+  {
+    test: "eq value",
+    policy: { type: "equals", selector: ["name", "first"], value: "bob" },
+  },
+  {
+    test: "ne",
+    policy: { type: "notEquals", selector: ["name", "first"], value: "john" },
+  },
+  {
+    test: "eq object",
+    policy: {
+      type: "equals",
+      selector: ["name"],
+      value: { first: "bob", last: "smith" },
+    },
+  },
+  {
+    test: "eq root",
+    policy: {
+      type: "equals",
+      selector: [],
+      value: { name: { first: "bob", last: "smith" }, age: 42 },
+    },
+  },
+  {
+    test: "notEq",
+    policy: { type: "notEquals", selector: ["age"], value: 150 },
+  },
+  {
+    test: "anyOf",
+    policy: {
+      type: "anyOf",
+      selector: ["name", ["first"]],
+      options: ["john", "bob"],
+    },
+  },
+  {
+    test: "and",
+    policy: {
+      type: "and",
+      conditions: [
+        { type: "equals", selector: ["age"], value: 42 },
+        { type: "equals", selector: ["name", "first"], value: "bob" },
+      ],
+    },
+  },
+  {
+    test: "or short circuit",
+    policy: {
+      type: "or",
+      conditions: [
+        { type: "equals", selector: ["age"], value: 42 },
+        { type: "equals", selector: ["age"], value: 100 },
+      ],
+    },
+  },
+  {
+    test: "or long circuit",
+    policy: {
+      type: "or",
+      conditions: [
+        { type: "equals", selector: ["age"], value: 100 },
+        { type: "equals", selector: ["age"], value: 42 },
+      ],
+    },
+  },
+])("evaluation matches", ({ test, policy }) => {
+  it(`${test}`, ({ expect }) => {
+    const value = {
+      name: {
+        first: "bob",
+        last: "smith",
+      },
+      age: 42,
+    };
+    const result = evaluatePolicy(policy, value);
+    expect(result).toBe(true);
+  });
+});
+
+describe.each([
+  {
+    test: "eq value",
+    policy: { type: "equals", selector: ["name", "first"], value: "john" },
+  },
+  {
+    test: "ne",
+    policy: { type: "notEquals", selector: ["name", "first"], value: "bob" },
+  },
+  {
+    test: "eq object",
+    policy: {
+      type: "equals",
+      selector: ["name"],
+      value: { first: "john", last: "smith" },
+    },
+  },
+  {
+    test: "eq root",
+    policy: {
+      type: "equals",
+      selector: [],
+      value: { name: { first: "bob", last: "smith" }, age: 100 },
+    },
+  },
+  {
+    test: "notEq",
+    policy: { type: "notEquals", selector: ["age"], value: 42 },
+  },
+  {
+    test: "anyOf",
+    policy: {
+      type: "anyOf",
+      selector: ["name", ["first"]],
+      options: ["john", "jack"],
+    },
+  },
+  {
+    test: "and1",
+    policy: {
+      type: "and",
+      conditions: [
+        { type: "equals", selector: ["age"], value: 150 },
+        { type: "equals", selector: ["name", "first"], value: "bob" },
+      ],
+    },
+  },
+  {
+    test: "and2",
+    policy: {
+      type: "and",
+      conditions: [
+        { type: "equals", selector: ["age"], value: 42 },
+        { type: "equals", selector: ["name", "first"], value: "john" },
+      ],
+    },
+  },
+  { test: "empty and", policy: { type: "and", conditions: [] } },
+  {
+    test: "or",
+    policy: {
+      type: "or",
+      conditions: [
+        { type: "equals", selector: ["age"], value: 101 },
+        { type: "equals", selector: ["age"], value: 100 },
+      ],
+    },
+  },
+  { test: "or empty", policy: { type: "or", conditions: [] } },
+])("evaluation does not matches", ({ test, policy }) => {
+  it(`${test}`, ({ expect }) => {
+    const value = {
+      name: {
+        first: "bob",
+        last: "smith",
+      },
+      age: 42,
+    };
+    const result = evaluatePolicy(policy, value);
+    expect(result).toBe(false);
   });
 });
