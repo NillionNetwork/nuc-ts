@@ -3,16 +3,13 @@ import { z } from "zod";
 import { Did, NucToken } from "#/token";
 
 const ALPHABET_LABEL = /[a-zA-Z0-9_-]+/;
-const DID_PUBLIC_KEY = /[a-zA-Z0-9]{66}/;
+const DID_EXPRESSION = /^did:nil:([a-zA-Z0-9]{66})$/;
 
 export const DidSchema = z
   .string()
-  .transform((did) => did.split(":"))
-  .refine((did) => did.length === 3, "invalid DID")
-  .refine((did) => did[0] === "did", "invalid DID")
-  .refine((did) => did[1] === "nil", "invalid DID method")
-  .refine((did) => DID_PUBLIC_KEY.test(did[2]), "invalid DID public key")
-  .transform((did) => Did.fromHex(did[2]));
+  .transform((did) => DID_EXPRESSION.exec(did))
+  .refine((match) => match !== null, "invalid DID")
+  .transform((match) => Did.fromHex(match[1]));
 
 export const CommandSchema = z
   .string()
@@ -144,18 +141,22 @@ export const NucTokenSchema = z
     prf: z.array(z.string()).optional(),
   })
   .transform((token) => {
-    return new NucToken(
-      token.iss,
-      token.aud,
-      token.sub,
-      token.cmd,
-      tokenBody(token.args, token.pol),
-      new Uint8Array(Buffer.from(token.nonce, "hex")),
-      token.prf?.map((prf) => new Uint8Array(Buffer.from(prf, "hex"))),
-      token.nbf ? Temporal.Instant.fromEpochMilliseconds(token.nbf) : undefined,
-      token.exp ? Temporal.Instant.fromEpochMilliseconds(token.exp) : undefined,
-      token.meta,
-    );
+    return new NucToken({
+      issuer: token.iss,
+      audience: token.aud,
+      subject: token.sub,
+      command: token.cmd,
+      body: tokenBody(token.args, token.pol),
+      nonce: new Uint8Array(Buffer.from(token.nonce, "hex")),
+      proofs: token.prf?.map((prf) => new Uint8Array(Buffer.from(prf, "hex"))),
+      notBefore: token.nbf
+        ? Temporal.Instant.fromEpochMilliseconds(token.nbf)
+        : undefined,
+      expiresAt: token.exp
+        ? Temporal.Instant.fromEpochMilliseconds(token.exp)
+        : undefined,
+      meta: token.meta,
+    });
   });
 
 function tokenBody(
@@ -163,7 +164,7 @@ function tokenBody(
   pol: DelegationBody | undefined,
 ): InvocationBody | DelegationBody {
   if (args !== undefined && pol !== undefined)
-    Error("one of 'args' and 'pol' must be set");
+    throw Error("one of 'args' and 'pol' must be set");
   if (args !== undefined) return args;
   if (pol !== undefined) return pol;
   throw Error("'args' and 'pol' can't both be set");

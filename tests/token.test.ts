@@ -67,32 +67,38 @@ describe("parse token", () => {
       nonce: "beef",
     };
     const token = NucTokenSchema.parse(data);
-    const expected = new NucToken(
-      new Did(
+    const expected = new NucToken({
+      issuer: new Did(
         new Uint8Array([
           170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170,
           170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170,
           170, 170, 170, 170, 170,
         ]),
       ),
-      new Did(
+      audience: new Did(
         new Uint8Array([
           187, 187, 187, 187, 187, 187, 187, 187, 187, 187, 187, 187, 187, 187,
           187, 187, 187, 187, 187, 187, 187, 187, 187, 187, 187, 187, 187, 187,
           187, 187, 187, 187, 187,
         ]),
       ),
-      new Did(
+      subject: new Did(
         new Uint8Array([
           204, 204, 204, 204, 204, 204, 204, 204, 204, 204, 204, 204, 204, 204,
           204, 204, 204, 204, 204, 204, 204, 204, 204, 204, 204, 204, 204, 204,
           204, 204, 204, 204, 204,
         ]),
       ),
-      { segments: ["nil", "db", "read"] },
-      [{ type: "equals", selector: ["foo"], value: 42 }],
-      new Uint8Array([190, 239]),
-    );
+      command: {
+        segments: ["nil", "db", "read"],
+      },
+      body: [{ type: "equals", selector: ["foo"], value: 42 }],
+      nonce: new Uint8Array([190, 239]),
+      proofs: undefined,
+      notBefore: undefined,
+      expiresAt: undefined,
+      meta: undefined,
+    });
     expect(token).toStrictEqual(expected);
   });
 
@@ -112,42 +118,42 @@ describe("parse token", () => {
       prf: ["f4f04af6a832bcd8a6855df5d0242c9a71e9da17faeb2d33b30c8903f1b5a944"],
     };
     const token = NucTokenSchema.parse(data);
-    const expected = new NucToken(
-      new Did(
+    const expected = new NucToken({
+      issuer: new Did(
         new Uint8Array([
           170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170,
           170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170,
           170, 170, 170, 170, 170,
         ]),
       ),
-      new Did(
+      audience: new Did(
         new Uint8Array([
           187, 187, 187, 187, 187, 187, 187, 187, 187, 187, 187, 187, 187, 187,
           187, 187, 187, 187, 187, 187, 187, 187, 187, 187, 187, 187, 187, 187,
           187, 187, 187, 187, 187,
         ]),
       ),
-      new Did(
+      subject: new Did(
         new Uint8Array([
           204, 204, 204, 204, 204, 204, 204, 204, 204, 204, 204, 204, 204, 204,
           204, 204, 204, 204, 204, 204, 204, 204, 204, 204, 204, 204, 204, 204,
           204, 204, 204, 204, 204,
         ]),
       ),
-      { segments: ["nil", "db", "read"] },
-      [{ type: "equals", selector: ["foo"], value: 42 }],
-      new Uint8Array([190, 239]),
-      [
+      command: { segments: ["nil", "db", "read"] },
+      body: [{ type: "equals", selector: ["foo"], value: 42 }],
+      nonce: new Uint8Array([190, 239]),
+      proofs: [
         new Uint8Array([
           244, 240, 74, 246, 168, 50, 188, 216, 166, 133, 93, 245, 208, 36, 44,
           154, 113, 233, 218, 23, 250, 235, 45, 51, 179, 12, 137, 3, 241, 181,
           169, 68,
         ]),
       ],
-      Temporal.Instant.fromEpochMilliseconds(1740494955),
-      Temporal.Instant.fromEpochMilliseconds(1740495955),
-      { name: "bob" },
-    );
+      notBefore: Temporal.Instant.fromEpochMilliseconds(1740494955),
+      expiresAt: Temporal.Instant.fromEpochMilliseconds(1740495955),
+      meta: { name: "bob" },
+    });
     expect(token).toStrictEqual(expected);
   });
 
@@ -161,32 +167,38 @@ describe("parse token", () => {
       nonce: "beef",
     };
     const token = NucTokenSchema.parse(data);
-    const expected = new NucToken(
-      new Did(
+    const expected = new NucToken({
+      issuer: new Did(
         new Uint8Array([
           170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170,
           170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170,
           170, 170, 170, 170, 170,
         ]),
       ),
-      new Did(
+      audience: new Did(
         new Uint8Array([
           187, 187, 187, 187, 187, 187, 187, 187, 187, 187, 187, 187, 187, 187,
           187, 187, 187, 187, 187, 187, 187, 187, 187, 187, 187, 187, 187, 187,
           187, 187, 187, 187, 187,
         ]),
       ),
-      new Did(
+      subject: new Did(
         new Uint8Array([
           204, 204, 204, 204, 204, 204, 204, 204, 204, 204, 204, 204, 204, 204,
           204, 204, 204, 204, 204, 204, 204, 204, 204, 204, 204, 204, 204, 204,
           204, 204, 204, 204, 204,
         ]),
       ),
-      { segments: ["nil", "db", "read"] },
-      { bar: 42 },
-      new Uint8Array([190, 239]),
-    );
+      command: {
+        segments: ["nil", "db", "read"],
+      },
+      body: { bar: 42 },
+      nonce: new Uint8Array([190, 239]),
+      proofs: undefined,
+      notBefore: undefined,
+      expiresAt: undefined,
+      meta: undefined,
+    });
     expect(token).toStrictEqual(expected);
   });
 
@@ -206,42 +218,42 @@ describe("parse token", () => {
       prf: ["f4f04af6a832bcd8a6855df5d0242c9a71e9da17faeb2d33b30c8903f1b5a944"],
     };
     const token = NucTokenSchema.parse(data);
-    const expected = new NucToken(
-      new Did(
+    const expected = new NucToken({
+      issuer: new Did(
         new Uint8Array([
           170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170,
           170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170, 170,
           170, 170, 170, 170, 170,
         ]),
       ),
-      new Did(
+      audience: new Did(
         new Uint8Array([
           187, 187, 187, 187, 187, 187, 187, 187, 187, 187, 187, 187, 187, 187,
           187, 187, 187, 187, 187, 187, 187, 187, 187, 187, 187, 187, 187, 187,
           187, 187, 187, 187, 187,
         ]),
       ),
-      new Did(
+      subject: new Did(
         new Uint8Array([
           204, 204, 204, 204, 204, 204, 204, 204, 204, 204, 204, 204, 204, 204,
           204, 204, 204, 204, 204, 204, 204, 204, 204, 204, 204, 204, 204, 204,
           204, 204, 204, 204, 204,
         ]),
       ),
-      { segments: ["nil", "db", "read"] },
-      { bar: 42 },
-      new Uint8Array([190, 239]),
-      [
+      command: { segments: ["nil", "db", "read"] },
+      body: { bar: 42 },
+      nonce: new Uint8Array([190, 239]),
+      proofs: [
         new Uint8Array([
           244, 240, 74, 246, 168, 50, 188, 216, 166, 133, 93, 245, 208, 36, 44,
           154, 113, 233, 218, 23, 250, 235, 45, 51, 179, 12, 137, 3, 241, 181,
           169, 68,
         ]),
       ],
-      Temporal.Instant.fromEpochMilliseconds(1740494955),
-      Temporal.Instant.fromEpochMilliseconds(1740495955),
-      { name: "bob" },
-    );
+      notBefore: Temporal.Instant.fromEpochMilliseconds(1740494955),
+      expiresAt: Temporal.Instant.fromEpochMilliseconds(1740495955),
+      meta: { name: "bob" },
+    });
     expect(token).toStrictEqual(expected);
   });
 
