@@ -2,6 +2,7 @@ import { secp256k1 } from "@noble/curves/secp256k1";
 import { z } from "zod";
 import type { NucToken } from "#/token";
 import { NucTokenSchema } from "#/types";
+import { base64UrlDecode, base64UrlDecodeToBytes } from "#/utils";
 
 export const NucTokenEnvelopeSchema = z
   .string()
@@ -45,15 +46,16 @@ export const HeaderSchema = z.object({
 
 export const DecodedNucTokenSchema = z
   .string()
-  .transform((data) => data.split(".").filter(Boolean))
+  .transform((data) => data.split("."))
   .refine((tokens) => tokens && tokens.length === 3, "invalid JWT structure")
   .refine(
-    ([rawHeader, _]) => HeaderSchema.parse(JSON.parse(atob(rawHeader))),
+    ([rawHeader, _]) =>
+      HeaderSchema.parse(JSON.parse(base64UrlDecode(rawHeader))),
     "invalid JWT header",
   )
   .transform(([rawHeader, rawPayload, rawSignature]) => {
-    const token = NucTokenSchema.parse(JSON.parse(atob(rawPayload)));
-    const signature = Uint8Array.from(Buffer.from(rawSignature, "base64"));
+    const token = NucTokenSchema.parse(JSON.parse(base64UrlDecode(rawPayload)));
+    const signature = base64UrlDecodeToBytes(rawSignature);
     return new DecodedNucToken(rawHeader, rawPayload, signature, token);
   });
 

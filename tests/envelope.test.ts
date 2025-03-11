@@ -1,6 +1,6 @@
 import { describe, it } from "vitest";
 import { NucTokenEnvelopeSchema } from "#/envelope";
-import { OperatorSchema } from "#/types";
+import { base64UrlDecode, base64UrlEncode } from "#/utils";
 
 const VALID_TOKEN =
   "eyJhbGciOiJFUzI1NksifQ.eyJpc3MiOiJkaWQ6bmlsOjAyMjZhNGQ0YTRhNWZhZGUxMmM1ZmYwZWM5YzQ3MjQ5ZjIxY2Y3N2EyMDI3NTFmOTU5ZDVjNzc4ZjBiNjUyYjcxNiIsImF1ZCI6ImRpZDpuaWw6YmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiIiwic3ViIjoiZGlkOm5pbDpjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2MiLCJjbWQiOiIvbmlsL2RiL3JlYWQiLCJhcmdzIjp7ImZvbyI6NDJ9LCJub25jZSI6IjAxMDIwMyIsInByZiI6WyJjOTA0YzVhMWFiMzY5YWVhMWI0ZDlkMTkwMmE0NmU2ZWY5NGFhYjk2OTY0YmI1MWQ2MWE2MWIwM2UyM2Q1ZGZmIl19.ufDYxqoSVNVETrVKReu0h_Piul5c6RoC_VnGGLw04mkyn2OMrtQjK92sGXNHCjlp7T9prIwxX14ZB_N3gx7hPg";
@@ -29,24 +29,29 @@ describe("test envelope", () => {
   });
 
   it("different signature", ({ expect }) => {
-    const [header, payload, signature] = VALID_TOKEN.split(".").filter(Boolean);
-    const invalidSignature = Uint8Array.from(Buffer.from(signature, "base64"));
-    invalidSignature[0] ^= 1;
-    const invalidToken = `${header}.${payload}.${Buffer.from(invalidSignature).toString("base64")}`;
-    expect(() => OperatorSchema.parse(invalidToken)).toThrowError();
+    const [header, payload, _] = VALID_TOKEN.split(".").filter(Boolean);
+    const invalidSignature = new Uint8Array(Array(64).fill(1));
+    const invalidToken = `${header}.${payload}.${base64UrlEncode(invalidSignature)}`;
+    expect(() =>
+      NucTokenEnvelopeSchema.parse(invalidToken).validateSignatures(),
+    ).toThrowError();
   });
 
   it("different header", ({ expect }) => {
-    const [header, payload, signature] = VALID_TOKEN.split(".").filter(Boolean);
-    const invalidHeader = btoa(`${atob(header)}   `);
+    const [_, payload, signature] = VALID_TOKEN.split(".").filter(Boolean);
+    const invalidHeader = base64UrlEncode('{"alg":"ES256K"} ');
     const invalidToken = `${invalidHeader}.${payload}.${signature}`;
-    expect(() => OperatorSchema.parse(invalidToken)).toThrowError();
+    expect(() =>
+      NucTokenEnvelopeSchema.parse(invalidToken).validateSignatures(),
+    ).toThrowError();
   });
 
   it("different payload", ({ expect }) => {
     const [header, payload, signature] = VALID_TOKEN.split(".").filter(Boolean);
-    const invalidPayload = btoa(`${atob(payload)}   `);
+    const invalidPayload = base64UrlEncode(`${base64UrlDecode(payload)}  `);
     const invalidToken = `${header}.${invalidPayload}.${signature}`;
-    expect(() => OperatorSchema.parse(invalidToken)).toThrowError();
+    expect(() =>
+      NucTokenEnvelopeSchema.parse(invalidToken).validateSignatures(),
+    ).toThrowError();
   });
 });
