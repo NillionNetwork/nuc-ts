@@ -1,16 +1,19 @@
 import type { Selector } from "#/types";
 
-export function applySelector(selector: Selector, value: unknown): unknown {
+export function applySelector<T = unknown>(
+  selector: Selector,
+  value: unknown,
+): T {
   let result = value;
   for (const label of selector) {
-    if (typeof result === "object") {
+    if (result !== null && typeof result === "object") {
       const record = result as Record<string, unknown>;
       if (label in record) {
         result = record[label];
       } else {
-        return undefined;
+        return undefined as T;
       }
     }
   }
-  return result;
+  return result as T;
 }

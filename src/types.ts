@@ -4,9 +4,7 @@ const ALPHABET_LABEL = /[a-zA-Z0-9_-]+/;
 
 export const SelectorSchema = z
   .string()
-  .refine((selector) => selector.startsWith("."), {
-    message: "selector must start with '.'",
-  })
+  .startsWith(".", "selector must start with '.'")
   .transform((selector) => {
     const s = selector.slice(1);
     if (!s) return [];
