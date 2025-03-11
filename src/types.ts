@@ -47,7 +47,7 @@ export const AnyOfSchema = z
     return {
       type: "anyOf",
       selector: operator[1],
-      values: operator[2],
+      options: operator[2],
     };
   });
 export type AnyOf = z.infer<typeof AnyOfSchema>;
@@ -64,7 +64,7 @@ export const AndSchema = z
   .transform((connector) => {
     return {
       type: "and",
-      policies: connector[1],
+      conditions: connector[1],
     };
   });
 export type And = z.infer<typeof AndSchema>;
@@ -74,7 +74,7 @@ export const OrSchema = z
   .transform((connector) => {
     return {
       type: "or",
-      policies: connector[1],
+      conditions: connector[1],
     };
   });
 export type Or = z.infer<typeof OrSchema>;
@@ -84,7 +84,7 @@ export const NotSchema = z
   .transform((connector) => {
     return {
       type: "not",
-      policy: connector[1],
+      condition: connector[1],
     };
   });
 export type Not = z.infer<typeof NotSchema>;
