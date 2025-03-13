@@ -1,6 +1,6 @@
 import { describe, it } from "vitest";
-import { applySelector } from "#/selector";
-import { OperatorSchema, SelectorSchema } from "#/types";
+import { Selector, SelectorSchema } from "#/selector";
+import { OperatorSchema } from "#/types";
 
 describe.each([
   { test: "identity", input: ".", path: [] },
@@ -14,7 +14,7 @@ describe.each([
 ])("valid policy", ({ test, input, path }) => {
   it(`${test}`, ({ expect }) => {
     const result = SelectorSchema.parse(input);
-    expect(result).toEqual(path);
+    expect(result).toEqual(new Selector(path));
   });
 });
 
@@ -48,7 +48,7 @@ describe.each([
   { test: "non_existent", selector: ".foo", input: { bar: 42 } },
 ])("lookup", ({ test, selector, input, expected }) => {
   it(`${test}`, ({ expect }) => {
-    const result = applySelector(SelectorSchema.parse(selector), input);
+    const result = SelectorSchema.parse(selector).apply(input);
     expect(result).toEqual(expected);
   });
 });

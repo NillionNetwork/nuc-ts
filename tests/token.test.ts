@@ -1,7 +1,16 @@
 import { Temporal } from "temporal-polyfill";
 import { describe, it } from "vitest";
-import { Did, NucToken } from "#/token";
-import { CommandSchema, DidSchema, NucTokenSchema } from "#/types";
+import { Selector } from "#/selector";
+import {
+  Command,
+  CommandSchema,
+  DelegationBody,
+  Did,
+  DidSchema,
+  InvocationBody,
+  NucToken,
+  NucTokenSchema,
+} from "#/token";
 
 describe.each([
   { test: "root", input: "/", expected: { segments: [] } },
@@ -89,12 +98,12 @@ describe("parse token", () => {
           204, 204, 204, 204, 204,
         ]),
       ),
-      command: {
-        segments: ["nil", "db", "read"],
-      },
-      body: [{ type: "equals", selector: ["foo"], value: 42 }],
+      command: new Command(["nil", "db", "read"]),
+      body: new DelegationBody([
+        { type: "equals", selector: new Selector(["foo"]), value: 42 },
+      ]),
       nonce: new Uint8Array([190, 239]),
-      proofs: undefined,
+      proofs: [],
       notBefore: undefined,
       expiresAt: undefined,
       meta: undefined,
@@ -140,8 +149,10 @@ describe("parse token", () => {
           204, 204, 204, 204, 204,
         ]),
       ),
-      command: { segments: ["nil", "db", "read"] },
-      body: [{ type: "equals", selector: ["foo"], value: 42 }],
+      command: new Command(["nil", "db", "read"]),
+      body: new DelegationBody([
+        { type: "equals", selector: new Selector(["foo"]), value: 42 },
+      ]),
       nonce: new Uint8Array([190, 239]),
       proofs: [
         new Uint8Array([
@@ -189,12 +200,10 @@ describe("parse token", () => {
           204, 204, 204, 204, 204,
         ]),
       ),
-      command: {
-        segments: ["nil", "db", "read"],
-      },
-      body: { bar: 42 },
+      command: new Command(["nil", "db", "read"]),
+      body: new InvocationBody({ bar: 42 }),
       nonce: new Uint8Array([190, 239]),
-      proofs: undefined,
+      proofs: [],
       notBefore: undefined,
       expiresAt: undefined,
       meta: undefined,
@@ -240,8 +249,8 @@ describe("parse token", () => {
           204, 204, 204, 204, 204,
         ]),
       ),
-      command: { segments: ["nil", "db", "read"] },
-      body: { bar: 42 },
+      command: new Command(["nil", "db", "read"]),
+      body: new InvocationBody({ bar: 42 }),
       nonce: new Uint8Array([190, 239]),
       proofs: [
         new Uint8Array([

@@ -1,27 +1,44 @@
 import { describe, it } from "vitest";
 import { evaluatePolicy } from "#/policy";
+import { Selector } from "#/selector";
 import { OperatorSchema, type Policy, PolicySchema } from "#/types";
 
 describe.each([
   {
     test: "eq",
     input: ["==", ".foo", { ".bar": 42 }],
-    expected: { type: "equals", selector: ["foo"], value: { ".bar": 42 } },
+    expected: {
+      type: "equals",
+      selector: new Selector(["foo"]),
+      value: { ".bar": 42 },
+    },
   },
   {
     test: "ne",
     input: ["!=", ".foo", { ".bar": 42 }],
-    expected: { type: "notEquals", selector: ["foo"], value: { ".bar": 42 } },
+    expected: {
+      type: "notEquals",
+      selector: new Selector(["foo"]),
+      value: { ".bar": 42 },
+    },
   },
   {
     test: "anyOf1",
     input: ["anyOf", ".foo", [42, "hi"]],
-    expected: { type: "anyOf", selector: ["foo"], options: [42, "hi"] },
+    expected: {
+      type: "anyOf",
+      selector: new Selector(["foo"]),
+      options: [42, "hi"],
+    },
   },
   {
     test: "anyOf2",
     input: ["anyOf", ".foo", [{ foo: 42 }]],
-    expected: { type: "anyOf", selector: ["foo"], options: [{ foo: 42 }] },
+    expected: {
+      type: "anyOf",
+      selector: new Selector(["foo"]),
+      options: [{ foo: 42 }],
+    },
   },
   {
     test: "and",
@@ -35,8 +52,8 @@ describe.each([
     expected: {
       type: "and",
       conditions: [
-        { type: "equals", selector: ["foo"], value: 42 },
-        { type: "notEquals", selector: ["bar"], value: false },
+        { type: "equals", selector: new Selector(["foo"]), value: 42 },
+        { type: "notEquals", selector: new Selector(["bar"]), value: false },
       ],
     },
   },
@@ -52,8 +69,8 @@ describe.each([
     expected: {
       type: "or",
       conditions: [
-        { type: "equals", selector: ["foo"], value: 42 },
-        { type: "notEquals", selector: ["bar"], value: false },
+        { type: "equals", selector: new Selector(["foo"]), value: 42 },
+        { type: "notEquals", selector: new Selector(["bar"]), value: false },
       ],
     },
   },
@@ -62,7 +79,7 @@ describe.each([
     input: ["not", ["==", ".foo", 42]],
     expected: {
       type: "not",
-      condition: { type: "equals", selector: ["foo"], value: 42 },
+      condition: { type: "equals", selector: new Selector(["foo"]), value: 42 },
     },
   },
   {
@@ -83,14 +100,18 @@ describe.each([
     expected: {
       type: "or",
       conditions: [
-        { type: "equals", selector: ["foo"], value: 42 },
+        { type: "equals", selector: new Selector(["foo"]), value: 42 },
         {
           type: "and",
           conditions: [
-            { type: "notEquals", selector: ["bar"], value: 1337 },
+            { type: "notEquals", selector: new Selector(["bar"]), value: 1337 },
             {
               type: "not",
-              condition: { type: "equals", selector: ["tar"], value: true },
+              condition: {
+                type: "equals",
+                selector: new Selector(["tar"]),
+                value: true,
+              },
             },
           ],
         },
@@ -127,17 +148,25 @@ describe.each([
 describe.each([
   {
     test: "eq value",
-    policy: { type: "equals", selector: ["name", "first"], value: "bob" },
+    policy: {
+      type: "equals",
+      selector: new Selector(["name", "first"]),
+      value: "bob",
+    },
   },
   {
     test: "ne",
-    policy: { type: "notEquals", selector: ["name", "first"], value: "john" },
+    policy: {
+      type: "notEquals",
+      selector: new Selector(["name", "first"]),
+      value: "john",
+    },
   },
   {
     test: "eq object",
     policy: {
       type: "equals",
-      selector: ["name"],
+      selector: new Selector(["name"]),
       value: { first: "bob", last: "smith" },
     },
   },
@@ -145,19 +174,19 @@ describe.each([
     test: "eq root",
     policy: {
       type: "equals",
-      selector: [],
+      selector: new Selector([]),
       value: { name: { first: "bob", last: "smith" }, age: 42 },
     },
   },
   {
     test: "notEq",
-    policy: { type: "notEquals", selector: ["age"], value: 150 },
+    policy: { type: "notEquals", selector: new Selector(["age"]), value: 150 },
   },
   {
     test: "anyOf",
     policy: {
       type: "anyOf",
-      selector: ["name", ["first"]],
+      selector: new Selector(["name", "first"]),
       options: ["john", "bob"],
     },
   },
@@ -166,8 +195,12 @@ describe.each([
     policy: {
       type: "and",
       conditions: [
-        { type: "equals", selector: ["age"], value: 42 },
-        { type: "equals", selector: ["name", "first"], value: "bob" },
+        { type: "equals", selector: new Selector(["age"]), value: 42 },
+        {
+          type: "equals",
+          selector: new Selector(["name", "first"]),
+          value: "bob",
+        },
       ],
     },
   },
@@ -176,8 +209,8 @@ describe.each([
     policy: {
       type: "or",
       conditions: [
-        { type: "equals", selector: ["age"], value: 42 },
-        { type: "equals", selector: ["age"], value: 100 },
+        { type: "equals", selector: new Selector(["age"]), value: 42 },
+        { type: "equals", selector: new Selector(["age"]), value: 100 },
       ],
     },
   },
@@ -186,8 +219,8 @@ describe.each([
     policy: {
       type: "or",
       conditions: [
-        { type: "equals", selector: ["age"], value: 100 },
-        { type: "equals", selector: ["age"], value: 42 },
+        { type: "equals", selector: new Selector(["age"]), value: 100 },
+        { type: "equals", selector: new Selector(["age"]), value: 42 },
       ],
     },
   },
@@ -208,17 +241,25 @@ describe.each([
 describe.each([
   {
     test: "eq value",
-    policy: { type: "equals", selector: ["name", "first"], value: "john" },
+    policy: {
+      type: "equals",
+      selector: new Selector(["name", "first"]),
+      value: "john",
+    },
   },
   {
     test: "ne",
-    policy: { type: "notEquals", selector: ["name", "first"], value: "bob" },
+    policy: {
+      type: "notEquals",
+      selector: new Selector(["name", "first"]),
+      value: "bob",
+    },
   },
   {
     test: "eq object",
     policy: {
       type: "equals",
-      selector: ["name"],
+      selector: new Selector(["name"]),
       value: { first: "john", last: "smith" },
     },
   },
@@ -226,19 +267,19 @@ describe.each([
     test: "eq root",
     policy: {
       type: "equals",
-      selector: [],
+      selector: new Selector([]),
       value: { name: { first: "bob", last: "smith" }, age: 100 },
     },
   },
   {
     test: "notEq",
-    policy: { type: "notEquals", selector: ["age"], value: 42 },
+    policy: { type: "notEquals", selector: new Selector(["age"]), value: 42 },
   },
   {
     test: "anyOf",
     policy: {
       type: "anyOf",
-      selector: ["name", ["first"]],
+      selector: new Selector(["name", "first"]),
       options: ["john", "jack"],
     },
   },
@@ -247,8 +288,12 @@ describe.each([
     policy: {
       type: "and",
       conditions: [
-        { type: "equals", selector: ["age"], value: 150 },
-        { type: "equals", selector: ["name", "first"], value: "bob" },
+        { type: "equals", selector: new Selector(["age"]), value: 150 },
+        {
+          type: "equals",
+          selector: new Selector(["name", "first"]),
+          value: "bob",
+        },
       ],
     },
   },
@@ -257,8 +302,12 @@ describe.each([
     policy: {
       type: "and",
       conditions: [
-        { type: "equals", selector: ["age"], value: 42 },
-        { type: "equals", selector: ["name", "first"], value: "john" },
+        { type: "equals", selector: new Selector(["age"]), value: 42 },
+        {
+          type: "equals",
+          selector: new Selector(["name", "first"]),
+          value: "john",
+        },
       ],
     },
   },
@@ -268,8 +317,8 @@ describe.each([
     policy: {
       type: "or",
       conditions: [
-        { type: "equals", selector: ["age"], value: 101 },
-        { type: "equals", selector: ["age"], value: 100 },
+        { type: "equals", selector: new Selector(["age"]), value: 101 },
+        { type: "equals", selector: new Selector(["age"]), value: 100 },
       ],
     },
   },
