@@ -1,6 +1,7 @@
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
 import { type Policy, PolicySchema } from "#/policy";
+import equal from "fast-deep-equal";
 
 const DID_EXPRESSION = /^did:nil:([a-zA-Z0-9]{66})$/;
 
@@ -37,6 +38,13 @@ export const CommandSchema = z
 
 export class Command {
   constructor(public readonly segments: Array<string>) {}
+
+  isAttenuationOf(other: Command): boolean {
+    return (
+      this.segments.length >= other.segments.length &&
+      equal(other.segments, this.segments.slice(0, other.segments.length))
+    );
+  }
 
   toString(): string {
     return `/${this.segments.join("/")}`;
