@@ -3,6 +3,7 @@ import { Temporal } from "temporal-polyfill";
 import { describe, it } from "vitest";
 import { NucTokenBuilder } from "#/builder";
 import { NucTokenEnvelopeSchema } from "#/envelope";
+import { Equals } from "#/policy";
 import { Selector } from "#/selector";
 import { Command, DelegationBody, Did, NucToken } from "#/token";
 import { base64UrlDecode } from "#/utils";
@@ -11,7 +12,7 @@ describe("nuc token builder", () => {
   it("extend", ({ expect }) => {
     const key = secp256k1.utils.randomPrivateKey();
     const base = NucTokenBuilder.delegation([
-      { type: "equals", selector: new Selector(["foo"]), value: 42 },
+      new Equals(new Selector(["foo"]), 42),
     ])
       .audience(new Did(Uint8Array.from(Array(33).fill(0xbb))))
       .subject(new Did(Uint8Array.from(Array(33).fill(0xcc))))
@@ -71,7 +72,7 @@ describe("nuc token builder", () => {
   it("chain", ({ expect }) => {
     const rootKey = secp256k1.utils.randomPrivateKey();
     const rootToken = NucTokenBuilder.delegation([
-      { type: "equals", selector: new Selector(["foo"]), value: 42 },
+      new Equals(new Selector(["foo"]), 42),
     ])
       .audience(new Did(Uint8Array.from(Array(33).fill(0xbb))))
       .subject(new Did(Uint8Array.from(Array(33).fill(0xcc))))
@@ -82,7 +83,7 @@ describe("nuc token builder", () => {
 
     const otherKey = secp256k1.utils.randomPrivateKey();
     const otherToken = NucTokenBuilder.delegation([
-      { type: "equals", selector: new Selector(["foo"]), value: 42 },
+      new Equals(new Selector(["foo"]), 42),
     ])
       .audience(new Did(Uint8Array.from(Array(33).fill(0xbb))))
       .subject(new Did(Uint8Array.from(Array(33).fill(0xcc))))

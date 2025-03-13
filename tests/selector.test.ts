@@ -1,6 +1,6 @@
 import { describe, it } from "vitest";
+import { OperatorSchema } from "#/policy";
 import { Selector, SelectorSchema } from "#/selector";
-import { OperatorSchema } from "#/types";
 
 describe.each([
   { test: "identity", input: ".", path: [] },

@@ -1,7 +1,6 @@
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
-import { serializePolicy } from "#/policy";
-import { type Policy, PolicySchema } from "#/types";
+import { type Policy, PolicySchema } from "#/policy";
 
 const DID_EXPRESSION = /^did:nil:([a-zA-Z0-9]{66})$/;
 
@@ -54,8 +53,7 @@ export class InvocationBody {
 
 export const DelegationBodySchema = z
   .array(PolicySchema)
-  .transform((body) => new DelegationBody(body));
-
+  .transform((body) => new DelegationBody(body as Array<Policy>));
 export class DelegationBody {
   constructor(public readonly policies: Array<Policy>) {}
 }
@@ -173,7 +171,7 @@ export class NucToken {
       args: this.body instanceof InvocationBody ? this.body.args : undefined,
       pol:
         this.body instanceof DelegationBody
-          ? this.body.policies.map(serializePolicy)
+          ? this.body.policies.map((policy) => policy.serialize())
           : undefined,
       meta: this.meta,
       nonce: Buffer.from(this.nonce).toString("hex"),
