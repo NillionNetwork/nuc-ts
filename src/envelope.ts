@@ -6,11 +6,10 @@ import { base64UrlDecode, base64UrlDecodeToBytes } from "#/utils";
 
 export const NucTokenEnvelopeSchema = z
   .string()
-  .transform((data) =>
-    data
-      .split("/")
-      .filter(Boolean)
-      .map((token) => DecodedNucTokenSchema.parse(token)),
+  .transform((data) => data.split("/"))
+  .refine((tokens) => tokens.every(Boolean), "empty token")
+  .transform((tokens) =>
+    tokens.map((token) => DecodedNucTokenSchema.parse(token)),
   )
   .refine((tokens) => tokens && tokens.length > 0)
   .transform((tokens) => new NucTokenEnvelope(tokens[0], tokens.slice(1)));
