@@ -115,7 +115,7 @@ export class NucTokenBuilder {
     token = `${token}.${base64UrlEncode(signature.toCompactRawBytes())}`;
     if (this._proof) {
       const allProofs = [this._proof.token, ...this._proof.proofs];
-      token = `${token}/${allProofs.map((proof) => proof.toString()).join("/")}`;
+      token = `${token}/${allProofs.map((proof) => proof.serialize()).join("/")}`;
     }
     return token;
   }

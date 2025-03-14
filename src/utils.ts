@@ -20,3 +20,7 @@ function base64UrlToBase64(data: string | Uint8Array): string {
   }
   return base64;
 }
+
+export function pairwise<T>(array: Array<T>): Array<Array<T>> {
+  return array.slice(0, -1).map((item, index) => [item, array[index + 1]]);
+}

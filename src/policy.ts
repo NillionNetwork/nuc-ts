@@ -5,6 +5,7 @@ import { type Selector, SelectorSchema } from "#/selector";
 export interface Policy {
   evaluate(record: Record<string, unknown>): boolean;
   serialize(): Array<unknown>;
+  toString(): string;
 }
 
 export interface Operator extends Policy {}
@@ -26,6 +27,10 @@ export class Equals implements Operator {
   serialize(): Array<unknown> {
     return ["==", this.selector.toString(), this.value];
   }
+
+  toString(): string {
+    return JSON.stringify(this.serialize());
+  }
 }
 
 export const NotEqualsSchema = z
@@ -45,6 +50,10 @@ export class NotEquals implements Operator {
   serialize(): Array<unknown> {
     return ["!=", this.selector.toString(), this.value];
   }
+
+  toString(): string {
+    return JSON.stringify(this.serialize());
+  }
 }
 
 export const AnyOfSchema = z
@@ -54,7 +63,7 @@ export const AnyOfSchema = z
 export class AnyOf implements Operator {
   constructor(
     private readonly selector: Selector,
-    private readonly options: Array<unknown>,
+    public readonly options: Array<unknown>,
   ) {}
 
   evaluate(record: Record<string, unknown>): boolean {
@@ -64,6 +73,10 @@ export class AnyOf implements Operator {
 
   serialize(): Array<unknown> {
     return ["anyOf", this.selector.toString(), this.options];
+  }
+
+  toString(): string {
+    return JSON.stringify(this.serialize());
   }
 }
 
@@ -82,7 +95,7 @@ export const AndSchema = z
   );
 
 export class And implements Connector {
-  constructor(private readonly conditions: Array<Policy>) {}
+  constructor(public readonly conditions: Array<Policy>) {}
 
   evaluate(record: Record<string, unknown>): boolean {
     const conditions = this.conditions;
@@ -99,6 +112,10 @@ export class And implements Connector {
       ...this.conditions.map((condition) => condition.serialize()),
     ];
   }
+
+  toString(): string {
+    return JSON.stringify(this.serialize());
+  }
 }
 
 export const OrSchema = z
@@ -108,7 +125,7 @@ export const OrSchema = z
   );
 
 export class Or implements Connector {
-  constructor(private readonly conditions: Array<Policy>) {}
+  constructor(public readonly conditions: Array<Policy>) {}
 
   evaluate(record: Record<string, unknown>): boolean {
     return this.conditions.some((condition) => condition.evaluate(record));
@@ -117,6 +134,10 @@ export class Or implements Connector {
   serialize(): Array<unknown> {
     return ["or", ...this.conditions.map((condition) => condition.serialize())];
   }
+
+  toString(): string {
+    return JSON.stringify(this.serialize());
+  }
 }
 
 export const NotSchema = z
@@ -124,7 +145,7 @@ export const NotSchema = z
   .transform((connector) => new Not(connector[1] as Policy));
 
 export class Not implements Connector {
-  constructor(private readonly condition: Policy) {}
+  constructor(public readonly condition: Policy) {}
 
   evaluate(record: Record<string, unknown>): boolean {
     return !this.condition.evaluate(record);
@@ -132,6 +153,10 @@ export class Not implements Connector {
 
   serialize(): Array<unknown> {
     return ["not", this.condition.serialize()];
+  }
+
+  toString(): string {
+    return JSON.stringify(this.serialize());
   }
 }
 

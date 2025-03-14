@@ -1,7 +1,7 @@
+import equal from "fast-deep-equal";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
 import { type Policy, PolicySchema } from "#/policy";
-import equal from "fast-deep-equal";
 
 const DID_EXPRESSION = /^did:nil:([a-zA-Z0-9]{66})$/;
 
@@ -16,6 +16,10 @@ export class Did {
 
   toString(): string {
     return `did:nil:${Buffer.from(this.publicKey).toString("hex")}`;
+  }
+
+  compare(other: Did): number {
+    return Buffer.from(this.publicKey).compare(Buffer.from(other.publicKey));
   }
 
   static fromHex(hex: string): Did {
@@ -168,8 +172,8 @@ export class NucToken {
     return this._data.meta;
   }
 
-  toString(): string {
-    const token: Record<string, unknown> = {
+  toJson(): Record<string, unknown> {
+    return {
       iss: this.issuer.toString(),
       aud: this.audience.toString(),
       sub: this.subject.toString(),
@@ -188,6 +192,9 @@ export class NucToken {
           ? this.proofs.map((proof) => Buffer.from(proof).toString("hex"))
           : undefined,
     };
-    return JSON.stringify(token);
+  }
+
+  toString(): string {
+    return JSON.stringify(this.toJson());
   }
 }
