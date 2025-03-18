@@ -41,8 +41,8 @@ describe("nuc token builder", () => {
       .audience(new Did(Uint8Array.from(Array(33).fill(0xbb))))
       .subject(new Did(Uint8Array.from(Array(33).fill(0xcc))))
       .command(new Command(["nil", "db", "read"]))
-      .notBefore(Temporal.Instant.fromEpochMilliseconds(1740494955))
-      .expiresAt(Temporal.Instant.fromEpochMilliseconds(1740495955))
+      .notBefore(Temporal.Instant.fromEpochSeconds(1740494955))
+      .expiresAt(Temporal.Instant.fromEpochSeconds(1740495955))
       .nonce(new Uint8Array([1, 2, 3]))
       .meta({ name: "bob" })
       .build(key);
@@ -59,8 +59,8 @@ describe("nuc token builder", () => {
       audience: new Did(Uint8Array.from(Array(33).fill(0xbb))),
       subject: new Did(Uint8Array.from(Array(33).fill(0xcc))),
       command: new Command(["nil", "db", "read"]),
-      notBefore: Temporal.Instant.fromEpochMilliseconds(1740494955),
-      expiresAt: Temporal.Instant.fromEpochMilliseconds(1740495955),
+      notBefore: Temporal.Instant.fromEpochSeconds(1740494955),
+      expiresAt: Temporal.Instant.fromEpochSeconds(1740495955),
       nonce: new Uint8Array([1, 2, 3]),
       meta: { name: "bob" },
       body: new DelegationBody([]),

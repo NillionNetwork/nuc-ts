@@ -148,7 +148,7 @@ export class NucTokenValidator {
     if (
       previous.notBefore &&
       current.notBefore &&
-      previous.notBefore.epochMilliseconds > current.notBefore.epochMilliseconds
+      previous.notBefore.epochSeconds > current.notBefore.epochSeconds
     ) {
       throw new Error(NOT_BEFORE_BACKWARDS);
     }
@@ -160,13 +160,13 @@ export class NucTokenValidator {
   ): void {
     if (
       token.expiresAt &&
-      token.expiresAt.epochMilliseconds <= currentTime.epochMilliseconds
+      token.expiresAt.epochSeconds <= currentTime.epochSeconds
     ) {
       throw new Error(TOKEN_EXPIRED);
     }
     if (
       token.notBefore &&
-      token.notBefore.epochMilliseconds > currentTime.epochMilliseconds
+      token.notBefore.epochSeconds > currentTime.epochSeconds
     ) {
       throw new Error(NOT_BEFORE_NOT_MET);
     }
