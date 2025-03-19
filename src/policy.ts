@@ -1,118 +1,144 @@
 import equal from "fast-deep-equal/es6";
-import type {
-  And,
-  AnyOf,
-  Connector,
-  Equals,
-  Not,
-  NotEquals,
-  Operator,
-  Or,
-  Policy,
-} from "#/types";
+import { z } from "zod";
+import { type Selector, SelectorSchema } from "#/selector";
 
-export function evaluatePolicy(
-  policy: Policy,
-  record: Record<string, unknown>,
-): boolean {
-  const policyType = (policy as Connector | Operator).type;
-  switch (policyType) {
-    case "equals":
-    case "notEquals":
-    case "anyOf":
-      return evaluateOperator(policy as Operator, record);
-    case "and":
-    case "or":
-    case "not":
-      return evaluateConnector(policy as Connector, record);
-    default:
-      throw new Error(`Unexpected policy "${policyType}"`);
+export interface Policy {
+  evaluate(record: Record<string, unknown>): boolean;
+  serialize(): Array<unknown>;
+}
+
+export interface Operator extends Policy {}
+
+export const EqualsSchema = z
+  .tuple([z.literal("=="), SelectorSchema, z.unknown()])
+  .transform((operator) => new Equals(operator[1], operator[2]));
+
+export class Equals implements Operator {
+  constructor(
+    private readonly selector: Selector,
+    private readonly value: unknown,
+  ) {}
+
+  evaluate(record: Record<string, unknown>): boolean {
+    return equal(this.selector.apply(record), this.value);
+  }
+
+  serialize(): Array<unknown> {
+    return ["==", this.selector.toString(), this.value];
   }
 }
 
-function evaluateOperator(
-  operator: Operator,
-  record: Record<string, unknown>,
-): boolean {
-  const value = operator.selector.apply(record);
-  switch (operator.type) {
-    case "equals":
-      return equal(value, (operator as Equals).value);
-    case "notEquals":
-      return !equal(value, (operator as Equals).value);
-    case "anyOf":
-      return Array.from((operator as AnyOf).options).some((option) =>
-        equal(value, option),
-      );
-    default:
-      throw new Error(`Unexpected operator "${operator.type}"`);
+export const NotEqualsSchema = z
+  .tuple([z.literal("!="), SelectorSchema, z.unknown()])
+  .transform((operator) => new NotEquals(operator[1], operator[2]));
+
+export class NotEquals implements Operator {
+  constructor(
+    private readonly selector: Selector,
+    private readonly value: unknown,
+  ) {}
+
+  evaluate(record: Record<string, unknown>): boolean {
+    return !equal(this.selector.apply(record), this.value);
+  }
+
+  serialize(): Array<unknown> {
+    return ["!=", this.selector.toString(), this.value];
   }
 }
 
-function evaluateConnector(
-  connector: Connector,
-  record: Record<string, unknown>,
-): boolean {
-  switch (connector.type) {
-    case "and": {
-      const conditions = (connector as And).conditions;
-      return (
-        conditions &&
-        conditions.length > 0 &&
-        conditions.every((condition) => evaluatePolicy(condition, record))
-      );
-    }
-    case "or":
-      return (connector as Or).conditions.some((condition) =>
-        evaluatePolicy(condition, record),
-      );
-    case "not":
-      return !evaluatePolicy((connector as Not).condition, record);
-    default:
-      throw new Error(`Unexpected connector "${connector.type}"`);
+export const AnyOfSchema = z
+  .tuple([z.literal("anyOf"), SelectorSchema, z.array(z.unknown())])
+  .transform((operator) => new AnyOf(operator[1], operator[2]));
+
+export class AnyOf implements Operator {
+  constructor(
+    private readonly selector: Selector,
+    private readonly options: Array<unknown>,
+  ) {}
+
+  evaluate(record: Record<string, unknown>): boolean {
+    const value = this.selector.apply(record);
+    return Array.from(this.options).some((option) => equal(value, option));
+  }
+
+  serialize(): Array<unknown> {
+    return ["anyOf", this.selector.toString(), this.options];
   }
 }
 
-export function serializeOperator(operator: Operator): Array<unknown> {
-  const selector = operator.selector.toString();
-  switch (operator.type) {
-    case "equals":
-      return ["==", selector, (operator as Equals).value];
-    case "notEquals":
-      return ["!=", selector, (operator as NotEquals).value];
-    case "anyOf":
-      return ["anyOf", selector, (operator as AnyOf).options];
-    default:
-      throw new Error(`Unexpected policy "${operator.type}"`);
+export const OperatorSchema = z.union([
+  EqualsSchema,
+  NotEqualsSchema,
+  AnyOfSchema,
+]);
+
+export interface Connector extends Policy {}
+
+export const AndSchema = z
+  .lazy(() => z.tuple([z.literal("and"), z.array(PolicySchema)]))
+  .transform(
+    (connector) => new And(connector[1].map((policy) => policy as Policy)),
+  );
+
+export class And implements Connector {
+  constructor(private readonly conditions: Array<Policy>) {}
+
+  evaluate(record: Record<string, unknown>): boolean {
+    const conditions = this.conditions;
+    return (
+      conditions &&
+      conditions.length > 0 &&
+      conditions.every((condition) => condition.evaluate(record))
+    );
+  }
+
+  serialize(): Array<unknown> {
+    return [
+      "and",
+      ...this.conditions.map((condition) => condition.serialize()),
+    ];
   }
 }
 
-export function serializePolicy(policy: Policy): Array<unknown> {
-  const policyType = (policy as Connector | Operator).type;
-  switch (policyType) {
-    case "equals":
-    case "notEquals":
-    case "anyOf":
-      return serializeOperator(policy as Operator);
-    case "and": {
-      const conditions = (policy as And).conditions;
-      return [
-        "and",
-        ...conditions.map((condition) => serializePolicy(condition)),
-      ];
-    }
-    case "or": {
-      const conditions = (policy as Or).conditions;
-      return [
-        "or",
-        ...conditions.map((condition) => serializePolicy(condition)),
-      ];
-    }
-    case "not": {
-      const condition = (policy as Not).condition;
-      return ["not", serializePolicy(condition)];
-    }
-    default:
-      throw new Error(`Unexpected policy "${policyType}"`);
+export const OrSchema = z
+  .lazy(() => z.tuple([z.literal("or"), z.array(PolicySchema)]))
+  .transform(
+    (connector) => new Or(connector[1].map((policy) => policy as Policy)),
+  );
+
+export class Or implements Connector {
+  constructor(private readonly conditions: Array<Policy>) {}
+
+  evaluate(record: Record<string, unknown>): boolean {
+    return this.conditions.some((condition) => condition.evaluate(record));
+  }
+
+  serialize(): Array<unknown> {
+    return ["or", ...this.conditions.map((condition) => condition.serialize())];
   }
 }
+
+export const NotSchema = z
+  .lazy(() => z.tuple([z.literal("not"), PolicySchema]))
+  .transform((connector) => new Not(connector[1] as Policy));
+
+export class Not implements Connector {
+  constructor(private readonly condition: Policy) {}
+
+  evaluate(record: Record<string, unknown>): boolean {
+    return !this.condition.evaluate(record);
+  }
+
+  serialize(): Array<unknown> {
+    return ["not", this.condition.serialize()];
+  }
+}
+
+export const ConnectorSchema = z.lazy(() =>
+  z.union([AndSchema, OrSchema, NotSchema]),
+);
+
+export const PolicySchema: z.ZodType<unknown> = z.lazy(() =>
+  z.union([ConnectorSchema, OperatorSchema]),
+);

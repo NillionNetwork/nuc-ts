@@ -2,6 +2,7 @@ import * as crypto from "node:crypto";
 import { secp256k1 } from "@noble/curves/secp256k1";
 import type { Temporal } from "temporal-polyfill";
 import type { NucTokenEnvelope } from "#/envelope";
+import type { Policy } from "#/policy";
 import {
   type Command,
   DelegationBody,
@@ -10,7 +11,6 @@ import {
   NucToken,
   NucTokenDataSchema,
 } from "#/token";
-import type { Policy } from "#/types";
 import { base64UrlEncode } from "#/utils";
 
 const DEFAULT_NONCE_LENGTH = 16;

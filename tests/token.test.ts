@@ -1,5 +1,6 @@
 import { Temporal } from "temporal-polyfill";
 import { describe, it } from "vitest";
+import { Equals } from "#/policy";
 import { Selector } from "#/selector";
 import {
   Command,
@@ -99,9 +100,7 @@ describe("parse token", () => {
         ]),
       ),
       command: new Command(["nil", "db", "read"]),
-      body: new DelegationBody([
-        { type: "equals", selector: new Selector(["foo"]), value: 42 },
-      ]),
+      body: new DelegationBody([new Equals(new Selector(["foo"]), 42)]),
       nonce: new Uint8Array([190, 239]),
       proofs: [],
       notBefore: undefined,
@@ -150,9 +149,7 @@ describe("parse token", () => {
         ]),
       ),
       command: new Command(["nil", "db", "read"]),
-      body: new DelegationBody([
-        { type: "equals", selector: new Selector(["foo"]), value: 42 },
-      ]),
+      body: new DelegationBody([new Equals(new Selector(["foo"]), 42)]),
       nonce: new Uint8Array([190, 239]),
       proofs: [
         new Uint8Array([
