@@ -1,8 +1,12 @@
+import { createHash } from "node:crypto";
 import { secp256k1 } from "@noble/curves/secp256k1";
 import { z } from "zod";
-import type { NucToken } from "#/token";
-import { NucTokenSchema } from "#/types";
-import { base64UrlDecode, base64UrlDecodeToBytes } from "#/utils";
+import { type NucToken, NucTokenSchema } from "#/token";
+import {
+  base64UrlDecode,
+  base64UrlDecodeToBytes,
+  base64UrlEncode,
+} from "#/utils";
 
 export const NucTokenEnvelopeSchema = z
   .string()
@@ -15,27 +19,16 @@ export const NucTokenEnvelopeSchema = z
   .transform((tokens) => new NucTokenEnvelope(tokens[0], tokens.slice(1)));
 
 export class NucTokenEnvelope {
-  private readonly _token: DecodedNucToken;
-  private readonly _proofs: Array<DecodedNucToken>;
-
-  constructor(token: DecodedNucToken, proofs: Array<DecodedNucToken>) {
-    this._token = token;
-    this._proofs = proofs;
-  }
+  constructor(
+    public readonly token: DecodedNucToken,
+    public readonly proofs: Array<DecodedNucToken>,
+  ) {}
 
   validateSignatures() {
-    this._token.validateSignature();
-    for (const proof of this._proofs) {
+    this.token.validateSignature();
+    for (const proof of this.proofs) {
       proof.validateSignature();
     }
-  }
-
-  get token(): NucToken {
-    return this._token.token;
-  }
-
-  get proofs(): Array<NucToken> {
-    return this._proofs.map((proof) => proof.token);
   }
 }
 
@@ -59,22 +52,12 @@ export const DecodedNucTokenSchema = z
   });
 
 export class DecodedNucToken {
-  public readonly rawHeader: string;
-  public readonly rawPayload: string;
-  public readonly signature: Uint8Array;
-  public token: NucToken;
-
   constructor(
-    rawHeader: string,
-    rawPayload: string,
-    signature: Uint8Array,
-    token: NucToken,
-  ) {
-    this.rawHeader = rawHeader;
-    this.rawPayload = rawPayload;
-    this.signature = signature;
-    this.token = token;
-  }
+    public readonly rawHeader: string,
+    public readonly rawPayload: string,
+    public readonly signature: Uint8Array,
+    public readonly token: NucToken,
+  ) {}
 
   validateSignature() {
     const signature = this.signature;
@@ -85,5 +68,15 @@ export class DecodedNucToken {
     if (!secp256k1.verify(signature, msg, publicKey, { prehash: true })) {
       throw new Error("signature verification failed");
     }
+  }
+
+  computeHash(): Uint8Array {
+    return Uint8Array.from(
+      createHash("sha256").update(this.toString()).digest(),
+    );
+  }
+
+  toString(): string {
+    return `${this.rawHeader}.${this.rawPayload}.${base64UrlEncode(this.signature)}`;
   }
 }

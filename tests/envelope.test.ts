@@ -18,14 +18,14 @@ describe("parse envelope", () => {
     const token = NucTokenEnvelopeSchema.parse(rawToken);
     token.validateSignatures();
     expect(token.proofs.length).toBe(2);
-    expect(token.proofs[0].issuer.publicKey).toStrictEqual(
+    expect(token.proofs[0].token.issuer.publicKey).toStrictEqual(
       new Uint8Array([
         3, 111, 112, 127, 190, 240, 183, 82, 19, 128, 139, 187, 245, 75, 24, 33,
         118, 245, 50, 15, 165, 32, 203, 129, 159, 53, 181, 186, 242, 50, 56,
         160, 21,
       ]),
     );
-    expect(token.proofs[1].issuer.publicKey).toStrictEqual(
+    expect(token.proofs[1].token.issuer.publicKey).toStrictEqual(
       new Uint8Array([
         3, 149, 144, 204, 175, 16, 36, 244, 156, 156, 247, 67, 248, 166, 237,
         66, 3, 231, 130, 232, 238, 9, 175, 165, 61, 27, 87, 100, 152, 70, 18,
