@@ -90,7 +90,7 @@ class Asserter {
         throw new Error(`unexpected failed: ${e.message}`);
       }
     }
-    throw new Error("validation did not failed");
+    throw new Error("did not fail");
   }
 
   assertSuccess(envelope: NucTokenEnvelope) {
@@ -373,7 +373,7 @@ describe("chain", () => {
   });
 
   it("not before not met", () => {
-    const now = Temporal.Now.instant();
+    const now = Temporal.Instant.fromEpochMilliseconds(0);
     const key = secp256k1.utils.randomPrivateKey();
     const root = delegation(key)
       .command(new Command(["nil"]))

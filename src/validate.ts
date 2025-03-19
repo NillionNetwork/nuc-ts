@@ -163,7 +163,7 @@ export class NucTokenValidator {
     }
     if (
       token.notBefore &&
-      token.notBefore.epochMilliseconds < currentTime.epochMilliseconds
+      token.notBefore.epochMilliseconds >= currentTime.epochMilliseconds
     ) {
       throw new Error(NOT_BEFORE_NOT_MET);
     }
@@ -192,26 +192,30 @@ export class NucTokenValidator {
     proofs: Array<NucToken>,
     tokenRequirements?: InvocationRequirement | DelegationRequirement,
   ) {
-    switch (true) {
-      case token.body instanceof DelegationBody: {
-        switch (true) {
-          case tokenRequirements instanceof InvocationRequirement:
-            throw new Error(NEED_INVOCATION);
-          case tokenRequirements instanceof DelegationRequirement:
-            if (token.audience !== tokenRequirements?.audience) {
-              throw new Error(INVALID_AUDIENCE);
-            }
+    switch (token.body.constructor) {
+      case DelegationBody: {
+        if (tokenRequirements) {
+          switch (tokenRequirements.constructor) {
+            case InvocationRequirement:
+              throw new Error(NEED_INVOCATION);
+            case DelegationRequirement:
+              if (token.audience !== tokenRequirements?.audience) {
+                throw new Error(INVALID_AUDIENCE);
+              }
+          }
         }
         return;
       }
-      case token.body instanceof InvocationBody: {
-        switch (true) {
-          case tokenRequirements instanceof DelegationRequirement:
-            throw new Error(NEED_DELEGATION);
-          case tokenRequirements instanceof InvocationRequirement:
-            if (token.audience !== tokenRequirements?.audience) {
-              throw new Error(INVALID_AUDIENCE);
-            }
+      case InvocationBody: {
+        if (tokenRequirements) {
+          switch (tokenRequirements.constructor) {
+            case DelegationRequirement:
+              throw new Error(NEED_DELEGATION);
+            case InvocationRequirement:
+              if (token.audience !== tokenRequirements?.audience) {
+                throw new Error(INVALID_AUDIENCE);
+              }
+          }
         }
         const tokenJson = token.toJson();
         for (const proof of proofs) {
@@ -247,18 +251,17 @@ export class NucTokenValidator {
       proof.computeHash(),
       proof.token,
     ]);
-    let sortedProofs: NucToken[] = [];
+    const sortedProofs: NucToken[] = [];
     let nextHash = hash;
     while (nextHash) {
       const nextProofIndex = indexedProofs.findIndex(
         ([hash, _]) => Buffer.from(hash).compare(Buffer.from(nextHash)) === 0,
       );
-      const nextProofEntry = indexedProofs.splice(nextProofIndex, 1)[0];
-      if (!nextProofEntry) {
+      if (nextProofIndex < 0) {
         throw new Error(MISSING_PROOF);
       }
-      const nextProof = nextProofEntry[1];
-      sortedProofs = [...sortedProofs, nextProof];
+      const nextProof = indexedProofs.splice(nextProofIndex, 1)[0][1];
+      sortedProofs.push(nextProof);
       if (nextProof.proofs.length > 1) {
         throw new Error(TOO_MANY_PROOFS);
       }
