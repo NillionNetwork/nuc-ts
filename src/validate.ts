@@ -160,13 +160,13 @@ export class NucTokenValidator {
   ): void {
     if (
       token.expiresAt &&
-      token.expiresAt.epochMilliseconds < currentTime.epochMilliseconds
+      token.expiresAt.epochMilliseconds <= currentTime.epochMilliseconds
     ) {
       throw new Error(TOKEN_EXPIRED);
     }
     if (
       token.notBefore &&
-      token.notBefore.epochMilliseconds >= currentTime.epochMilliseconds
+      token.notBefore.epochMilliseconds > currentTime.epochMilliseconds
     ) {
       throw new Error(NOT_BEFORE_NOT_MET);
     }
