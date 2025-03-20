@@ -193,36 +193,55 @@ export class NucTokenValidator {
     tokenRequirements?: InvocationRequirement | DelegationRequirement,
   ) {
     switch (token.body.constructor) {
-      case DelegationBody: {
-        if (tokenRequirements) {
-          switch (tokenRequirements.constructor) {
-            case InvocationRequirement:
-              throw new Error(NEED_INVOCATION);
-            case DelegationRequirement:
-              if (token.audience !== tokenRequirements?.audience) {
-                throw new Error(INVALID_AUDIENCE);
-              }
-          }
+      case DelegationBody:
+        NucTokenValidator.validateDelegationToken(token, tokenRequirements);
+        break;
+      case InvocationBody:
+        NucTokenValidator.validateInvocationToken(
+          token,
+          proofs,
+          tokenRequirements,
+        );
+        break;
+    }
+  }
+
+  static validateDelegationToken(
+    token: NucToken,
+    tokenRequirements?: InvocationRequirement | DelegationRequirement,
+  ) {
+    if (!tokenRequirements) {
+      return;
+    }
+    switch (tokenRequirements.constructor) {
+      case InvocationRequirement:
+        throw new Error(NEED_INVOCATION);
+      case DelegationRequirement:
+        if (token.audience !== tokenRequirements?.audience) {
+          throw new Error(INVALID_AUDIENCE);
         }
-        return;
-      }
-      case InvocationBody: {
-        if (tokenRequirements) {
-          switch (tokenRequirements.constructor) {
-            case DelegationRequirement:
-              throw new Error(NEED_DELEGATION);
-            case InvocationRequirement:
-              if (token.audience !== tokenRequirements?.audience) {
-                throw new Error(INVALID_AUDIENCE);
-              }
-          }
+    }
+  }
+
+  static validateInvocationToken(
+    token: NucToken,
+    proofs: Array<NucToken>,
+    tokenRequirements?: InvocationRequirement | DelegationRequirement,
+  ) {
+    const tokenJson = token.toJson();
+    for (const proof of proofs) {
+      NucTokenValidator.validatePolicyEvaluates(proof, tokenJson);
+    }
+    if (!tokenRequirements) {
+      return;
+    }
+    switch (tokenRequirements.constructor) {
+      case DelegationRequirement:
+        throw new Error(NEED_DELEGATION);
+      case InvocationRequirement:
+        if (token.audience !== tokenRequirements?.audience) {
+          throw new Error(INVALID_AUDIENCE);
         }
-        const tokenJson = token.toJson();
-        for (const proof of proofs) {
-          NucTokenValidator.validatePolicyEvaluates(proof, tokenJson);
-        }
-        return;
-      }
     }
   }
 
