@@ -4,9 +4,13 @@ import { Effect as E, pipe } from "effect";
 import z from "zod";
 import { NucTokenEnvelopeSchema } from "#/envelope";
 
-export const AuthorityServiceAboutSchema = z.object({
-  public_key: z.string(),
-});
+export const AuthorityServiceAboutSchema = z
+  .object({
+    public_key: z.string(),
+  })
+  .transform((d) => {
+    return { publicKey: d.public_key };
+  });
 export type AuthorityServiceAbout = z.infer<typeof AuthorityServiceAboutSchema>;
 
 export const CreateTokenResponseSchema = z.object({
@@ -25,7 +29,8 @@ export class AuthorityService {
       E.tryPromise(() =>
         fetchWithTimeout(`${this.baseUrl}/about`, this.timeout),
       ),
-      E.map((data) => AuthorityServiceAboutSchema.parse(data)),
+      E.flatMap((data) => E.try(() => AuthorityServiceAboutSchema.parse(data))),
+      E.catchAll((e) => E.fail(e.cause)),
       E.runPromise,
     );
   }
@@ -50,7 +55,10 @@ export class AuthorityService {
           body: JSON.stringify(request),
         }),
       ),
-      E.map((response) => CreateTokenResponseSchema.parse(response)),
+      E.flatMap((response) =>
+        E.try(() => CreateTokenResponseSchema.parse(response)),
+      ),
+      E.catchAll((e) => E.fail(e.cause)),
       E.runPromise,
     );
   }

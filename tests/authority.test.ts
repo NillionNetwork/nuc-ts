@@ -40,7 +40,9 @@ const server = setupServer(...handlers);
 describe("authority service", () => {
   const service = new AuthorityService(BASE_URL);
 
-  beforeAll(async () => server.listen());
+  beforeAll(async () => {
+    server.listen();
+  });
 
   afterAll(async () => server.close());
 
@@ -48,7 +50,7 @@ describe("authority service", () => {
 
   it("about", async ({ expect }) => {
     const aboutInfo = await service.about();
-    expect(aboutInfo.public_key).toBe(PUBLIC_KEY);
+    expect(aboutInfo.publicKey).toBe(PUBLIC_KEY);
   });
 
   it("request token", async ({ expect }) => {
