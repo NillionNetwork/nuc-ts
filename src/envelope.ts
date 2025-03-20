@@ -30,6 +30,14 @@ export class NucTokenEnvelope {
       proof.validateSignature();
     }
   }
+
+  serialize(): string {
+    const token = this.token.serialize();
+    if (!this.proofs) {
+      return token;
+    }
+    return `${token}/${this.proofs.map((proof) => proof.serialize()).join("/")}`;
+  }
 }
 
 export const HeaderSchema = z.object({
@@ -72,11 +80,11 @@ export class DecodedNucToken {
 
   computeHash(): Uint8Array {
     return Uint8Array.from(
-      createHash("sha256").update(this.toString()).digest(),
+      createHash("sha256").update(this.serialize()).digest(),
     );
   }
 
-  toString(): string {
+  serialize(): string {
     return `${this.rawHeader}.${this.rawPayload}.${base64UrlEncode(this.signature)}`;
   }
 }

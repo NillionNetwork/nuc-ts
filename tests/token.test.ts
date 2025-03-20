@@ -25,6 +25,23 @@ describe.each([
 });
 
 describe.each([
+  { left: [], right: [], expected: true },
+  { left: ["nil"], right: [], expected: true },
+  { left: ["nil"], right: ["nil"], expected: true },
+  { left: ["nil", "bar"], right: ["nil"], expected: true },
+  { left: ["nil"], right: ["nil", "bar"], expected: false },
+  { left: ["nil", "bar"], right: ["nil", "foo"], expected: false },
+  { left: ["nil", "bar", "a"], right: ["nil", "bar", "b"], expected: false },
+  { left: ["nil"], right: ["bar"], expected: false },
+])("is attenuation", ({ left, right, expected }) => {
+  it(`[${left}].isAttenuation([${right}])`, ({ expect }) => {
+    const leftCmd = new Command(left);
+    const rightCmd = new Command(right);
+    expect(leftCmd.isAttenuationOf(rightCmd)).toBe(expected);
+  });
+});
+
+describe.each([
   { test: "empty", input: "" },
   { test: "leading double slash", input: "//nil" },
   { test: "trailing slash", input: "/nil/" },

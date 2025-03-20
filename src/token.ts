@@ -1,3 +1,4 @@
+import equal from "fast-deep-equal";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
 import { type Policy, PolicySchema } from "#/policy";
@@ -15,6 +16,12 @@ export class Did {
 
   toString(): string {
     return `did:nil:${Buffer.from(this.publicKey).toString("hex")}`;
+  }
+
+  isEqual(other: Did): boolean {
+    return (
+      Buffer.from(this.publicKey).compare(Buffer.from(other.publicKey)) === 0
+    );
   }
 
   static fromHex(hex: string): Did {
@@ -37,6 +44,13 @@ export const CommandSchema = z
 
 export class Command {
   constructor(public readonly segments: Array<string>) {}
+
+  isAttenuationOf(other: Command): boolean {
+    return (
+      this.segments.length >= other.segments.length &&
+      equal(other.segments, this.segments.slice(0, other.segments.length))
+    );
+  }
 
   toString(): string {
     return `/${this.segments.join("/")}`;
@@ -160,8 +174,8 @@ export class NucToken {
     return this._data.meta;
   }
 
-  toString(): string {
-    const token: Record<string, unknown> = {
+  toJson(): Record<string, unknown> {
+    return {
       iss: this.issuer.toString(),
       aud: this.audience.toString(),
       sub: this.subject.toString(),
@@ -180,6 +194,9 @@ export class NucToken {
           ? this.proofs.map((proof) => Buffer.from(proof).toString("hex"))
           : undefined,
     };
-    return JSON.stringify(token);
+  }
+
+  toString(): string {
+    return JSON.stringify(this.toJson());
   }
 }
