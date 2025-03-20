@@ -179,8 +179,8 @@ export class NucToken {
       iss: this.issuer.toString(),
       aud: this.audience.toString(),
       sub: this.subject.toString(),
-      nbf: this.notBefore ? this.notBefore.epochSeconds : undefined,
-      exp: this.expiresAt ? this.expiresAt.epochSeconds : undefined,
+      nbf: this.notBefore?.epochSeconds,
+      exp: this.expiresAt?.epochSeconds,
       cmd: this.command.toString(),
       args: this.body instanceof InvocationBody ? this.body.args : undefined,
       pol:

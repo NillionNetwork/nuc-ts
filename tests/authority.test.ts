@@ -74,8 +74,8 @@ describe("authority service", () => {
 
     envelope.validateSignatures();
 
-    expect(envelope.token.token.subject.compare(did)).toBe(0);
-    expect(envelope.token.token.audience.compare(did)).toBe(0);
+    expect(envelope.token.token.subject.isEqual(did)).toBeTruthy();
+    expect(envelope.token.token.audience.isEqual(did)).toBeTruthy();
     expect(envelope.token.token.command).toStrictEqual(new Command(["nil"]));
     expect(envelope.token.token.expiresAt?.epochSeconds).toBeGreaterThan(now);
   });

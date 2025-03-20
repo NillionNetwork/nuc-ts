@@ -41,8 +41,8 @@ export class AuthorityService {
 
     const payload = JSON.stringify({
       nonce: randomBytes(16).toString("hex"),
-      target_public_key: aboutResponse.public_key,
-      expires_at: Temporal.Now.instant().epochSeconds + 60,
+      target_public_key: aboutResponse.publicKey,
+      expires_at: Temporal.Now.instant().add({ seconds: 60 }).epochSeconds,
     });
 
     const signature = secp256k1.sign(
