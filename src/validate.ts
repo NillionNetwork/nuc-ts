@@ -59,7 +59,7 @@ export class ValidationParameters {
 export class NucTokenValidator {
   constructor(private readonly rootIssuers: Array<Did>) {}
 
-  validate(envelope: NucTokenEnvelope, parameters: ValidationParameters) {
+  validate(envelope: NucTokenEnvelope, parameters: ValidationParameters): void {
     if (envelope.proofs.length + 1 > parameters.config.maxChainLength) {
       throw new Error(CHAIN_TOO_LONG);
     }
@@ -87,7 +87,7 @@ export class NucTokenValidator {
     }
   }
 
-  validateProofs(proofs: Array<NucToken>) {
+  validateProofs(proofs: Array<NucToken>): void {
     if (!proofs.length) {
       return;
     }
@@ -108,7 +108,7 @@ export class NucTokenValidator {
   static validateTokenChain(
     tokens: Array<NucToken>,
     parameters: ValidationParameters,
-  ) {
+  ): void {
     for (const [previous, current] of pairwise(tokens)) {
       NucTokenValidator.validateRelationshipProperties(previous, current);
     }
@@ -132,7 +132,10 @@ export class NucTokenValidator {
     }
   }
 
-  static validateRelationshipProperties(previous: NucToken, current: NucToken) {
+  static validateRelationshipProperties(
+    previous: NucToken,
+    current: NucToken,
+  ): void {
     if (!previous.audience.isEqual(current.issuer)) {
       throw new Error(ISSUER_AUDIENCE_MISMATCH);
     }
@@ -154,7 +157,7 @@ export class NucTokenValidator {
   static validateTemporalProperties(
     token: NucToken,
     currentTime: Temporal.Instant,
-  ) {
+  ): void {
     if (
       token.expiresAt &&
       token.expiresAt.epochMilliseconds < currentTime.epochMilliseconds
@@ -172,7 +175,7 @@ export class NucTokenValidator {
   static validatePoliciesProperties(
     policies: Array<Policy>,
     parameters: ValidationParameters,
-  ) {
+  ): void {
     if (policies.length > parameters.config.maxPolicyWidth) {
       throw new Error(POLICY_TOO_WIDE);
     }
@@ -191,7 +194,7 @@ export class NucTokenValidator {
     token: NucToken,
     proofs: Array<NucToken>,
     tokenRequirements?: InvocationRequirement | DelegationRequirement,
-  ) {
+  ): void {
     switch (token.body.constructor) {
       case DelegationBody:
         NucTokenValidator.validateDelegationToken(token, tokenRequirements);
@@ -209,7 +212,7 @@ export class NucTokenValidator {
   static validateDelegationToken(
     token: NucToken,
     tokenRequirements?: InvocationRequirement | DelegationRequirement,
-  ) {
+  ): void {
     if (!tokenRequirements) {
       return;
     }
@@ -227,7 +230,7 @@ export class NucTokenValidator {
     token: NucToken,
     proofs: Array<NucToken>,
     tokenRequirements?: InvocationRequirement | DelegationRequirement,
-  ) {
+  ): void {
     const tokenJson = token.toJson();
     for (const proof of proofs) {
       NucTokenValidator.validatePolicyEvaluates(proof, tokenJson);
@@ -248,7 +251,7 @@ export class NucTokenValidator {
   static validatePolicyEvaluates(
     proof: NucToken,
     tokenJson: Record<string, unknown>,
-  ) {
+  ): void {
     switch (true) {
       case proof.body instanceof InvocationBody:
         throw new Error(PROOFS_MUST_BE_DELEGATIONS);
