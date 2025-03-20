@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { secp256k1 } from "@noble/curves/secp256k1";
 import { Effect as E, pipe } from "effect";
+import { Temporal } from "temporal-polyfill";
 import z from "zod";
 import { NucTokenEnvelopeSchema } from "#/envelope";
 
@@ -36,7 +37,14 @@ export class AuthorityService {
   }
 
   async requestToken(key: Uint8Array): Promise<CreateTokenResponse> {
-    const payload = JSON.stringify({ nonce: randomBytes(16).toString("hex") });
+    const aboutResponse = await this.about();
+
+    const payload = JSON.stringify({
+      nonce: randomBytes(16).toString("hex"),
+      target_public_key: aboutResponse.publicKey,
+      expires_at: Temporal.Now.instant().add({ seconds: 60 }).epochSeconds,
+    });
+
     const signature = secp256k1.sign(
       new Uint8Array(Buffer.from(payload)),
       key,

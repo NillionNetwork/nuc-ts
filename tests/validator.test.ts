@@ -358,10 +358,10 @@ describe("chain", () => {
     const key = secp256k1.utils.randomPrivateKey();
     const root = delegation(key)
       .command(new Command(["nil"]))
-      .notBefore(Temporal.Instant.fromEpochMilliseconds(5));
+      .notBefore(Temporal.Instant.fromEpochSeconds(5));
     const last = delegation(key)
       .command(new Command(["nil"]))
-      .notBefore(Temporal.Instant.fromEpochMilliseconds(3));
+      .notBefore(Temporal.Instant.fromEpochSeconds(3));
     const envelope = new Chainer().chain([
       SignableNucTokenBuilder.issuedByRoot(root),
       new SignableNucTokenBuilder(key, last),
@@ -377,7 +377,7 @@ describe("chain", () => {
     const key = secp256k1.utils.randomPrivateKey();
     const root = delegation(key)
       .command(new Command(["nil"]))
-      .notBefore(Temporal.Instant.fromEpochMilliseconds(10));
+      .notBefore(Temporal.Instant.fromEpochSeconds(10));
     const last = delegation(key).command(new Command(["nil"]));
     const envelope = new Chainer().chain([
       SignableNucTokenBuilder.issuedByRoot(root),
@@ -516,14 +516,14 @@ describe("chain", () => {
     const key = secp256k1.utils.randomPrivateKey();
     const root = delegation(key)
       .command(new Command(["nil"]))
-      .expiresAt(Temporal.Instant.fromEpochMilliseconds(5));
+      .expiresAt(Temporal.Instant.fromEpochSeconds(5));
     const last = delegation(key).command(new Command(["nil"]));
     const envelope = new Chainer().chain([
       SignableNucTokenBuilder.issuedByRoot(root),
       new SignableNucTokenBuilder(key, last),
     ]);
     const parameters = new ValidationParameters();
-    parameters.config.currentTime = Temporal.Instant.fromEpochMilliseconds(10);
+    parameters.config.currentTime = Temporal.Instant.fromEpochSeconds(10);
     new Asserter().assertFailure(envelope, TOKEN_EXPIRED);
   });
 
@@ -532,13 +532,13 @@ describe("chain", () => {
     const root = delegation(key).command(new Command(["nil"]));
     const last = delegation(key)
       .command(new Command(["nil"]))
-      .expiresAt(Temporal.Instant.fromEpochMilliseconds(5));
+      .expiresAt(Temporal.Instant.fromEpochSeconds(5));
     const envelope = new Chainer().chain([
       SignableNucTokenBuilder.issuedByRoot(root),
       new SignableNucTokenBuilder(key, last),
     ]);
     const parameters = new ValidationParameters();
-    parameters.config.currentTime = Temporal.Instant.fromEpochMilliseconds(10);
+    parameters.config.currentTime = Temporal.Instant.fromEpochSeconds(10);
     new Asserter().assertFailure(envelope, TOKEN_EXPIRED);
   });
 

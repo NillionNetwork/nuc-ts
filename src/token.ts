@@ -96,10 +96,10 @@ export const NucTokenSchema = z
       nonce: new Uint8Array(Buffer.from(token.nonce, "hex")),
       proofs: token.prf.map((prf) => new Uint8Array(Buffer.from(prf, "hex"))),
       notBefore: token.nbf
-        ? Temporal.Instant.fromEpochMilliseconds(token.nbf)
+        ? Temporal.Instant.fromEpochSeconds(token.nbf)
         : undefined,
       expiresAt: token.exp
-        ? Temporal.Instant.fromEpochMilliseconds(token.exp)
+        ? Temporal.Instant.fromEpochSeconds(token.exp)
         : undefined,
       meta: token.meta,
     });
@@ -179,8 +179,8 @@ export class NucToken {
       iss: this.issuer.toString(),
       aud: this.audience.toString(),
       sub: this.subject.toString(),
-      nbf: this.notBefore ? this.notBefore.epochMilliseconds : undefined,
-      exp: this.expiresAt ? this.expiresAt.epochMilliseconds : undefined,
+      nbf: this.notBefore?.epochSeconds,
+      exp: this.expiresAt?.epochSeconds,
       cmd: this.command.toString(),
       args: this.body instanceof InvocationBody ? this.body.args : undefined,
       pol:
