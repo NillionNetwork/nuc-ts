@@ -92,8 +92,8 @@ export class NucTokenValidator {
       return;
     }
     if (
-      !this.rootIssuers.some(
-        (issuer) => issuer.compare(proofs[proofs.length - 1].issuer) === 0,
+      !this.rootIssuers.some((issuer) =>
+        issuer.isEqual(proofs[proofs.length - 1].issuer),
       )
     ) {
       throw new Error(ROOT_KEY_SIGNATURE_MISSING);
@@ -126,17 +126,17 @@ export class NucTokenValidator {
     }
     if (tokens.length >= 2) {
       const token = tokens[1];
-      if (token.issuer.compare(token.subject) !== 0) {
+      if (!token.issuer.isEqual(token.subject)) {
         throw new Error(SUBJECT_NOT_IN_CHAIN);
       }
     }
   }
 
   static validateRelationshipProperties(previous: NucToken, current: NucToken) {
-    if (previous.audience.compare(current.issuer) !== 0) {
+    if (!previous.audience.isEqual(current.issuer)) {
       throw new Error(ISSUER_AUDIENCE_MISMATCH);
     }
-    if (previous.subject.compare(current.subject) !== 0) {
+    if (!previous.subject.isEqual(current.subject)) {
       throw new Error(DIFFERENT_SUBJECTS);
     }
     if (!current.command.isAttenuationOf(previous.command)) {

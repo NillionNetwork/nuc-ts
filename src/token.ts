@@ -18,8 +18,10 @@ export class Did {
     return `did:nil:${Buffer.from(this.publicKey).toString("hex")}`;
   }
 
-  compare(other: Did): number {
-    return Buffer.from(this.publicKey).compare(Buffer.from(other.publicKey));
+  isEqual(other: Did): boolean {
+    return (
+      Buffer.from(this.publicKey).compare(Buffer.from(other.publicKey)) === 0
+    );
   }
 
   static fromHex(hex: string): Did {
