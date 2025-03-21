@@ -1,0 +1,9 @@
+version: v2
+modules:
+  - path: nilvm/libs/node-api/proto/nillion/meta
+lint:
+  use:
+    - STANDARD
+breaking:
+  use:
+    - FILE

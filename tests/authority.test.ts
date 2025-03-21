@@ -1,3 +1,4 @@
+import { StargateClient } from "@cosmjs/stargate";
 import { secp256k1 } from "@noble/curves/secp256k1";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
@@ -5,7 +6,10 @@ import { Temporal } from "temporal-polyfill";
 import { afterAll, afterEach, beforeAll, describe, it } from "vitest";
 import { AuthorityService } from "#/authority";
 import { NucTokenBuilder } from "#/builder";
+import { PayerBuilder } from "#/payer/builder";
+import { createSignerFromKey } from "#/payer/wallet";
 import { Command, Did } from "#/token";
+import { Env, PrivateKeyPerSuite } from "./helpers";
 
 const BASE_URL = "http://authority-service.com";
 const PRIVATE_KEY = secp256k1.utils.randomPrivateKey();
@@ -45,6 +49,20 @@ const handlers = [
 
     return HttpResponse.json({ token });
   }),
+  http.post(`${BASE_URL}/api/v1/payments/validate`, async ({ request }) => {
+    const data = (await request.json()) as Record<string, string>;
+    try {
+      const client = await StargateClient.connect(Env.nilChainUrl);
+      const result = await client.getTx(data.tx_hash);
+      if (result) {
+        return HttpResponse.json({});
+      }
+    } catch (error) {
+      console.error(error);
+      throw error;
+    }
+    throw Error("transaction not found.");
+  }),
 ];
 const server = setupServer(...handlers);
 
@@ -78,5 +96,20 @@ describe("authority service", () => {
     expect(envelope.token.token.audience.isEqual(did)).toBeTruthy();
     expect(envelope.token.token.command).toStrictEqual(new Command(["nil"]));
     expect(envelope.token.token.expiresAt?.epochSeconds).toBeGreaterThan(now);
+  });
+
+  it("pay subscription", async ({ expect }) => {
+    const privateKey = secp256k1.utils.randomPrivateKey();
+    const publicKey = secp256k1.getPublicKey(privateKey);
+
+    const signer = await createSignerFromKey(PrivateKeyPerSuite.Authority);
+    const payer = await new PayerBuilder()
+      .chainUrl(Env.nilChainUrl)
+      .signer(signer)
+      .build();
+
+    const response = await service.paySubscription(publicKey, payer);
+
+    expect(response).toBeTruthy();
   });
 });
