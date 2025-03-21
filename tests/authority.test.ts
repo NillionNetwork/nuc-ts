@@ -50,18 +50,17 @@ const handlers = [
     return HttpResponse.json({ token });
   }),
   http.post(`${BASE_URL}/api/v1/payments/validate`, async ({ request }) => {
-    const data = (await request.json()) as Record<string, string>;
-    try {
-      const client = await StargateClient.connect(Env.nilChainUrl);
-      const result = await client.getTx(data.tx_hash);
-      if (result) {
-        return HttpResponse.json({});
-      }
-    } catch (error) {
-      console.error(error);
-      throw error;
+    const data = (await request.json()) as Record<string, unknown>;
+    const client = await StargateClient.connect(Env.nilChainUrl);
+    const result = await client.getTx(data.tx_hash as string);
+    const payload = data.payload as Record<string, string>;
+    if (payload.service_public_key !== PUBLIC_KEY) {
+      throw new Error("unknown service");
     }
-    throw Error("transaction not found.");
+    if (!result) {
+      throw Error("transaction not found.");
+    }
+    return HttpResponse.json({});
   }),
 ];
 const server = setupServer(...handlers);
