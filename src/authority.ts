@@ -1,9 +1,12 @@
 import { randomBytes } from "node:crypto";
 import { secp256k1 } from "@noble/curves/secp256k1";
+import { sha256 } from "@noble/hashes/sha256";
 import { Effect as E, pipe } from "effect";
 import { Temporal } from "temporal-polyfill";
 import z from "zod";
 import { NucTokenEnvelopeSchema } from "#/envelope";
+import type { Payer } from "#/payer/client";
+import type { TxHash } from "#/payer/types";
 
 export const AuthorityServiceAboutSchema = z
   .object({
@@ -18,6 +21,11 @@ export const CreateTokenResponseSchema = z.object({
   token: NucTokenEnvelopeSchema,
 });
 export type CreateTokenResponse = z.infer<typeof CreateTokenResponseSchema>;
+
+export const PaySubscriptionResponseSchema = z.object({});
+export type PaySubscriptionResponse = z.infer<
+  typeof PaySubscriptionResponseSchema
+>;
 
 export class AuthorityService {
   constructor(
@@ -70,6 +78,64 @@ export class AuthorityService {
       E.runPromise,
     );
   }
+
+  async paySubscription(
+    publicKey: Uint8Array,
+    payer: Payer,
+  ): Promise<PaySubscriptionResponse> {
+    const buildPayload = (aboutResponse: AuthorityServiceAbout) => {
+      const payload = {
+        nonce: randomBytes(16).toString("hex"),
+        service_public_key: aboutResponse.publicKey,
+      };
+      return {
+        payload,
+        hash: sha256(JSON.stringify(payload)),
+      };
+    };
+
+    type ValidatePaymentRequest = {
+      tx_hash: TxHash;
+      payload: {
+        nonce: string;
+        service_public_key: string;
+      };
+      public_key: Uint8Array;
+    };
+    const validatePayment = (request: ValidatePaymentRequest) =>
+      fetchWithTimeout(
+        `${this.baseUrl}/api/v1/payments/validate`,
+        this.timeout,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(request),
+        },
+      );
+
+    return pipe(
+      E.tryPromise(() => this.about()),
+      E.map(buildPayload),
+      E.flatMap(({ payload, hash }) =>
+        pipe(
+          // TODO assign the correct value later
+          E.tryPromise(() => payer.pay(hash, 1)),
+          E.map((txHash) => ({ payload, txHash })),
+        ),
+      ),
+      E.andThen(({ payload, txHash }) => ({
+        tx_hash: txHash,
+        payload,
+        public_key: publicKey,
+      })),
+      E.andThen(validatePayment),
+      E.catchAll((e) => E.fail(e.cause)),
+      E.flatMap((response) =>
+        E.try(() => PaySubscriptionResponseSchema.parse(response)),
+      ),
+      E.runPromise,
+    );
+  }
 }
 
 async function fetchWithTimeout(
@@ -79,6 +145,7 @@ async function fetchWithTimeout(
 ): Promise<unknown> {
   const fetchPromise = pipe(
     E.tryPromise(() => fetch(url, init)),
+    E.andThen(raiseForStatus),
     E.andThen((response) => response.json()),
     E.runPromise,
   );
@@ -88,4 +155,11 @@ async function fetchWithTimeout(
   );
 
   return Promise.race([fetchPromise, timeoutPromise]);
+}
+
+function raiseForStatus(response: Response): E.Effect<Response, Error> {
+  if (!response.ok) {
+    return E.fail(new Error(`${response.status}`));
+  }
+  return E.succeed(response);
 }
