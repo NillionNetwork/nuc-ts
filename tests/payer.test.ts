@@ -1,22 +1,14 @@
 import { randomBytes } from "node:crypto";
-import { beforeAll, describe, it } from "vitest";
-import { PayerBuilder } from "#/payer/builder";
-import type { Payer } from "#/payer/client";
-import { createSignerFromKey } from "#/payer/wallet";
-import { Env, PrivateKeyPerSuite } from "./helpers";
+import { describe } from "vitest";
+import { Env } from "./fixture/env";
+import { createTestFixtureExtension } from "./fixture/it";
 
 describe("Payer", () => {
-  let payer: Payer;
+  const { it, beforeAll } = createTestFixtureExtension(Env.Payer);
 
-  beforeAll(async () => {
-    const signer = await createSignerFromKey(PrivateKeyPerSuite.Payer);
-    payer = await new PayerBuilder()
-      .chainUrl(Env.nilChainUrl)
-      .signer(signer)
-      .build();
-  });
+  beforeAll(async () => {});
 
-  it("can pay", async ({ expect }) => {
+  it("can pay", async ({ expect, payer }) => {
     const tx = await payer.pay(randomBytes(16), 50000);
     expect(tx).toBeTruthy();
   });
