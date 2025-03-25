@@ -1,6 +1,8 @@
 export function base64UrlEncode(data: string | Uint8Array): string {
-  const base64 = Buffer.from(data).toString("base64");
-  return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  const buffer =
+    typeof data === "string" ? Buffer.from(data, "utf-8") : Buffer.from(data);
+
+  return buffer.toString("base64url");
 }
 
 export function base64UrlDecode(base64Url: string | Uint8Array): string {
