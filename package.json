@@ -1,14 +1,23 @@
 {
   "name": "@nillion/nuc-ts",
-  "version": "0.0.0",
+  "version": "0.1.0-rc.0",
   "license": "MIT",
-  "repository": "https://github.com/NillionNetwork/nildb",
+  "repository": "https://github.com/NillionNetwork/nuc-ts",
   "engines": {
     "node": ">=23"
+  },
+  "main": "./dist/lib.js",
+  "types": "./dist/lib.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/lib.d.ts",
+      "import": "./dist/lib.js"
+    }
   },
   "scripts": {
     "test": "vitest --run tests/",
     "build:proto": "npx buf generate",
+    "build": "pnpm build:proto && tsup src/lib.ts --dts",
     "install-hooks": "lefthook install"
   },
   "dependencies": {
@@ -23,21 +32,24 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@biomejs/biome": "1.9.4",
     "@bufbuild/buf": "^1.46.0",
     "@bufbuild/protoc-gen-es": "^2.2.2",
-    "@biomejs/biome": "1.9.4",
     "@commitlint/cli": "^19.7.1",
     "@commitlint/config-conventional": "^19.7.1",
     "@commitlint/types": "^19.5.0",
+    "@types/node": "^22.13.13",
     "@vitest/coverage-v8": "^3.0.7",
     "dotenv": "^16.4.5",
     "lefthook": "^1.11.1",
     "msw": "^2.7.3",
+    "tsup": "^8.4.0",
     "type-fest": "^4.35.0",
     "typescript": "^5.7.3",
     "vite": "^6.2.0",
     "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^3.0.7"
   },
-  "packageManager": "pnpm@10.6.2+sha512.47870716bea1572b53df34ad8647b42962bc790ce2bf4562ba0f643237d7302a3d6a8ecef9e4bdfc01d23af1969aa90485d4cebb0b9638fa5ef1daef656f6c1b"
+  "packageManager": "pnpm@10.6.2+sha512.47870716bea1572b53df34ad8647b42962bc790ce2bf4562ba0f643237d7302a3d6a8ecef9e4bdfc01d23af1969aa90485d4cebb0b9638fa5ef1daef656f6c1b",
+  "files": ["dist", "LICENSE", "README.md"]
 }
