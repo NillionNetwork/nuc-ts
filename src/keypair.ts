@@ -14,7 +14,7 @@ export class Keypair {
    * Creates a Keypair instance from a valid 32-byte private key
    * @param privateKey - The private key as raw bytes
    */
-  private constructor(privateKey: Uint8Array) {
+  constructor(privateKey: Uint8Array) {
     this.#privateKey = privateKey;
     this.#publicKey = secp256k1.getPublicKey(privateKey);
   }

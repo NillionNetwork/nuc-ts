@@ -1,12 +1,12 @@
 import * as vitest from "vitest";
 import type { AuthorityService } from "#/authority";
+import type { Keypair } from "#/keypair";
 import type { Payer } from "#/payer/client";
-import type { Wallet } from "#/payer/wallet";
 import type { AuthorityServer } from "./authority-server";
 import { type TestFixture, buildFixture } from "./fixture";
 
 type FixtureContext = {
-  signer: Wallet;
+  keypair: Keypair;
   payer: Payer;
   authorityServer: AuthorityServer;
   authorityService: AuthorityService;
@@ -24,9 +24,9 @@ export function createTestFixtureExtension(key: string): TestFixtureExtension {
 
   const it = vitest.test.extend<FixtureContext>({
     // biome-ignore lint/correctness/noEmptyPattern: <explanation>
-    signer: async ({}, use) => {
+    keypair: async ({}, use) => {
       if (!fixture) throw new Error("Fixture not initialized");
-      await use(fixture.signer);
+      await use(fixture.keypair);
     },
     // biome-ignore lint/correctness/noEmptyPattern: <explanation>
     payer: async ({}, use) => {
