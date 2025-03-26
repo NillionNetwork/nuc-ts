@@ -24,10 +24,11 @@ services:
     image: public.ecr.aws/k5d9x2g2/authority-service:latest
     depends_on:
       - db
+      - nilchain
     restart: unless-stopped
     shm_size: 128mb
     volumes:
-      - ./config.sample.yaml:/opt/config.yaml
+      - ${NILAUTH_CONFIG_FILE:-./config.test.yaml}:/opt/config.yaml
     command: ["--config-file", "/opt/config.yaml"]
     ports:
       - "30921:30921" # main server

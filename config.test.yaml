@@ -16,7 +16,8 @@ payments:
     dollar_cost: 1
 
   token_price:
-    api_key: abc 
+    api_key: abc
+    base_url: http://172.17.0.1:59123
 
 postgres:
   url: postgres://postgres:postgres@db:5432/postgres
