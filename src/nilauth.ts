@@ -18,7 +18,7 @@ export const BuildSchema = z
     timestamp: Temporal.Instant.from(timestamp),
   }));
 
-export const AuthorityServiceAboutSchema = z
+export const NilauthAboutResponseSchema = z
   .object({
     started: z.string(),
     public_key: z.string(),
@@ -29,36 +29,36 @@ export const AuthorityServiceAboutSchema = z
     publicKey: public_key,
     build,
   }));
-export type AuthorityServiceAbout = z.infer<typeof AuthorityServiceAboutSchema>;
+export type NilauthAboutResponse = z.infer<typeof NilauthAboutResponseSchema>;
 
-export const CreateTokenResponseSchema = z.object({
+export const TokenMintResponseSchema = z.object({
   token: NucTokenEnvelopeSchema,
 });
-export type CreateTokenResponse = z.infer<typeof CreateTokenResponseSchema>;
+export type TokenMintResponse = z.infer<typeof TokenMintResponseSchema>;
 
 export const PaySubscriptionResponseSchema = z.null();
 export type PaySubscriptionResponse = z.infer<
   typeof PaySubscriptionResponseSchema
 >;
 
-export class AuthorityService {
+export class NilauthClient {
   constructor(
     private baseUrl: string,
     private timeout = 10000,
   ) {}
 
-  async about(): Promise<AuthorityServiceAbout> {
+  async about(): Promise<NilauthAboutResponse> {
     return pipe(
       E.tryPromise(() =>
         fetchWithTimeout(`${this.baseUrl}/about`, this.timeout),
       ),
-      E.flatMap((data) => E.try(() => AuthorityServiceAboutSchema.parse(data))),
+      E.flatMap((data) => E.try(() => NilauthAboutResponseSchema.parse(data))),
       E.catchAll((e) => E.fail(e.cause)),
       E.runPromise,
     );
   }
 
-  async requestToken(key: Uint8Array): Promise<CreateTokenResponse> {
+  async requestToken(key: Uint8Array): Promise<TokenMintResponse> {
     const aboutResponse = await this.about();
 
     const payload = JSON.stringify({
@@ -86,7 +86,7 @@ export class AuthorityService {
         }),
       ),
       E.flatMap((response) =>
-        E.try(() => CreateTokenResponseSchema.parse(response)),
+        E.try(() => TokenMintResponseSchema.parse(response)),
       ),
       E.catchAll((e) => E.fail(e.cause)),
       E.runPromise,
@@ -97,7 +97,7 @@ export class AuthorityService {
     publicKey: string,
     payer: Payer,
   ): Promise<PaySubscriptionResponse> {
-    const buildPayload = (aboutResponse: AuthorityServiceAbout) => {
+    const buildPayload = (aboutResponse: NilauthAboutResponse) => {
       const payload = JSON.stringify({
         nonce: randomBytes(16).toString("hex"),
         service_public_key: aboutResponse.publicKey,

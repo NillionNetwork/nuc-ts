@@ -20,7 +20,7 @@ services:
       - "26649:26649" # gRPC
       - "26650:26650" # REST
 
-  authority_service:
+  nilauth:
     image: public.ecr.aws/k5d9x2g2/authority-service:latest
     depends_on:
       - db

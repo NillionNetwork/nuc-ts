@@ -1,4 +1,4 @@
-export * from "./authority";
+export * from "./nilauth";
 export * from "./builder";
 export * from "./envelope";
 export * from "./keypair";
