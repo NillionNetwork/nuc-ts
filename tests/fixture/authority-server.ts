@@ -68,7 +68,10 @@ export class AuthorityServer {
 
   init() {
     this.server = setupServer(...this.handlers);
-    this.server.listen();
+    this.server.listen({
+      onUnhandledRequest: (req) =>
+        req.url.includes(this.baseUrl) ? "bypass" : "warn",
+    });
   }
 
   close() {
