@@ -4,7 +4,7 @@ import { http, HttpResponse } from "msw";
 import { type SetupServerApi, setupServer } from "msw/node";
 import { Temporal } from "temporal-polyfill";
 import { NucTokenBuilder } from "#/builder";
-import type { Wallet } from "#/payer/wallet";
+import type { Keypair } from "#/keypair";
 import { Command, Did } from "#/token";
 import { Env } from "./env";
 
@@ -12,12 +12,12 @@ export class AuthorityServer {
   readonly baseUrl: string = "http://authority-service.com";
   private server?: SetupServerApi;
 
-  constructor(public readonly keyPair: Wallet) {}
+  constructor(public readonly keyPair: Keypair) {}
 
   private readonly handlers = [
     http.get(`${this.baseUrl}/about`, () => {
       return HttpResponse.json({
-        public_key: this.keyPair.publicKey,
+        public_key: this.keyPair.publicKey("hex"),
       });
     }),
 
@@ -32,7 +32,7 @@ export class AuthorityServer {
         Buffer.from(data.payload, "hex").toString(),
       ) as Record<string, unknown>;
 
-      if (payload.target_public_key !== this.keyPair.publicKey) {
+      if (payload.target_public_key !== this.keyPair.publicKey("hex")) {
         throw new Error("unknown target");
       }
 
@@ -43,7 +43,7 @@ export class AuthorityServer {
         .expiresAt(
           Temporal.Instant.fromEpochSeconds(payload.expires_at as number),
         )
-        .build(this.keyPair.privateKeyAsBytes());
+        .build(this.keyPair.privateKey());
 
       return HttpResponse.json({ token });
     }),
@@ -55,7 +55,7 @@ export class AuthorityServer {
         const client = await StargateClient.connect(Env.nilChainUrl);
         const result = await client.getTx(data.tx_hash as string);
         const payload = data.payload as Record<string, string>;
-        if (payload.service_public_key !== this.keyPair.publicKey) {
+        if (!this.keyPair.matchesPublicKey(payload.service_public_key)) {
           throw new Error("unknown service");
         }
         if (!result) {
@@ -68,7 +68,10 @@ export class AuthorityServer {
 
   init() {
     this.server = setupServer(...this.handlers);
-    this.server.listen();
+    this.server.listen({
+      onUnhandledRequest: (req) =>
+        req.url.includes(this.baseUrl) ? "bypass" : "warn",
+    });
   }
 
   close() {

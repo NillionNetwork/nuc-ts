@@ -1,9 +1,9 @@
-import { secp256k1 } from "@noble/curves/secp256k1";
 import { Temporal } from "temporal-polyfill";
 import { describe } from "vitest";
 import { Command, Did } from "#/token";
 import { Env } from "./fixture/env";
 import { createTestFixtureExtension } from "./fixture/it";
+import { Keypair } from "#/keypair";
 
 describe("authority service", () => {
   const { it, beforeAll, afterAll, afterEach } = createTestFixtureExtension(
@@ -18,16 +18,16 @@ describe("authority service", () => {
 
   it("about", async ({ expect, authorityService, authorityServer }) => {
     const aboutInfo = await authorityService.about();
-    expect(aboutInfo.publicKey).toBe(authorityServer.keyPair.publicKey);
+    expect(aboutInfo.publicKey).toBe(authorityServer.keyPair.publicKey("hex"));
   });
 
   it("request token", async ({ expect, authorityService }) => {
-    const privateKey = secp256k1.utils.randomPrivateKey();
-    const publicKey = secp256k1.getPublicKey(privateKey);
-    const did = new Did(publicKey);
+    const keypair = Keypair.generate();
+    const did = new Did(keypair.publicKey());
     const now = Temporal.Now.instant().epochSeconds;
 
-    const envelope = (await authorityService.requestToken(privateKey)).token;
+    const envelope = (await authorityService.requestToken(keypair.privateKey()))
+      .token;
 
     envelope.validateSignatures();
 
@@ -40,11 +40,11 @@ describe("authority service", () => {
   it("pay subscription", async ({
     expect,
     authorityService,
-    signer,
+    keypair,
     payer,
   }) => {
     const response = await authorityService.paySubscription(
-      signer.publicKeyAsBytes(),
+      keypair.publicKey(),
       payer,
     );
     expect(response).toBeTruthy();

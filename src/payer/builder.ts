@@ -1,18 +1,23 @@
-import { type OfflineSigner, Registry } from "@cosmjs/proto-signing";
+import {
+  DirectSecp256k1Wallet,
+  type OfflineSigner,
+  Registry,
+} from "@cosmjs/proto-signing";
 import { GasPrice, SigningStargateClient } from "@cosmjs/stargate";
 import { z } from "zod";
+import { Keypair } from "#/keypair";
 import { Payer, PayerConfigSchema } from "#/payer/client";
 import { MsgPayForCompatWrapper } from "#/payer/grpc-compat";
 import {
   type GasLimit,
   GasLimitSchema,
+  NilChainAddressPrefix,
   NilChainProtobufTypeUrl,
   NilToken,
-  OfflineSignerSchema,
 } from "#/payer/types";
 
 const PayerBuilderConfig = z.object({
-  signer: OfflineSignerSchema,
+  keypair: z.instanceof(Keypair),
   chainUrl: z.string().url("Invalid chain url"),
   gasLimit: GasLimitSchema,
   broadcastTimeoutMs: z.number(),
@@ -20,14 +25,14 @@ const PayerBuilderConfig = z.object({
 });
 
 export class PayerBuilder {
-  private _signer?: OfflineSigner;
+  private _keypair?: Keypair;
   private _chainUrl?: string;
   private _gasLimit: GasLimit = "auto";
   private _broadcastTimeoutMs = 30000;
   private _broadcastPollIntervalMs = 1000;
 
-  signer(signer: OfflineSigner): this {
-    this._signer = signer;
+  keypair(keypair: Keypair): this {
+    this._keypair = keypair;
     return this;
   }
 
@@ -53,19 +58,20 @@ export class PayerBuilder {
 
   async build(): Promise<Payer> {
     const {
-      signer,
+      keypair,
       chainUrl,
       gasLimit,
       broadcastTimeoutMs,
       broadcastPollIntervalMs,
     } = PayerBuilderConfig.parse({
-      signer: this._signer,
+      keypair: this._keypair,
       chainUrl: this._chainUrl,
       gasLimit: this._gasLimit,
       broadcastTimeoutMs: this._broadcastTimeoutMs,
       broadcastPollIntervalMs: this._broadcastPollIntervalMs,
     });
 
+    const signer = await createSignerFromKeyPair(keypair);
     const accounts = await signer.getAccounts();
     if (accounts.length === 0) {
       throw new Error("No accounts on the offline signer");
@@ -94,4 +100,13 @@ export class PayerBuilder {
 
     return new Payer(config);
   }
+}
+
+export async function createSignerFromKeyPair(
+  keypair: Keypair,
+): Promise<OfflineSigner> {
+  return await DirectSecp256k1Wallet.fromKey(
+    keypair.privateKey(),
+    NilChainAddressPrefix,
+  );
 }
