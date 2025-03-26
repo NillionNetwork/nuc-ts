@@ -31,6 +31,15 @@ export const NilauthAboutResponseSchema = z
   }));
 export type NilauthAboutResponse = z.infer<typeof NilauthAboutResponseSchema>;
 
+export const SubscriptionCostResponseSchema = z
+  .object({
+    cost_unils: z.number(),
+  })
+  .transform(({ cost_unils }) => cost_unils);
+export type SubscriptionCostResponse = z.infer<
+  typeof SubscriptionCostResponseSchema
+>;
+
 export const TokenMintResponseSchema = z.object({
   token: NucTokenEnvelopeSchema,
 });
@@ -53,6 +62,19 @@ export class NilauthClient {
         fetchWithTimeout(`${this.baseUrl}/about`, this.timeout),
       ),
       E.flatMap((data) => E.try(() => NilauthAboutResponseSchema.parse(data))),
+      E.catchAll((e) => E.fail(e.cause)),
+      E.runPromise,
+    );
+  }
+
+  async subscriptionCost(): Promise<SubscriptionCostResponse> {
+    return pipe(
+      E.tryPromise(() =>
+        fetchWithTimeout(`${this.baseUrl}/api/v1/payments/cost`, this.timeout),
+      ),
+      E.flatMap((data) =>
+        E.try(() => SubscriptionCostResponseSchema.parse(data)),
+      ),
       E.catchAll((e) => E.fail(e.cause)),
       E.runPromise,
     );
@@ -97,14 +119,15 @@ export class NilauthClient {
     publicKey: string,
     payer: Payer,
   ): Promise<PaySubscriptionResponse> {
-    const buildPayload = (aboutResponse: NilauthAboutResponse) => {
+    const buildPayload = (aboutInfo: NilauthAboutResponse, cost: number) => {
       const payload = JSON.stringify({
         nonce: randomBytes(16).toString("hex"),
-        service_public_key: aboutResponse.publicKey,
+        service_public_key: aboutInfo.publicKey,
       });
       return {
         payload: Buffer.from(payload).toString("hex"),
         hash: sha256(payload),
+        cost,
       };
     };
 
@@ -125,12 +148,14 @@ export class NilauthClient {
       );
 
     return pipe(
-      E.tryPromise(() => this.about()),
-      E.map(buildPayload),
-      E.flatMap(({ payload, hash }) =>
+      E.all([
+        E.tryPromise(() => this.about()),
+        E.tryPromise(() => this.subscriptionCost()),
+      ]),
+      E.map(([aboutInfo, cost]) => buildPayload(aboutInfo, cost)),
+      E.flatMap(({ payload, hash, cost }) =>
         pipe(
-          // TODO assign the correct value later
-          E.tryPromise(() => payer.pay(hash, 1)),
+          E.tryPromise(() => payer.pay(hash, cost)),
           E.map((txHash) => ({ payload, txHash })),
         ),
       ),
