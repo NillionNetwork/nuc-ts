@@ -10,10 +10,16 @@ describe("authority service", () => {
   beforeAll(async () => {});
 
   it("about", async ({ expect, authorityService }) => {
+    const now = Temporal.Now.instant();
     const aboutInfo = await authorityService.about();
+    expect(aboutInfo.started.epochSeconds).toBeLessThan(now.epochSeconds);
     expect(aboutInfo.publicKey).toBe(
       "03520e70bd97a5fa6d70c614d50ee47bf445ae0b0941a1d61ddd5afa022b97ab14",
     );
+    expect(aboutInfo.build.timestamp.epochSeconds).toBeLessThan(
+      now.epochSeconds,
+    );
+    expect(aboutInfo.build.commit).toBeDefined();
   });
 
   it("pay subscription", async ({

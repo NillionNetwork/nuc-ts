@@ -8,13 +8,27 @@ import { NucTokenEnvelopeSchema } from "#/envelope";
 import type { Payer } from "#/payer/client";
 import type { TxHash } from "#/payer/types";
 
+export const BuildSchema = z
+  .object({
+    commit: z.string(),
+    timestamp: z.string(),
+  })
+  .transform(({ commit, timestamp }) => ({
+    commit,
+    timestamp: Temporal.Instant.from(timestamp),
+  }));
+
 export const AuthorityServiceAboutSchema = z
   .object({
+    started: z.string(),
     public_key: z.string(),
+    build: BuildSchema,
   })
-  .transform((d) => {
-    return { publicKey: d.public_key };
-  });
+  .transform(({ started, public_key, build }) => ({
+    started: Temporal.Instant.from(started),
+    publicKey: public_key,
+    build,
+  }));
 export type AuthorityServiceAbout = z.infer<typeof AuthorityServiceAboutSchema>;
 
 export const CreateTokenResponseSchema = z.object({

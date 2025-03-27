@@ -21,7 +21,7 @@ services:
       - "26650:26650" # REST
 
   authority_service:
-    image: public.ecr.aws/k5d9x2g2/authority-service:a4e1282d2a8186a2c2e7cfe3a7b7a2494b3314e1
+    image: public.ecr.aws/k5d9x2g2/authority-service:latest
     depends_on:
       - db
     restart: unless-stopped
