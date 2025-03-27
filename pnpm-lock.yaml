@@ -54,6 +54,9 @@ importers:
       '@commitlint/types':
         specifier: ^19.5.0
         version: 19.5.0
+      '@hono/node-server':
+        specifier: ^1.14.0
+        version: 1.14.0(hono@4.7.5)
       '@types/node':
         specifier: ^22.13.13
         version: 22.13.13
@@ -63,12 +66,12 @@ importers:
       dotenv:
         specifier: ^16.4.5
         version: 16.4.7
+      hono:
+        specifier: ^4.7.5
+        version: 4.7.5
       lefthook:
         specifier: ^1.11.1
         version: 1.11.1
-      msw:
-        specifier: ^2.7.3
-        version: 2.7.3(@types/node@22.13.13)(typescript@5.7.3)
       tsup:
         specifier: ^8.4.0
         version: 8.4.0(jiti@2.4.2)(postcss@8.5.3)(typescript@5.7.3)
@@ -495,6 +498,12 @@ packages:
     engines: {node: '>=18'}
     cpu: [x64]
     os: [win32]
+
+  '@hono/node-server@1.14.0':
+    resolution: {integrity: sha512-YUCxJwgHRKSqjrdTk9e4VMGKN27MK5r4+MGPyZTgKH+IYbK+KtYbHeOcPGJ91KGGD6RIQiz2dAHxvjauNhOS8g==}
+    engines: {node: '>=18.14.1'}
+    peerDependencies:
+      hono: ^4
 
   '@inquirer/confirm@5.1.8':
     resolution: {integrity: sha512-dNLWCYZvXDjO3rnQfk2iuJNL4Ivwz/T2+C3+WnNfJKsNGSuOs3wAo2F6e0p946gtSAk31nZMfW+MRmYaplPKsg==}
@@ -1121,6 +1130,10 @@ packages:
 
   hmac-drbg@1.0.1:
     resolution: {integrity: sha512-Tti3gMqLdZfhOQY1Mzf/AanLiqh1WTiJgEj26ZuYQ9fbkLomzGchCws4FyrSd4VkpBfiNhaE1On+lOz894jvXg==}
+
+  hono@4.7.5:
+    resolution: {integrity: sha512-fDOK5W2C1vZACsgLONigdZTRZxuBqFtcKh7bUQ5cVSbwI2RWjloJDcgFOVzbQrlI6pCmhlTsVYZ7zpLj4m4qMQ==}
+    engines: {node: '>=16.9.0'}
 
   html-escaper@2.0.2:
     resolution: {integrity: sha512-H2iMtd0I4Mt5eYiapRdIDjp+XzelXQ0tFE4JS7YFwFevXXMmOp9myNrUvCg0D6ws8iqkRPBfKHgbwig1SmlLfg==}
@@ -1977,15 +1990,18 @@ snapshots:
   '@bundled-es-modules/cookie@2.0.1':
     dependencies:
       cookie: 0.7.2
+    optional: true
 
   '@bundled-es-modules/statuses@1.0.1':
     dependencies:
       statuses: 2.0.1
+    optional: true
 
   '@bundled-es-modules/tough-cookie@0.1.6':
     dependencies:
       '@types/tough-cookie': 4.0.5
       tough-cookie: 4.1.4
+    optional: true
 
   '@commitlint/cli@19.7.1(@types/node@22.13.13)(typescript@5.7.3)':
     dependencies:
@@ -2261,12 +2277,17 @@ snapshots:
   '@esbuild/win32-x64@0.25.0':
     optional: true
 
+  '@hono/node-server@1.14.0(hono@4.7.5)':
+    dependencies:
+      hono: 4.7.5
+
   '@inquirer/confirm@5.1.8(@types/node@22.13.13)':
     dependencies:
       '@inquirer/core': 10.1.9(@types/node@22.13.13)
       '@inquirer/type': 3.0.5(@types/node@22.13.13)
     optionalDependencies:
       '@types/node': 22.13.13
+    optional: true
 
   '@inquirer/core@10.1.9(@types/node@22.13.13)':
     dependencies:
@@ -2280,12 +2301,15 @@ snapshots:
       yoctocolors-cjs: 2.1.2
     optionalDependencies:
       '@types/node': 22.13.13
+    optional: true
 
-  '@inquirer/figures@1.0.11': {}
+  '@inquirer/figures@1.0.11':
+    optional: true
 
   '@inquirer/type@3.0.5(@types/node@22.13.13)':
     optionalDependencies:
       '@types/node': 22.13.13
+    optional: true
 
   '@isaacs/cliui@8.0.2':
     dependencies:
@@ -2323,6 +2347,7 @@ snapshots:
       is-node-process: 1.2.0
       outvariant: 1.4.3
       strict-event-emitter: 0.5.1
+    optional: true
 
   '@noble/curves@1.8.1':
     dependencies:
@@ -2330,14 +2355,17 @@ snapshots:
 
   '@noble/hashes@1.7.1': {}
 
-  '@open-draft/deferred-promise@2.2.0': {}
+  '@open-draft/deferred-promise@2.2.0':
+    optional: true
 
   '@open-draft/logger@0.3.0':
     dependencies:
       is-node-process: 1.2.0
       outvariant: 1.4.3
+    optional: true
 
-  '@open-draft/until@2.1.0': {}
+  '@open-draft/until@2.1.0':
+    optional: true
 
   '@pkgjs/parseargs@0.11.0':
     optional: true
@@ -2405,7 +2433,8 @@ snapshots:
     dependencies:
       '@types/node': 22.13.13
 
-  '@types/cookie@0.6.0': {}
+  '@types/cookie@0.6.0':
+    optional: true
 
   '@types/estree@1.0.6': {}
 
@@ -2413,9 +2442,11 @@ snapshots:
     dependencies:
       undici-types: 6.20.0
 
-  '@types/statuses@2.0.5': {}
+  '@types/statuses@2.0.5':
+    optional: true
 
-  '@types/tough-cookie@4.0.5': {}
+  '@types/tough-cookie@4.0.5':
+    optional: true
 
   '@typescript/vfs@1.6.1(typescript@5.4.5)':
     dependencies:
@@ -2498,6 +2529,7 @@ snapshots:
   ansi-escapes@4.3.2:
     dependencies:
       type-fest: 0.21.3
+    optional: true
 
   ansi-regex@5.0.1: {}
 
@@ -2573,7 +2605,8 @@ snapshots:
     dependencies:
       readdirp: 4.1.2
 
-  cli-width@4.1.0: {}
+  cli-width@4.1.0:
+    optional: true
 
   cliui@8.0.1:
     dependencies:
@@ -2615,7 +2648,8 @@ snapshots:
       meow: 12.1.1
       split2: 4.2.0
 
-  cookie@0.7.2: {}
+  cookie@0.7.2:
+    optional: true
 
   cosmiconfig-typescript-loader@6.1.0(@types/node@22.13.13)(cosmiconfig@9.0.0(typescript@5.7.3))(typescript@5.7.3):
     dependencies:
@@ -2840,7 +2874,8 @@ snapshots:
 
   gopd@1.2.0: {}
 
-  graphql@16.10.0: {}
+  graphql@16.10.0:
+    optional: true
 
   has-flag@4.0.0: {}
 
@@ -2863,13 +2898,16 @@ snapshots:
     dependencies:
       function-bind: 1.1.2
 
-  headers-polyfill@4.0.3: {}
+  headers-polyfill@4.0.3:
+    optional: true
 
   hmac-drbg@1.0.1:
     dependencies:
       hash.js: 1.1.7
       minimalistic-assert: 1.0.1
       minimalistic-crypto-utils: 1.0.1
+
+  hono@4.7.5: {}
 
   html-escaper@2.0.2: {}
 
@@ -2888,7 +2926,8 @@ snapshots:
 
   is-fullwidth-code-point@3.0.0: {}
 
-  is-node-process@1.2.0: {}
+  is-node-process@1.2.0:
+    optional: true
 
   is-obj@2.0.0: {}
 
@@ -3090,8 +3129,10 @@ snapshots:
       typescript: 5.7.3
     transitivePeerDependencies:
       - '@types/node'
+    optional: true
 
-  mute-stream@2.0.0: {}
+  mute-stream@2.0.0:
+    optional: true
 
   mz@2.7.0:
     dependencies:
@@ -3105,7 +3146,8 @@ snapshots:
 
   object-keys@1.1.1: {}
 
-  outvariant@1.4.3: {}
+  outvariant@1.4.3:
+    optional: true
 
   p-limit@4.0.0:
     dependencies:
@@ -3137,7 +3179,8 @@ snapshots:
       lru-cache: 10.4.3
       minipass: 7.1.2
 
-  path-to-regexp@6.3.0: {}
+  path-to-regexp@6.3.0:
+    optional: true
 
   pathe@2.0.3: {}
 
@@ -3162,33 +3205,19 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
-  protobufjs@6.11.4:
-    dependencies:
-      '@protobufjs/aspromise': 1.1.2
-      '@protobufjs/base64': 1.1.2
-      '@protobufjs/codegen': 2.0.4
-      '@protobufjs/eventemitter': 1.1.0
-      '@protobufjs/fetch': 1.1.0
-      '@protobufjs/float': 1.0.2
-      '@protobufjs/inquire': 1.1.0
-      '@protobufjs/path': 1.1.2
-      '@protobufjs/pool': 1.1.0
-      '@protobufjs/utf8': 1.1.0
-      '@types/long': 4.0.2
-      '@types/node': 22.13.13
-      long: 4.0.0
-
   proxy-from-env@1.1.0: {}
 
   psl@1.15.0:
     dependencies:
       punycode: 2.3.1
+    optional: true
 
   punycode@2.3.1: {}
 
   pure-rand@6.1.0: {}
 
-  querystringify@2.2.0: {}
+  querystringify@2.2.0:
+    optional: true
 
   readdirp@4.1.2: {}
 
@@ -3198,7 +3227,8 @@ snapshots:
 
   require-from-string@2.0.2: {}
 
-  requires-port@1.0.0: {}
+  requires-port@1.0.0:
+    optional: true
 
   resolve-from@4.0.0: {}
 
@@ -3251,11 +3281,13 @@ snapshots:
 
   stackback@0.0.2: {}
 
-  statuses@2.0.1: {}
+  statuses@2.0.1:
+    optional: true
 
   std-env@3.8.0: {}
 
-  strict-event-emitter@0.5.1: {}
+  strict-event-emitter@0.5.1:
+    optional: true
 
   string-width@4.2.3:
     dependencies:
@@ -3338,6 +3370,7 @@ snapshots:
       punycode: 2.3.1
       universalify: 0.2.0
       url-parse: 1.5.10
+    optional: true
 
   tr46@1.0.1:
     dependencies:
@@ -3378,7 +3411,8 @@ snapshots:
       - tsx
       - yaml
 
-  type-fest@0.21.3: {}
+  type-fest@0.21.3:
+    optional: true
 
   type-fest@4.35.0: {}
 
@@ -3390,12 +3424,14 @@ snapshots:
 
   unicorn-magic@0.1.0: {}
 
-  universalify@0.2.0: {}
+  universalify@0.2.0:
+    optional: true
 
   url-parse@1.5.10:
     dependencies:
       querystringify: 2.2.0
       requires-port: 1.0.0
+    optional: true
 
   vite-node@3.0.7(@types/node@22.13.13)(jiti@2.4.2):
     dependencies:
@@ -3499,6 +3535,7 @@ snapshots:
       ansi-styles: 4.3.0
       string-width: 4.2.3
       strip-ansi: 6.0.1
+    optional: true
 
   wrap-ansi@7.0.0:
     dependencies:
@@ -3535,6 +3572,7 @@ snapshots:
 
   yocto-queue@1.1.1: {}
 
-  yoctocolors-cjs@2.1.2: {}
+  yoctocolors-cjs@2.1.2:
+    optional: true
 
   zod@3.24.2: {}
