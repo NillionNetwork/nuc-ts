@@ -2,21 +2,17 @@ import * as vitest from "vitest";
 import type { AuthorityService } from "#/authority";
 import type { Keypair } from "#/keypair";
 import type { Payer } from "#/payer/client";
-import type { AuthorityServer } from "./authority-server";
 import { type TestFixture, buildFixture } from "./fixture";
 
 type FixtureContext = {
   keypair: Keypair;
   payer: Payer;
-  authorityServer: AuthorityServer;
   authorityService: AuthorityService;
 };
 
 type TestFixtureExtension = {
   it: vitest.TestAPI<FixtureContext>;
   beforeAll: (fn: (ctx: FixtureContext) => Promise<void>) => void;
-  afterAll: (fn: (ctx: FixtureContext) => Promise<void>) => void;
-  afterEach: (fn: (ctx: FixtureContext) => Promise<void>) => void;
 };
 
 export function createTestFixtureExtension(key: string): TestFixtureExtension {
@@ -34,11 +30,6 @@ export function createTestFixtureExtension(key: string): TestFixtureExtension {
       await use(fixture.payer);
     },
     // biome-ignore lint/correctness/noEmptyPattern: <explanation>
-    authorityServer: async ({}, use) => {
-      if (!fixture) throw new Error("Fixture not initialized");
-      await use(fixture.authorityServer);
-    },
-    // biome-ignore lint/correctness/noEmptyPattern: <explanation>
     authorityService: async ({}, use) => {
       if (!fixture) throw new Error("Fixture not initialized");
       await use(fixture.authorityService);
@@ -51,17 +42,5 @@ export function createTestFixtureExtension(key: string): TestFixtureExtension {
       await fn(fixture);
     });
 
-  const afterAll = (fn: (ctx: FixtureContext) => Promise<void>) =>
-    vitest.afterAll(async () => {
-      fixture.authorityServer.close();
-      await fn(fixture);
-    });
-
-  const afterEach = (fn: (ctx: FixtureContext) => Promise<void>) =>
-    vitest.afterEach(async () => {
-      fixture.authorityServer.resetHandlers();
-      await fn(fixture);
-    });
-
-  return { it, beforeAll, afterAll, afterEach };
+  return { it, beforeAll };
 }

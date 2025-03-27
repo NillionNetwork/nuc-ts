@@ -22,7 +22,7 @@ export const CreateTokenResponseSchema = z.object({
 });
 export type CreateTokenResponse = z.infer<typeof CreateTokenResponseSchema>;
 
-export const PaySubscriptionResponseSchema = z.object({});
+export const PaySubscriptionResponseSchema = z.null();
 export type PaySubscriptionResponse = z.infer<
   typeof PaySubscriptionResponseSchema
 >;
@@ -80,27 +80,24 @@ export class AuthorityService {
   }
 
   async paySubscription(
-    publicKey: Uint8Array,
+    publicKey: string,
     payer: Payer,
   ): Promise<PaySubscriptionResponse> {
     const buildPayload = (aboutResponse: AuthorityServiceAbout) => {
-      const payload = {
+      const payload = JSON.stringify({
         nonce: randomBytes(16).toString("hex"),
         service_public_key: aboutResponse.publicKey,
-      };
+      });
       return {
-        payload,
-        hash: sha256(JSON.stringify(payload)),
+        payload: Buffer.from(payload).toString("hex"),
+        hash: sha256(payload),
       };
     };
 
     type ValidatePaymentRequest = {
       tx_hash: TxHash;
-      payload: {
-        nonce: string;
-        service_public_key: string;
-      };
-      public_key: Uint8Array;
+      payload: string;
+      public_key: string;
     };
     const validatePayment = (request: ValidatePaymentRequest) =>
       fetchWithTimeout(
