@@ -3,7 +3,7 @@ import dockerCompose from "docker-compose";
 export async function setup() {
   console.log("🚀 Starting containers...");
   try {
-    await dockerCompose.upAll({ cwd: "." });
+    await dockerCompose.upAll({ cwd: "./docker" });
     // This gives time that all services are up
     await new Promise((f) => setTimeout(f, 2000));
     console.log("✅ Containers started successfully.");
@@ -16,7 +16,7 @@ export async function setup() {
 export async function teardown() {
   console.log("🛑 Removing containers...");
   try {
-    await dockerCompose.downAll({ cwd: "." });
+    await dockerCompose.downAll({ cwd: "./docker" });
     console.log("✅ Containers removed successfully.");
   } catch (error) {
     console.error("❌ Error removing containers: ", error);
