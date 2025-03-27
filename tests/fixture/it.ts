@@ -1,13 +1,13 @@
 import * as vitest from "vitest";
-import type { AuthorityService } from "#/authority";
 import type { Keypair } from "#/keypair";
+import type { NilauthClient } from "#/nilauth";
 import type { Payer } from "#/payer/client";
 import { type TestFixture, buildFixture } from "./fixture";
 
 type FixtureContext = {
   keypair: Keypair;
   payer: Payer;
-  authorityService: AuthorityService;
+  nilauthClient: NilauthClient;
 };
 
 type TestFixtureExtension = {
@@ -30,9 +30,9 @@ export function createTestFixtureExtension(key: string): TestFixtureExtension {
       await use(fixture.payer);
     },
     // biome-ignore lint/correctness/noEmptyPattern: <explanation>
-    authorityService: async ({}, use) => {
+    nilauthClient: async ({}, use) => {
       if (!fixture) throw new Error("Fixture not initialized");
-      await use(fixture.authorityService);
+      await use(fixture.nilauthClient);
     },
   });
 
