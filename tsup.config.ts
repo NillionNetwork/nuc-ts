@@ -8,4 +8,5 @@ export default defineConfig({
   dts: true,
   format: "esm",
   target: "es2022",
+  noExternal: ["fast-deep-equal"],
 });

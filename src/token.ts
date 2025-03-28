@@ -1,4 +1,4 @@
-import equal from "fast-deep-equal";
+import equal from "fast-deep-equal/es6";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
 import { type Policy, PolicySchema } from "#/policy";
