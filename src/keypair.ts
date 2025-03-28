@@ -1,5 +1,6 @@
 import { secp256k1 } from "@noble/curves/secp256k1";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils";
+import { Did, type DidString } from "#/token";
 
 type KeyFormat = "bytes" | "hex";
 
@@ -53,6 +54,13 @@ export class Keypair {
   matchesPublicKey(pk: Uint8Array | string): boolean {
     const compareKey = typeof pk === "string" ? hexToBytes(pk) : pk;
     return Buffer.from(this.publicKey()).equals(Buffer.from(compareKey));
+  }
+
+  /**
+   * Returns a stringified Did, e.g., did:nil:<public_key_as_hex>
+   */
+  toDidString(): DidString {
+    return new Did(this.#publicKey).toString();
   }
 
   /**

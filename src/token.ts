@@ -11,11 +11,17 @@ export const DidSchema = z
   .refine((match) => match !== null, "invalid DID")
   .transform((match) => Did.fromHex(match[1]));
 
+export type DidString = `did:nil:${string}`;
+
 export class Did {
   constructor(public readonly publicKey: Uint8Array) {}
 
-  toString(): string {
-    return `did:nil:${Buffer.from(this.publicKey).toString("hex")}`;
+  toString(): DidString {
+    return `did:nil:${this.publicKeyAsHex()}`;
+  }
+
+  publicKeyAsHex(): string {
+    return Buffer.from(this.publicKey).toString("hex");
   }
 
   isEqual(other: Did): boolean {
