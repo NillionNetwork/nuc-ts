@@ -5,6 +5,7 @@ import { Effect as E, pipe } from "effect";
 import { Temporal } from "temporal-polyfill";
 import z from "zod";
 import { NucTokenEnvelopeSchema } from "#/envelope";
+import { log } from "#/logger";
 import type { Payer } from "#/payer/client";
 import type { TxHash } from "#/payer/types";
 
@@ -62,7 +63,10 @@ export class NilauthClient {
         fetchWithTimeout(`${this.baseUrl}/about`, this.timeout),
       ),
       E.flatMap((data) => E.try(() => NilauthAboutResponseSchema.parse(data))),
-      E.catchAll((e) => E.fail(e.cause)),
+      E.tapBoth({
+        onFailure: (e) => E.sync(() => log(`get about failed: ${e.cause}`)),
+        onSuccess: (_) => E.sync(() => log("get about successfully")),
+      }),
       E.runPromise,
     );
   }
@@ -75,7 +79,12 @@ export class NilauthClient {
       E.flatMap((data) =>
         E.try(() => SubscriptionCostResponseSchema.parse(data)),
       ),
-      E.catchAll((e) => E.fail(e.cause)),
+      E.tapBoth({
+        onFailure: (e) =>
+          E.sync(() => log(`get subscription cost failed: ${e.cause}`)),
+        onSuccess: (_) =>
+          E.sync(() => log("get subscription cost successfully")),
+      }),
       E.runPromise,
     );
   }
@@ -110,7 +119,10 @@ export class NilauthClient {
       E.flatMap((response) =>
         E.try(() => TokenMintResponseSchema.parse(response)),
       ),
-      E.catchAll((e) => E.fail(e.cause)),
+      E.tapBoth({
+        onFailure: (e) => E.sync(() => log(`request token failed: ${e.cause}`)),
+        onSuccess: (_) => E.sync(() => log("request token successfully")),
+      }),
       E.runPromise,
     );
   }
@@ -165,10 +177,15 @@ export class NilauthClient {
         public_key: publicKey,
       })),
       E.andThen(validatePayment),
-      E.catchAll((e) => E.fail(e.cause)),
       E.flatMap((response) =>
         E.try(() => PaySubscriptionResponseSchema.parse(response)),
       ),
+      E.tapBoth({
+        onFailure: (e) =>
+          E.sync(() => log(`subscription pay failed: ${e.cause}`)),
+        onSuccess: (_) =>
+          E.sync(() => log("subscription has been paid successfully")),
+      }),
       E.runPromise,
     );
   }
@@ -181,21 +198,31 @@ async function fetchWithTimeout(
 ): Promise<unknown> {
   const fetchPromise = pipe(
     E.tryPromise(() => fetch(url, init)),
+    E.andThen(getResponseBody),
     E.andThen(raiseForStatus),
-    E.andThen((response) => response.json()),
     E.runPromise,
   );
 
   const timeoutPromise = new Promise((_, reject) =>
-    setTimeout(() => reject(new Error("timeout")), timeout),
+    setTimeout(() => reject("timeout"), timeout),
   );
 
   return Promise.race([fetchPromise, timeoutPromise]);
 }
 
-function raiseForStatus(response: Response): E.Effect<Response, Error> {
-  if (!response.ok) {
-    return E.fail(new Error(`${response.status}`));
-  }
-  return E.succeed(response);
+type ResponseBody = {
+  response: Response;
+  body: Record<string, unknown>;
+};
+
+async function getResponseBody(response: Response): Promise<ResponseBody> {
+  return {
+    response,
+    body: (await response.json()) as Record<string, unknown>,
+  };
+}
+
+function raiseForStatus(responseBody: ResponseBody): E.Effect<unknown, string> {
+  const { response, body } = responseBody;
+  return response.ok ? E.succeed(body) : E.fail(`${body.message}`);
 }

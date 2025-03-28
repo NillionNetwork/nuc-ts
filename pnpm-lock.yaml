@@ -16,13 +16,16 @@ importers:
         version: 0.33.1
       '@cosmjs/stargate':
         specifier: ^0.33.1
-        version: 0.33.1
+        version: 0.33.1(debug@4.4.0)
       '@noble/curves':
         specifier: ^1.6.0
         version: 1.8.1
       '@noble/hashes':
         specifier: ^1.7.1
         version: 1.7.1
+      debug:
+        specifier: ^4.4.0
+        version: 4.4.0
       effect:
         specifier: ^3.10.14
         version: 3.13.11
@@ -57,12 +60,15 @@ importers:
       '@hono/node-server':
         specifier: ^1.14.0
         version: 1.14.0(hono@4.7.5)
+      '@types/debug':
+        specifier: ^4.1.12
+        version: 4.1.12
       '@types/node':
         specifier: ^22.13.13
         version: 22.13.13
       '@vitest/coverage-v8':
         specifier: ^3.0.7
-        version: 3.0.7(vitest@3.0.7(@types/node@22.13.13)(jiti@2.4.2)(msw@2.7.3(@types/node@22.13.13)(typescript@5.7.3))(yaml@2.7.0))
+        version: 3.0.7(vitest@3.0.7(@types/debug@4.1.12)(@types/node@22.13.13)(jiti@2.4.2)(msw@2.7.3(@types/node@22.13.13)(typescript@5.7.3))(yaml@2.7.0))
       docker-compose:
         specifier: ^1.2.0
         version: 1.2.0
@@ -92,7 +98,7 @@ importers:
         version: 5.1.4(typescript@5.7.3)(vite@6.2.0(@types/node@22.13.13)(jiti@2.4.2)(yaml@2.7.0))
       vitest:
         specifier: ^3.0.7
-        version: 3.0.7(@types/node@22.13.13)(jiti@2.4.2)(msw@2.7.3(@types/node@22.13.13)(typescript@5.7.3))(yaml@2.7.0)
+        version: 3.0.7(@types/debug@4.1.12)(@types/node@22.13.13)(jiti@2.4.2)(msw@2.7.3(@types/node@22.13.13)(typescript@5.7.3))(yaml@2.7.0)
 
 packages:
 
@@ -694,8 +700,14 @@ packages:
   '@types/cookie@0.6.0':
     resolution: {integrity: sha512-4Kh9a6B2bQciAhf7FSuMRRkUWecJgJu9nPnx3yzpsfXX/c50REIqpHY4C82bXP90qrLtXtkDxTZosYO3UpOwlA==}
 
+  '@types/debug@4.1.12':
+    resolution: {integrity: sha512-vIChWdVG3LG1SMxEvI/AK+FWJthlrqlTu7fbrlywTkkaONwk/UAGaULXRlf8vkzFBLVm0zkMdCquhL5aOjhXPQ==}
+
   '@types/estree@1.0.6':
     resolution: {integrity: sha512-AYnb1nQyY49te+VRAVgmzfcgjYS91mY5P0TKUDCLEM+gNnA+3T6rWITXRLYCpahpqSQbN5cE+gHpnPyXjHWxcw==}
+
+  '@types/ms@2.1.0':
+    resolution: {integrity: sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA==}
 
   '@types/node@22.13.13':
     resolution: {integrity: sha512-ClsL5nMwKaBRwPcCvH8E7+nU4GxHVx1axNvMZTFHMEfNI7oahimt26P5zjVCRrjiIWj6YFXfE1v3dEp94wLcGQ==}
@@ -2176,14 +2188,14 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
-  '@cosmjs/stargate@0.33.1':
+  '@cosmjs/stargate@0.33.1(debug@4.4.0)':
     dependencies:
       '@cosmjs/amino': 0.33.1
       '@cosmjs/encoding': 0.33.1
       '@cosmjs/math': 0.33.1
       '@cosmjs/proto-signing': 0.33.1
       '@cosmjs/stream': 0.33.1
-      '@cosmjs/tendermint-rpc': 0.33.1
+      '@cosmjs/tendermint-rpc': 0.33.1(debug@4.4.0)
       '@cosmjs/utils': 0.33.1
       cosmjs-types: 0.9.0
     transitivePeerDependencies:
@@ -2195,7 +2207,7 @@ snapshots:
     dependencies:
       xstream: 11.14.0
 
-  '@cosmjs/tendermint-rpc@0.33.1':
+  '@cosmjs/tendermint-rpc@0.33.1(debug@4.4.0)':
     dependencies:
       '@cosmjs/crypto': 0.33.1
       '@cosmjs/encoding': 0.33.1
@@ -2204,7 +2216,7 @@ snapshots:
       '@cosmjs/socket': 0.33.1
       '@cosmjs/stream': 0.33.1
       '@cosmjs/utils': 0.33.1
-      axios: 1.8.4
+      axios: 1.8.4(debug@4.4.0)
       readonly-date: 1.0.0
       xstream: 11.14.0
     transitivePeerDependencies:
@@ -2448,7 +2460,13 @@ snapshots:
   '@types/cookie@0.6.0':
     optional: true
 
+  '@types/debug@4.1.12':
+    dependencies:
+      '@types/ms': 2.1.0
+
   '@types/estree@1.0.6': {}
+
+  '@types/ms@2.1.0': {}
 
   '@types/node@22.13.13':
     dependencies:
@@ -2467,7 +2485,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@vitest/coverage-v8@3.0.7(vitest@3.0.7(@types/node@22.13.13)(jiti@2.4.2)(msw@2.7.3(@types/node@22.13.13)(typescript@5.7.3))(yaml@2.7.0))':
+  '@vitest/coverage-v8@3.0.7(vitest@3.0.7(@types/debug@4.1.12)(@types/node@22.13.13)(jiti@2.4.2)(msw@2.7.3(@types/node@22.13.13)(typescript@5.7.3))(yaml@2.7.0))':
     dependencies:
       '@ampproject/remapping': 2.3.0
       '@bcoe/v8-coverage': 1.0.2
@@ -2481,7 +2499,7 @@ snapshots:
       std-env: 3.8.0
       test-exclude: 7.0.1
       tinyrainbow: 2.0.0
-      vitest: 3.0.7(@types/node@22.13.13)(jiti@2.4.2)(msw@2.7.3(@types/node@22.13.13)(typescript@5.7.3))(yaml@2.7.0)
+      vitest: 3.0.7(@types/debug@4.1.12)(@types/node@22.13.13)(jiti@2.4.2)(msw@2.7.3(@types/node@22.13.13)(typescript@5.7.3))(yaml@2.7.0)
     transitivePeerDependencies:
       - supports-color
 
@@ -2563,9 +2581,9 @@ snapshots:
 
   asynckit@0.4.0: {}
 
-  axios@1.8.4:
+  axios@1.8.4(debug@4.4.0):
     dependencies:
-      follow-redirects: 1.15.9
+      follow-redirects: 1.15.9(debug@4.4.0)
       form-data: 4.0.2
       proxy-from-env: 1.1.0
     transitivePeerDependencies:
@@ -2823,7 +2841,9 @@ snapshots:
       path-exists: 5.0.0
       unicorn-magic: 0.1.0
 
-  follow-redirects@1.15.9: {}
+  follow-redirects@1.15.9(debug@4.4.0):
+    optionalDependencies:
+      debug: 4.4.0
 
   foreground-child@3.3.1:
     dependencies:
@@ -3493,7 +3513,7 @@ snapshots:
       jiti: 2.4.2
       yaml: 2.7.0
 
-  vitest@3.0.7(@types/node@22.13.13)(jiti@2.4.2)(msw@2.7.3(@types/node@22.13.13)(typescript@5.7.3))(yaml@2.7.0):
+  vitest@3.0.7(@types/debug@4.1.12)(@types/node@22.13.13)(jiti@2.4.2)(msw@2.7.3(@types/node@22.13.13)(typescript@5.7.3))(yaml@2.7.0):
     dependencies:
       '@vitest/expect': 3.0.7
       '@vitest/mocker': 3.0.7(msw@2.7.3(@types/node@22.13.13)(typescript@5.7.3))(vite@6.2.0(@types/node@22.13.13)(jiti@2.4.2)(yaml@2.7.0))
@@ -3516,6 +3536,7 @@ snapshots:
       vite-node: 3.0.7(@types/node@22.13.13)(jiti@2.4.2)(yaml@2.7.0)
       why-is-node-running: 2.3.0
     optionalDependencies:
+      '@types/debug': 4.1.12
       '@types/node': 22.13.13
     transitivePeerDependencies:
       - jiti

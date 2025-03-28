@@ -8,6 +8,10 @@ import {
   base64UrlEncode,
 } from "#/utils";
 
+const INVALID_JWT_STRUCTURE = "invalid JWT structure";
+const INVALID_JWT_HEADER = "invalid JWT header";
+const SIGNATURE_VERIFICATION_FAILED = "signature verification failed";
+
 export const NucTokenEnvelopeSchema = z
   .string()
   .transform((data) => data.split("/"))
@@ -47,11 +51,11 @@ export const HeaderSchema = z.object({
 export const DecodedNucTokenSchema = z
   .string()
   .transform((data) => data.split("."))
-  .refine((tokens) => tokens && tokens.length === 3, "invalid JWT structure")
+  .refine((tokens) => tokens && tokens.length === 3, INVALID_JWT_STRUCTURE)
   .refine(
     ([rawHeader, _]) =>
       HeaderSchema.parse(JSON.parse(base64UrlDecode(rawHeader))),
-    "invalid JWT header",
+    INVALID_JWT_HEADER,
   )
   .transform(([rawHeader, rawPayload, rawSignature]) => {
     const token = NucTokenSchema.parse(JSON.parse(base64UrlDecode(rawPayload)));
@@ -74,7 +78,7 @@ export class DecodedNucToken {
     );
     const publicKey = new Uint8Array(Buffer.from(this.token.issuer.publicKey));
     if (!secp256k1.verify(signature, msg, publicKey, { prehash: true })) {
-      throw new Error("signature verification failed");
+      throw new Error(SIGNATURE_VERIFICATION_FAILED);
     }
   }
 
