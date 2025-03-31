@@ -6,6 +6,7 @@ export default defineConfig(({ mode }) => ({
   plugins: [tsconfigPaths()],
   test: {
     testTimeout: 0,
+    globalSetup: "./tests/fixture/global-setup.ts",
     env: loadEnv(mode, process.cwd(), ""),
     // @ts-expect-error ts not recognising reporter key as per https://vitest.dev/guide/coverage.html#custom-coverage-reporter
     coverage: {
