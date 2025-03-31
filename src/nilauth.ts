@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { secp256k1 } from "@noble/curves/secp256k1";
 import { sha256 } from "@noble/hashes/sha256";
+import { bytesToHex } from "@noble/hashes/utils";
 import { Effect as E, pipe } from "effect";
 import { Temporal } from "temporal-polyfill";
 import z from "zod";
@@ -48,6 +49,24 @@ export const CreateTokenResponseSchema = z.object({
   token: NucTokenEnvelopeSchema,
 });
 export type CreateTokenResponse = z.infer<typeof CreateTokenResponseSchema>;
+
+export const RevokedTokenSchema = z
+  .object({
+    token_hash: z.string(),
+    revoked_at: z.string(),
+  })
+  .transform(({ token_hash, revoked_at }) => ({
+    tokenHash: token_hash,
+    revokedAt: revoked_at,
+  }));
+export type RevokedToken = z.infer<typeof RevokedTokenSchema>;
+
+export const LookupRevokedTokenResponseSchema = z.object({
+  revoked: z.array(RevokedTokenSchema),
+});
+export type LookupRevokedTokenResponse = z.infer<
+  typeof LookupRevokedTokenResponseSchema
+>;
 
 export class NilauthClient {
   constructor(
@@ -183,7 +202,10 @@ export class NilauthClient {
     );
   }
 
-  async revokeToken(keypair: Keypair, token: NucTokenEnvelope): Promise<void> {
+  async revokeToken(
+    keypair: Keypair,
+    envelope: NucTokenEnvelope,
+  ): Promise<void> {
     return pipe(
       E.all([
         E.tryPromise(() => this.about()),
@@ -193,7 +215,7 @@ export class NilauthClient {
         E.try(() => {
           authToken.token.validateSignatures();
           return NucTokenBuilder.extending(authToken.token)
-            .body(new InvocationBody({ token: token.serialize() }))
+            .body(new InvocationBody({ token: envelope.serialize() }))
             .command(REVOKE_COMMAND)
             .audience(Did.fromHex(aboutInfo.publicKey))
             .build(keypair.privateKey());
@@ -213,6 +235,39 @@ export class NilauthClient {
         onFailure: (e) =>
           E.sync(() => log(`token revocation failed: ${e.cause}`)),
         onSuccess: (_) => E.sync(() => log("token was revoked successfully")),
+      }),
+      E.runPromise,
+    );
+  }
+
+  async lookupRevokedTokens(
+    envelope: NucTokenEnvelope,
+  ): Promise<LookupRevokedTokenResponse> {
+    const request = {
+      hashes: [envelope.token, ...envelope.proofs].map((token) =>
+        bytesToHex(token.computeHash()),
+      ),
+    };
+    return pipe(
+      E.tryPromise(() =>
+        fetchWithTimeout(
+          `${this.baseUrl}/api/v1/revocations/lookup`,
+          this.timeout,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(request),
+          },
+        ),
+      ),
+      E.flatMap((data) =>
+        E.try(() => LookupRevokedTokenResponseSchema.parse(data)),
+      ),
+      E.tapBoth({
+        onFailure: (e) =>
+          E.sync(() => log(`lookup revoked tokens failed: ${e.cause}`)),
+        onSuccess: (_) =>
+          E.sync(() => log("lookup revoked tokens finished successfully")),
       }),
       E.runPromise,
     );

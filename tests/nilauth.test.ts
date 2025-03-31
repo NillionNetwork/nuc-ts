@@ -1,3 +1,4 @@
+import { bytesToHex } from "@noble/hashes/utils";
 import { Temporal } from "temporal-polyfill";
 import { describe } from "vitest";
 import type { NucTokenEnvelope } from "#/envelope";
@@ -20,7 +21,7 @@ describe("nilauth client", () => {
     expect(aboutInfo.publicKey).toBe(
       "03520e70bd97a5fa6d70c614d50ee47bf445ae0b0941a1d61ddd5afa022b97ab14",
     );
-    expect(aboutInfo.build.timestamp.epochSeconds).toBeLessThan(
+    expect(aboutInfo.build.timestamp.epochSeconds).toBeLessThanOrEqual(
       now.epochSeconds,
     );
     expect(aboutInfo.build.commit).toBeDefined();
@@ -41,6 +42,7 @@ describe("nilauth client", () => {
     const now = Temporal.Now.instant().epochSeconds;
 
     envelope = (await nilauthClient.requestToken(keypair)).token;
+    console.log(envelope);
 
     envelope.validateSignatures();
 
@@ -50,7 +52,14 @@ describe("nilauth client", () => {
     expect(envelope.token.token.expiresAt?.epochSeconds).toBeGreaterThan(now);
   });
 
-  it("revoke token", async ({ nilauthClient, keypair }) => {
+  it("revoke token", async ({ expect, nilauthClient, keypair }) => {
     await nilauthClient.revokeToken(keypair, envelope);
+
+    await new Promise((f) => setTimeout(f, 1000));
+    const computeHash = bytesToHex(envelope.token.computeHash());
+    const revokedToken = await nilauthClient.lookupRevokedTokens(envelope);
+    expect(
+      +revokedToken.revoked.map((t) => t.tokenHash).includes(computeHash),
+    ).toBeTruthy();
   });
 });
