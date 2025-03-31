@@ -6,6 +6,7 @@
   "engines": {
     "node": ">=23"
   },
+  "type": "module",
   "main": "./dist/lib.js",
   "types": "./dist/lib.d.ts",
   "exports": {
@@ -17,7 +18,7 @@
   "scripts": {
     "test": "vitest --run tests/",
     "build:proto": "npx buf generate",
-    "build": "pnpm build:proto && tsup src/lib.ts --dts",
+    "build": "pnpm build:proto && tsup",
     "install-hooks": "lefthook install"
   },
   "dependencies": {
