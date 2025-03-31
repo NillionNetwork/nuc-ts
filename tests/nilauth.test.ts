@@ -1,5 +1,6 @@
 import { Temporal } from "temporal-polyfill";
 import { describe } from "vitest";
+import type { NucTokenEnvelope } from "#/envelope";
 import { Command, Did } from "#/token";
 import { Env } from "./fixture/env";
 import { createTestFixtureExtension } from "./fixture/it";
@@ -30,21 +31,16 @@ describe("nilauth client", () => {
     expect(response).toBe(1000000);
   });
 
-  it("pay subscription", async ({ expect, nilauthClient, keypair, payer }) => {
-    const response = await nilauthClient.paySubscription(
-      keypair.publicKey("hex"),
-      payer,
-    );
-    expect(response).toBeNull();
+  it("pay subscription", async ({ nilauthClient, keypair, payer }) => {
+    await nilauthClient.paySubscription(keypair.publicKey("hex"), payer);
   });
 
+  let envelope: NucTokenEnvelope;
   it("request token", async ({ expect, nilauthClient, keypair }) => {
     const did = new Did(keypair.publicKey("bytes"));
     const now = Temporal.Now.instant().epochSeconds;
 
-    const envelope = (
-      await nilauthClient.requestToken(keypair.privateKey("bytes"))
-    ).token;
+    envelope = (await nilauthClient.requestToken(keypair)).token;
 
     envelope.validateSignatures();
 
@@ -52,5 +48,9 @@ describe("nilauth client", () => {
     expect(envelope.token.token.audience.isEqual(did)).toBeTruthy();
     expect(envelope.token.token.command).toStrictEqual(new Command(["nil"]));
     expect(envelope.token.token.expiresAt?.epochSeconds).toBeGreaterThan(now);
+  });
+
+  it("revoke token", async ({ nilauthClient, keypair }) => {
+    await nilauthClient.revokeToken(keypair, envelope);
   });
 });

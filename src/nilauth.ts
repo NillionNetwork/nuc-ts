@@ -4,10 +4,13 @@ import { sha256 } from "@noble/hashes/sha256";
 import { Effect as E, pipe } from "effect";
 import { Temporal } from "temporal-polyfill";
 import z from "zod";
-import { NucTokenEnvelopeSchema } from "#/envelope";
+import { NucTokenBuilder } from "#/builder";
+import { type NucTokenEnvelope, NucTokenEnvelopeSchema } from "#/envelope";
+import type { Keypair } from "#/keypair";
 import { log } from "#/logger";
 import type { Payer } from "#/payer/client";
 import type { TxHash } from "#/payer/types";
+import { Did, InvocationBody, REVOKE_COMMAND } from "#/token";
 
 export const BuildSchema = z
   .object({
@@ -41,15 +44,10 @@ export type SubscriptionCostResponse = z.infer<
   typeof SubscriptionCostResponseSchema
 >;
 
-export const TokenMintResponseSchema = z.object({
+export const CreateTokenResponseSchema = z.object({
   token: NucTokenEnvelopeSchema,
 });
-export type TokenMintResponse = z.infer<typeof TokenMintResponseSchema>;
-
-export const PaySubscriptionResponseSchema = z.null();
-export type PaySubscriptionResponse = z.infer<
-  typeof PaySubscriptionResponseSchema
->;
+export type CreateTokenResponse = z.infer<typeof CreateTokenResponseSchema>;
 
 export class NilauthClient {
   constructor(
@@ -89,7 +87,7 @@ export class NilauthClient {
     );
   }
 
-  async requestToken(key: Uint8Array): Promise<TokenMintResponse> {
+  async requestToken(keypair: Keypair): Promise<CreateTokenResponse> {
     const aboutResponse = await this.about();
 
     const payload = JSON.stringify({
@@ -100,11 +98,11 @@ export class NilauthClient {
 
     const signature = secp256k1.sign(
       new Uint8Array(Buffer.from(payload)),
-      key,
+      keypair.privateKey(),
       { prehash: true },
     );
     const request = {
-      public_key: Buffer.from(secp256k1.getPublicKey(key)).toString("hex"),
+      public_key: keypair.publicKey("hex"),
       signature: signature.toCompactHex(),
       payload: Buffer.from(payload).toString("hex"),
     };
@@ -117,7 +115,7 @@ export class NilauthClient {
         }),
       ),
       E.flatMap((response) =>
-        E.try(() => TokenMintResponseSchema.parse(response)),
+        E.try(() => CreateTokenResponseSchema.parse(response)),
       ),
       E.tapBoth({
         onFailure: (e) => E.sync(() => log(`request token failed: ${e.cause}`)),
@@ -127,10 +125,7 @@ export class NilauthClient {
     );
   }
 
-  async paySubscription(
-    publicKey: string,
-    payer: Payer,
-  ): Promise<PaySubscriptionResponse> {
+  async paySubscription(publicKey: string, payer: Payer): Promise<void> {
     const buildPayload = (aboutInfo: NilauthAboutResponse, cost: number) => {
       const payload = JSON.stringify({
         nonce: randomBytes(16).toString("hex"),
@@ -148,7 +143,7 @@ export class NilauthClient {
       payload: string;
       public_key: string;
     };
-    const validatePayment = (request: ValidatePaymentRequest) =>
+    const validatePayment = (request: ValidatePaymentRequest) => {
       fetchWithTimeout(
         `${this.baseUrl}/api/v1/payments/validate`,
         this.timeout,
@@ -158,6 +153,7 @@ export class NilauthClient {
           body: JSON.stringify(request),
         },
       );
+    };
 
     return pipe(
       E.all([
@@ -177,14 +173,46 @@ export class NilauthClient {
         public_key: publicKey,
       })),
       E.andThen(validatePayment),
-      E.flatMap((response) =>
-        E.try(() => PaySubscriptionResponseSchema.parse(response)),
-      ),
       E.tapBoth({
         onFailure: (e) =>
           E.sync(() => log(`subscription pay failed: ${e.cause}`)),
         onSuccess: (_) =>
           E.sync(() => log("subscription has been paid successfully")),
+      }),
+      E.runPromise,
+    );
+  }
+
+  async revokeToken(keypair: Keypair, token: NucTokenEnvelope): Promise<void> {
+    return pipe(
+      E.all([
+        E.tryPromise(() => this.about()),
+        E.tryPromise(() => this.requestToken(keypair)),
+      ]),
+      E.flatMap(([aboutInfo, authToken]) =>
+        E.try(() => {
+          authToken.token.validateSignatures();
+          return NucTokenBuilder.extending(authToken.token)
+            .body(new InvocationBody({ token: token.serialize() }))
+            .command(REVOKE_COMMAND)
+            .audience(Did.fromHex(aboutInfo.publicKey))
+            .build(keypair.privateKey());
+        }),
+      ),
+      E.andThen((invocation) => {
+        fetchWithTimeout(
+          `${this.baseUrl}/api/v1/revocations/revoke`,
+          this.timeout,
+          {
+            method: "POST",
+            headers: { Authorization: `Bearer ${invocation}` },
+          },
+        );
+      }),
+      E.tapBoth({
+        onFailure: (e) =>
+          E.sync(() => log(`token revocation failed: ${e.cause}`)),
+        onSuccess: (_) => E.sync(() => log("token was revoked successfully")),
       }),
       E.runPromise,
     );

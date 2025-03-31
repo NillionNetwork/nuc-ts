@@ -40,7 +40,7 @@ export class NucTokenEnvelope {
     if (!this.proofs) {
       return token;
     }
-    return `${token}/${this.proofs.map((proof) => proof.serialize()).join("/")}`;
+    return `${[token, ...this.proofs.map((proof) => proof.serialize())].join("/")}`;
   }
 }
 
