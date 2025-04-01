@@ -42,7 +42,6 @@ describe("nilauth client", () => {
     const now = Temporal.Now.instant().epochSeconds;
 
     envelope = (await nilauthClient.requestToken(keypair)).token;
-    console.log(envelope);
 
     envelope.validateSignatures();
 
