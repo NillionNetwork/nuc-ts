@@ -555,13 +555,13 @@ describe("chain", () => {
       new Equals(new Selector(["args", "bar"]), 1337),
     ])
       .subject(subject)
-      .command(new Command(["nil"]));
+      .command(new Command(["nil", "bar"]));
 
     const invocationKey = secp256k1.utils.randomPrivateKey();
     const invocation = NucTokenBuilder.invocation({ foo: 42, bar: 1337 })
       .subject(subject)
       .audience(rpcDid)
-      .command(new Command(["nil"]));
+      .command(new Command(["nil", "bar", "foo"]));
 
     const envelope = new Chainer().chain([
       SignableNucTokenBuilder.issuedByRoot(root),
@@ -570,6 +570,6 @@ describe("chain", () => {
     ]);
     const parameters = new ValidationParameters();
     parameters.config.tokenRequirements = new InvocationRequirement(rpcDid);
-    new Asserter().assertSuccess(envelope);
+    new Asserter(parameters).assertSuccess(envelope);
   });
 });
