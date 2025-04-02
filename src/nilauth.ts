@@ -16,6 +16,9 @@ import { Did, InvocationBody, REVOKE_COMMAND } from "#/token";
 const PAYMENT_TX_RETRIES = [1000, 2000, 3000, 5000, 10000, 10000, 10000];
 const TX_RETRY_ERROR_CODE = "TX_NOT_COMMITED";
 
+export const NilauthHealthResponseSchema = z.literal("OK");
+export type NilauthHealthResponse = z.infer<typeof NilauthHealthResponseSchema>;
+
 export const BuildSchema = z
   .object({
     commit: z.string(),
@@ -82,6 +85,20 @@ export class NilauthClient {
     private baseUrl: string,
     private timeout = 10000,
   ) {}
+
+  async health(): Promise<NilauthHealthResponse> {
+    return pipe(
+      E.tryPromise(() =>
+        sendRequest({ url: `${this.baseUrl}/health`, timeout: this.timeout }),
+      ),
+      E.flatMap((data) => E.try(() => NilauthHealthResponseSchema.parse(data))),
+      E.tapBoth({
+        onFailure: (e) => E.sync(() => log(`get health failed: ${e.cause}`)),
+        onSuccess: (_) => E.sync(() => log("get health successfully")),
+      }),
+      E.runPromise,
+    );
+  }
 
   async about(): Promise<NilauthAboutResponse> {
     return pipe(
@@ -315,6 +332,16 @@ async function sendRequest(request: Request): Promise<unknown> {
   } = request;
   for (const sleepTime of sleepTimes) {
     const response = await fetchWithTimeout(url, timeout, init);
+    const contentType = response.headers.get("content-type");
+    if (!contentType) {
+      throw E.fail("content-type not found");
+    }
+    if (contentType?.includes("text/plain")) {
+      return await response.text();
+    }
+    if (contentType !== "application/json") {
+      throw E.fail("unsupported content-type");
+    }
     const body = await response.json();
     if (!response.ok) {
       const error = NilauthErrorSchema.parse(body);

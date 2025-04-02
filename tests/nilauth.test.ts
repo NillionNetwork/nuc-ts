@@ -14,6 +14,11 @@ describe("nilauth client", () => {
     startTokenPriceService();
   });
 
+  it("health", async ({ expect, nilauthClient }) => {
+    const response = await nilauthClient.health();
+    expect(response).toBe("OK");
+  });
+
   it("about", async ({ expect, nilauthClient }) => {
     const now = Temporal.Now.instant();
     const aboutInfo = await nilauthClient.about();
