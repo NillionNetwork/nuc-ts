@@ -49,16 +49,23 @@ describe("nilauth client", () => {
     expect(envelope.token.token.audience.isEqual(did)).toBeTruthy();
     expect(envelope.token.token.command).toStrictEqual(new Command(["nil"]));
     expect(envelope.token.token.expiresAt?.epochSeconds).toBeGreaterThan(now);
+
+    await new Promise((f) => setTimeout(f, 200));
+    const computeHash = bytesToHex(envelope.token.computeHash());
+    const revokedToken = await nilauthClient.lookupRevokedTokens(envelope);
+    expect(
+      revokedToken.revoked.map((t) => t.tokenHash).includes(computeHash),
+    ).toBeFalsy();
   });
 
   it("revoke token", async ({ expect, nilauthClient, keypair }) => {
     await nilauthClient.revokeToken(keypair, envelope);
 
-    await new Promise((f) => setTimeout(f, 1000));
+    await new Promise((f) => setTimeout(f, 200));
     const computeHash = bytesToHex(envelope.token.computeHash());
     const revokedToken = await nilauthClient.lookupRevokedTokens(envelope);
     expect(
-      +revokedToken.revoked.map((t) => t.tokenHash).includes(computeHash),
+      revokedToken.revoked.map((t) => t.tokenHash).includes(computeHash),
     ).toBeTruthy();
   });
 });
