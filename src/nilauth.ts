@@ -14,7 +14,7 @@ import type { TxHash } from "#/payer/types";
 import { Did, InvocationBody, REVOKE_COMMAND } from "#/token";
 
 const PAYMENT_TX_RETRIES = [1000, 2000, 3000, 5000, 10000, 10000, 10000];
-const TX_RETRY_ERROR_CODE = "TX_NOT_COMMITED";
+const TX_RETRY_ERROR_CODE = "TRANSACTION_NOT_COMMITTED";
 
 export const NilauthHealthResponseSchema = z.literal("OK");
 export type NilauthHealthResponse = z.infer<typeof NilauthHealthResponseSchema>;
