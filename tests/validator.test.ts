@@ -100,9 +100,9 @@ class Asserter {
   }
 
   static log_tokens(envelope: NucTokenEnvelope) {
-    console.log(`token being asserted: ${envelope.token.token.toJson()}`);
+    console.log(`token being asserted: ${envelope.token.token.toString()}`);
     console.log(
-      `proofs for it: ${envelope.proofs.map((proof) => proof.token.toJson())}`,
+      `proofs for it: ${envelope.proofs.map((proof) => proof.token.toString())}`,
     );
   }
 }
