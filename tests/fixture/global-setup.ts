@@ -1,5 +1,4 @@
 import dockerCompose from "docker-compose";
-import { Temporal } from "temporal-polyfill";
 import type { TestProject } from "vitest/node";
 import { NilauthClient } from "#/nilauth";
 
@@ -36,10 +35,7 @@ export async function setup(_project: TestProject) {
     const nilAuth = new NilauthClient("http://127.0.0.1:30921");
     const nilAuthIsUp = async () => {
       try {
-        const aboutInfo = await nilAuth.about();
-        return (
-          aboutInfo.started.epochSeconds < Temporal.Now.instant().epochSeconds
-        );
+        return (await nilAuth.health()) === "OK";
       } catch (_) {
         return false;
       }

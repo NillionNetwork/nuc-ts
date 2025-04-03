@@ -13,6 +13,12 @@ import type { Payer } from "#/payer/client";
 import type { TxHash } from "#/payer/types";
 import { Did, InvocationBody, REVOKE_COMMAND } from "#/token";
 
+const PAYMENT_TX_RETRIES = [1000, 2000, 3000, 5000, 10000, 10000, 10000];
+const TX_RETRY_ERROR_CODE = "TRANSACTION_NOT_COMMITTED";
+
+export const NilauthHealthResponseSchema = z.literal("OK");
+export type NilauthHealthResponse = z.infer<typeof NilauthHealthResponseSchema>;
+
 export const BuildSchema = z
   .object({
     commit: z.string(),
@@ -68,16 +74,36 @@ export type LookupRevokedTokenResponse = z.infer<
   typeof LookupRevokedTokenResponseSchema
 >;
 
+type ValidatePaymentRequest = {
+  tx_hash: TxHash;
+  payload: string;
+  public_key: string;
+};
+
 export class NilauthClient {
   constructor(
     private baseUrl: string,
     private timeout = 10000,
   ) {}
 
+  async health(): Promise<NilauthHealthResponse> {
+    return pipe(
+      E.tryPromise(() =>
+        sendRequest({ url: `${this.baseUrl}/health`, timeout: this.timeout }),
+      ),
+      E.flatMap((data) => E.try(() => NilauthHealthResponseSchema.parse(data))),
+      E.tapBoth({
+        onFailure: (e) => E.sync(() => log(`get health failed: ${e.cause}`)),
+        onSuccess: (_) => E.sync(() => log("get health successfully")),
+      }),
+      E.runPromise,
+    );
+  }
+
   async about(): Promise<NilauthAboutResponse> {
     return pipe(
       E.tryPromise(() =>
-        fetchWithTimeout(`${this.baseUrl}/about`, this.timeout),
+        sendRequest({ url: `${this.baseUrl}/about`, timeout: this.timeout }),
       ),
       E.flatMap((data) => E.try(() => NilauthAboutResponseSchema.parse(data))),
       E.tapBoth({
@@ -91,7 +117,10 @@ export class NilauthClient {
   async subscriptionCost(): Promise<SubscriptionCostResponse> {
     return pipe(
       E.tryPromise(() =>
-        fetchWithTimeout(`${this.baseUrl}/api/v1/payments/cost`, this.timeout),
+        sendRequest({
+          url: `${this.baseUrl}/api/v1/payments/cost`,
+          timeout: this.timeout,
+        }),
       ),
       E.flatMap((data) =>
         E.try(() => SubscriptionCostResponseSchema.parse(data)),
@@ -127,10 +156,14 @@ export class NilauthClient {
     };
     return pipe(
       E.tryPromise(() =>
-        fetchWithTimeout(`${this.baseUrl}/api/v1/nucs/create`, this.timeout, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(request),
+        sendRequest({
+          url: `${this.baseUrl}/api/v1/nucs/create`,
+          timeout: this.timeout,
+          init: {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(request),
+          },
         }),
       ),
       E.flatMap((response) =>
@@ -144,6 +177,20 @@ export class NilauthClient {
     );
   }
 
+  async validatePayment(request: ValidatePaymentRequest): Promise<void> {
+    await sendRequest({
+      url: `${this.baseUrl}/api/v1/payments/validate`,
+      timeout: this.timeout,
+      sleepTimes: PAYMENT_TX_RETRIES,
+      retryCondition: (error) => error.code === TX_RETRY_ERROR_CODE,
+      init: {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(request),
+      },
+    });
+  }
+
   async paySubscription(publicKey: string, payer: Payer): Promise<void> {
     const buildPayload = (aboutInfo: NilauthAboutResponse, cost: number) => {
       const payload = JSON.stringify({
@@ -155,23 +202,6 @@ export class NilauthClient {
         hash: sha256(payload),
         cost,
       };
-    };
-
-    type ValidatePaymentRequest = {
-      tx_hash: TxHash;
-      payload: string;
-      public_key: string;
-    };
-    const validatePayment = (request: ValidatePaymentRequest) => {
-      fetchWithTimeout(
-        `${this.baseUrl}/api/v1/payments/validate`,
-        this.timeout,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(request),
-        },
-      );
     };
 
     return pipe(
@@ -191,7 +221,7 @@ export class NilauthClient {
         payload,
         public_key: publicKey,
       })),
-      E.andThen(validatePayment),
+      E.andThen((request) => this.validatePayment(request)),
       E.tapBoth({
         onFailure: (e) =>
           E.sync(() => log(`subscription pay failed: ${e.cause}`)),
@@ -222,14 +252,14 @@ export class NilauthClient {
         }),
       ),
       E.andThen((invocation) => {
-        fetchWithTimeout(
-          `${this.baseUrl}/api/v1/revocations/revoke`,
-          this.timeout,
-          {
+        sendRequest({
+          url: `${this.baseUrl}/api/v1/revocations/revoke`,
+          timeout: this.timeout,
+          init: {
             method: "POST",
             headers: { Authorization: `Bearer ${invocation}` },
           },
-        );
+        });
       }),
       E.tapBoth({
         onFailure: (e) =>
@@ -250,15 +280,15 @@ export class NilauthClient {
     };
     return pipe(
       E.tryPromise(() =>
-        fetchWithTimeout(
-          `${this.baseUrl}/api/v1/revocations/lookup`,
-          this.timeout,
-          {
+        sendRequest({
+          url: `${this.baseUrl}/api/v1/revocations/lookup`,
+          timeout: this.timeout,
+          init: {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(request),
           },
-        ),
+        }),
       ),
       E.flatMap((data) =>
         E.try(() => LookupRevokedTokenResponseSchema.parse(data)),
@@ -274,38 +304,66 @@ export class NilauthClient {
   }
 }
 
+const NilauthErrorSchema = z
+  .object({
+    error_code: z.string(),
+    message: z.string(),
+  })
+  .transform(({ error_code, message }) => ({
+    code: error_code,
+    message,
+  }));
+type NilauthError = z.infer<typeof NilauthErrorSchema>;
+
+type Request = {
+  url: string;
+  timeout: number;
+  init?: RequestInit;
+  sleepTimes?: number[];
+  retryCondition?: (error: NilauthError) => boolean;
+};
+async function sendRequest(request: Request): Promise<unknown> {
+  const {
+    url,
+    timeout,
+    init,
+    sleepTimes = [0],
+    retryCondition = (_) => false,
+  } = request;
+  for (const sleepTime of sleepTimes) {
+    const response = await fetchWithTimeout(url, timeout, init);
+    const contentType = response.headers.get("content-type");
+    if (!contentType) {
+      throw E.fail("content-type not found");
+    }
+    if (contentType?.includes("text/plain")) {
+      return await response.text();
+    }
+    if (contentType !== "application/json") {
+      throw E.fail("unsupported content-type");
+    }
+    const body = await response.json();
+    if (!response.ok) {
+      const error = NilauthErrorSchema.parse(body);
+      if (!retryCondition(error)) {
+        throw new Error(`${error.code}: ${error.message}`);
+      }
+      log(`retrying in ${sleepTime}`);
+      await new Promise((f) => setTimeout(f, sleepTime));
+    } else {
+      return body;
+    }
+  }
+  throw E.fail("request failed: max retries");
+}
+
 async function fetchWithTimeout(
   url: string,
   timeout: number,
   init?: RequestInit,
-): Promise<unknown> {
-  const fetchPromise = pipe(
-    E.tryPromise(() => fetch(url, init)),
-    E.andThen(getResponseBody),
-    E.andThen(raiseForStatus),
-    E.runPromise,
-  );
-
+): Promise<Response> {
   const timeoutPromise = new Promise((_, reject) =>
     setTimeout(() => reject("timeout"), timeout),
   );
-
-  return Promise.race([fetchPromise, timeoutPromise]);
-}
-
-type ResponseBody = {
-  response: Response;
-  body: Record<string, unknown>;
-};
-
-async function getResponseBody(response: Response): Promise<ResponseBody> {
-  return {
-    response,
-    body: (await response.json()) as Record<string, unknown>,
-  };
-}
-
-function raiseForStatus(responseBody: ResponseBody): E.Effect<unknown, string> {
-  const { response, body } = responseBody;
-  return response.ok ? E.succeed(body) : E.fail(`${body.message}`);
+  return (await Promise.race([fetch(url, init), timeoutPromise])) as Response;
 }
