@@ -21,7 +21,7 @@ services:
       - "26650:26650" # REST
 
   nilauth:
-    image: public.ecr.aws/k5d9x2g2/nilauth:be19e3691d108c6b12420557c1a1d2d0c3886e1a
+    image: public.ecr.aws/k5d9x2g2/nilauth:c829608fae5131cc8582e1c21cb78dbb6645a9e6
     depends_on:
       - db
       - nilchain

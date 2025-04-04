@@ -18,8 +18,11 @@ import {
   NilauthAboutResponseSchema,
   type NilauthHealthResponse,
   NilauthHealthResponseSchema,
+  type SignedRequest,
   type SubscriptionCostResponse,
   SubscriptionCostResponseSchema,
+  type SubscriptionStatusResponse,
+  SubscriptionStatusResponseSchema,
   type ValidatePaymentRequest,
 } from "#/nilauth/types";
 import type { Payer } from "#/payer/client";
@@ -33,6 +36,23 @@ export class NilauthClient {
     private baseUrl: string,
     private timeout = 10000,
   ) {}
+
+  static createSignedRequest(
+    requestPayload: unknown,
+    keypair: Keypair,
+  ): SignedRequest {
+    const payload = JSON.stringify(requestPayload);
+    const signature = secp256k1.sign(
+      new Uint8Array(Buffer.from(payload)),
+      keypair.privateKey(),
+      { prehash: true },
+    );
+    return {
+      public_key: keypair.publicKey("hex"),
+      signature: signature.toCompactHex(),
+      payload: Buffer.from(payload).toString("hex"),
+    };
+  }
 
   async health(): Promise<NilauthHealthResponse> {
     return pipe(
@@ -86,25 +106,51 @@ export class NilauthClient {
     );
   }
 
+  async subscriptionStatus(
+    keypair: Keypair,
+  ): Promise<SubscriptionStatusResponse> {
+    const request = NilauthClient.createSignedRequest(
+      {
+        nonce: randomBytes(16).toString("hex"),
+        expires_at: Temporal.Now.instant().add({ seconds: 60 }).epochSeconds,
+      },
+      keypair,
+    );
+    return pipe(
+      E.tryPromise(() =>
+        sendRequest({
+          url: `${this.baseUrl}/api/v1/subscriptions/status`,
+          timeout: this.timeout,
+          init: {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(request),
+          },
+        }),
+      ),
+      E.flatMap((response) =>
+        E.try(() => SubscriptionStatusResponseSchema.parse(response)),
+      ),
+      E.tapBoth({
+        onFailure: (e) =>
+          E.sync(() => log(`request subscription status failed: ${e.cause}`)),
+        onSuccess: (_) =>
+          E.sync(() => log("request subscription status successfully")),
+      }),
+      E.runPromise,
+    );
+  }
+
   async requestToken(keypair: Keypair): Promise<CreateTokenResponse> {
     const aboutResponse = await this.about();
-
-    const payload = JSON.stringify({
-      nonce: randomBytes(16).toString("hex"),
-      target_public_key: aboutResponse.publicKey,
-      expires_at: Temporal.Now.instant().add({ seconds: 60 }).epochSeconds,
-    });
-
-    const signature = secp256k1.sign(
-      new Uint8Array(Buffer.from(payload)),
-      keypair.privateKey(),
-      { prehash: true },
+    const request = NilauthClient.createSignedRequest(
+      {
+        nonce: randomBytes(16).toString("hex"),
+        target_public_key: aboutResponse.publicKey,
+        expires_at: Temporal.Now.instant().add({ seconds: 60 }).epochSeconds,
+      },
+      keypair,
     );
-    const request = {
-      public_key: keypair.publicKey("hex"),
-      signature: signature.toCompactHex(),
-      payload: Buffer.from(payload).toString("hex"),
-    };
     return pipe(
       E.tryPromise(() =>
         sendRequest({
@@ -142,7 +188,7 @@ export class NilauthClient {
     });
   }
 
-  async paySubscription(publicKey: string, payer: Payer): Promise<void> {
+  async paySubscription(keypair: Keypair, payer: Payer): Promise<void> {
     const buildPayload = (aboutInfo: NilauthAboutResponse, cost: number) => {
       const payload = JSON.stringify({
         nonce: randomBytes(16).toString("hex"),
@@ -156,23 +202,40 @@ export class NilauthClient {
     };
 
     return pipe(
-      E.all([
-        E.tryPromise(() => this.about()),
-        E.tryPromise(() => this.subscriptionCost()),
-      ]),
-      E.map(([aboutInfo, cost]) => buildPayload(aboutInfo, cost)),
-      E.flatMap(({ payload, hash, cost }) =>
-        pipe(
-          E.tryPromise(() => payer.pay(hash, cost)),
-          E.map((txHash) => ({ payload, txHash })),
-        ),
-      ),
-      E.andThen(({ payload, txHash }) => ({
-        tx_hash: txHash,
-        payload,
-        public_key: publicKey,
-      })),
-      E.andThen((request) => this.validatePayment(request)),
+      E.tryPromise(() => this.subscriptionStatus(keypair)),
+      E.andThen((subscriptionStatus) => {
+        const now = Temporal.Now.instant();
+        if (
+          subscriptionStatus.subscribed &&
+          subscriptionStatus.details &&
+          subscriptionStatus.details.renewableAt.epochSeconds > now.epochSeconds
+        ) {
+          return E.fail(
+            new Error("subscription cannot be renewed", {
+              cause: `cannot renew before ${subscriptionStatus.details.renewableAt}`,
+            }),
+          );
+        }
+        return pipe(
+          E.all([
+            E.tryPromise(() => this.about()),
+            E.tryPromise(() => this.subscriptionCost()),
+          ]),
+          E.map(([aboutInfo, cost]) => buildPayload(aboutInfo, cost)),
+          E.flatMap(({ payload, hash, cost }) =>
+            pipe(
+              E.tryPromise(() => payer.pay(hash, cost)),
+              E.map((txHash) => ({ payload, txHash })),
+            ),
+          ),
+          E.andThen(({ payload, txHash }) => ({
+            tx_hash: txHash,
+            payload,
+            public_key: keypair.publicKey("hex"),
+          })),
+          E.andThen((request) => this.validatePayment(request)),
+        );
+      }),
       E.tapBoth({
         onFailure: (e) =>
           E.sync(() => log(`subscription pay failed: ${e.cause}`)),

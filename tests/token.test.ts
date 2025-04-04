@@ -290,7 +290,7 @@ describe("parse token", () => {
       pol: [["==", ".foo", 42]],
       nonce: "beef",
     };
-    expect(() => NucTokenSchema.parse(data)).toThrowError;
+    expect(() => NucTokenSchema.parse(data)).toThrowError();
   });
 
   it("parse no delegation invocation", ({ expect }) => {
@@ -301,6 +301,6 @@ describe("parse token", () => {
       cmd: "/nil/db/read",
       nonce: "beef",
     };
-    expect(() => NucTokenSchema.parse(data)).toThrowError;
+    expect(() => NucTokenSchema.parse(data)).toThrowError();
   });
 });

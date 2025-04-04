@@ -3,6 +3,12 @@ import z from "zod";
 import { NucTokenEnvelopeSchema } from "#/envelope";
 import type { TxHash } from "#/payer/types";
 
+export type SignedRequest = {
+  public_key: string;
+  signature: string;
+  payload: string;
+};
+
 export const NilauthHealthResponseSchema = z.literal("OK");
 export type NilauthHealthResponse = z.infer<typeof NilauthHealthResponseSchema>;
 
@@ -36,6 +42,25 @@ export const SubscriptionCostResponseSchema = z
   .transform(({ cost_unils }) => cost_unils);
 export type SubscriptionCostResponse = z.infer<
   typeof SubscriptionCostResponseSchema
+>;
+
+export const SubscriptionDetailsSchema = z
+  .object({
+    expires_at: z.number(),
+    renewable_at: z.number(),
+  })
+  .transform(({ expires_at, renewable_at }) => ({
+    expiresAt: Temporal.Instant.fromEpochSeconds(expires_at),
+    renewableAt: Temporal.Instant.fromEpochSeconds(renewable_at),
+  }));
+export type SubscriptionDetails = z.infer<typeof SubscriptionDetailsSchema>;
+
+export const SubscriptionStatusResponseSchema = z.object({
+  subscribed: z.boolean(),
+  details: SubscriptionDetailsSchema.nullable(),
+});
+export type SubscriptionStatusResponse = z.infer<
+  typeof SubscriptionStatusResponseSchema
 >;
 
 export const CreateTokenResponseSchema = z.object({
