@@ -1,6 +1,6 @@
 import * as vitest from "vitest";
 import type { Keypair } from "#/keypair";
-import type { NilauthClient } from "#/nilauth";
+import type { NilauthClient } from "#/nilauth/client";
 import type { Payer } from "#/payer/client";
 import { type TestFixture, buildFixture } from "./fixture";
 

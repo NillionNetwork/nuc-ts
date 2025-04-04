@@ -1,4 +1,4 @@
-export * from "./nilauth";
+export * from "./nilauth/client";
 export * from "./builder";
 export * from "./envelope";
 export * from "./keypair";

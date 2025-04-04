@@ -1,6 +1,6 @@
 import dockerCompose from "docker-compose";
 import type { TestProject } from "vitest/node";
-import { NilauthClient } from "#/nilauth";
+import { NilauthClient } from "#/nilauth/client";
 
 const MAX_RETRIES = 300;
 const composeOptions = {
