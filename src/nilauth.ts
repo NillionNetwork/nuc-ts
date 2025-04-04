@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { secp256k1 } from "@noble/curves/secp256k1";
 import { sha256 } from "@noble/hashes/sha256";
 import { bytesToHex } from "@noble/hashes/utils";
-import { Effect as E, pipe } from "effect";
+import { Effect as E, Schedule, pipe } from "effect";
 import { Temporal } from "temporal-polyfill";
 import z from "zod";
 import { NucTokenBuilder } from "#/builder";
@@ -89,7 +89,10 @@ export class NilauthClient {
   async health(): Promise<NilauthHealthResponse> {
     return pipe(
       E.tryPromise(() =>
-        sendRequest({ url: `${this.baseUrl}/health`, timeout: this.timeout }),
+        sendRequest({
+          url: `${this.baseUrl}/health`,
+          timeout: this.timeout,
+        }),
       ),
       E.flatMap((data) => E.try(() => NilauthHealthResponseSchema.parse(data))),
       E.tapBoth({
@@ -181,8 +184,8 @@ export class NilauthClient {
     await sendRequest({
       url: `${this.baseUrl}/api/v1/payments/validate`,
       timeout: this.timeout,
-      sleepTimes: PAYMENT_TX_RETRIES,
-      retryCondition: (error) => error.code === TX_RETRY_ERROR_CODE,
+      retryDelays: PAYMENT_TX_RETRIES,
+      retryWhile: (error) => error.code === TX_RETRY_ERROR_CODE,
       init: {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -304,57 +307,71 @@ export class NilauthClient {
   }
 }
 
+type NilauthRequest = {
+  url: string;
+  timeout: number;
+  init?: RequestInit;
+  retryDelays?: number[];
+  retryWhile?: (error: NilauthError) => boolean;
+};
+
+const NilauthResponseSchema = z.union([
+  z.string(),
+  z.record(z.unknown()),
+  z.null(),
+]);
+type NilauthResponse = z.infer<typeof NilauthResponseSchema>;
+
+class NilauthError extends Error {
+  constructor(
+    public readonly code: string,
+    message: string,
+  ) {
+    super(`${code}: ${message}`);
+  }
+}
 const NilauthErrorSchema = z
   .object({
     error_code: z.string(),
     message: z.string(),
   })
-  .transform(({ error_code, message }) => ({
-    code: error_code,
-    message,
-  }));
-type NilauthError = z.infer<typeof NilauthErrorSchema>;
+  .transform(
+    ({ error_code, message }) => new NilauthError(error_code, message),
+  );
 
-type Request = {
-  url: string;
-  timeout: number;
-  init?: RequestInit;
-  sleepTimes?: number[];
-  retryCondition?: (error: NilauthError) => boolean;
-};
-async function sendRequest(request: Request): Promise<unknown> {
+async function sendRequest(request: NilauthRequest): Promise<unknown> {
   const {
     url,
     timeout,
     init,
-    sleepTimes = [0],
-    retryCondition = (_) => false,
+    retryDelays = [],
+    retryWhile = (_) => false,
   } = request;
-  for (const sleepTime of sleepTimes) {
-    const response = await fetchWithTimeout(url, timeout, init);
-    const contentType = response.headers.get("content-type");
-    if (!contentType) {
-      throw E.fail("content-type not found");
-    }
-    if (contentType?.includes("text/plain")) {
-      return await response.text();
-    }
-    if (contentType !== "application/json") {
-      throw E.fail("unsupported content-type");
-    }
-    const body = await response.json();
-    if (!response.ok) {
-      const error = NilauthErrorSchema.parse(body);
-      if (!retryCondition(error)) {
-        throw new Error(`${error.code}: ${error.message}`);
-      }
-      log(`retrying in ${sleepTime}`);
-      await new Promise((f) => setTimeout(f, sleepTime));
-    } else {
-      return body;
-    }
-  }
-  throw E.fail("request failed: max retries");
+  const maxRetries = retryDelays.length;
+  return pipe(
+    E.retry(
+      pipe(
+        E.tryPromise(() => fetchWithTimeout(url, timeout, init)),
+        E.andThen((response) => parseNilauthResponse(response)),
+      ),
+      pipe(
+        Schedule.recurs(maxRetries),
+        Schedule.delayed(() => retryDelays.shift() ?? 0),
+        Schedule.whileInput((error) => {
+          if (error instanceof NilauthError && retryWhile(error)) {
+            log(`retrying: ${error}`);
+            return true;
+          }
+          if (error instanceof Error && error.cause === "timeout") {
+            log(`retrying: ${error.cause}`);
+            return true;
+          }
+          return false;
+        }),
+      ),
+    ),
+    E.runPromise,
+  );
 }
 
 async function fetchWithTimeout(
@@ -366,4 +383,30 @@ async function fetchWithTimeout(
     setTimeout(() => reject("timeout"), timeout),
   );
   return (await Promise.race([fetch(url, init), timeoutPromise])) as Response;
+}
+
+function parseNilauthResponse(
+  response: Response,
+): E.Effect<NilauthResponse, Error> {
+  const contentType = response.headers.get("content-type");
+  if (!contentType) return E.fail(new Error("content-type not found"));
+  if (contentType.includes("text/plain")) {
+    return pipe(
+      E.tryPromise(() => response.text()),
+      E.flatMap((body) => E.try(() => NilauthResponseSchema.parse(body))),
+    );
+  }
+  if (contentType === "application/json") {
+    if (!response.ok)
+      return pipe(
+        E.tryPromise(() => response.json()),
+        E.flatMap((body) => E.try(() => NilauthErrorSchema.parse(body))),
+        E.flatMap((body) => E.fail(body)),
+      );
+    return pipe(
+      E.tryPromise(() => response.json()),
+      E.flatMap((body) => E.try(() => NilauthResponseSchema.parse(body))),
+    );
+  }
+  return E.fail(new Error("unsupported content-type"));
 }
