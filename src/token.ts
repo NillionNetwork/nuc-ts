@@ -63,6 +63,8 @@ export class Command {
   }
 }
 
+export const REVOKE_COMMAND = new Command(["nuc", "revoke"]);
+
 export const InvocationBodySchema = z
   .record(z.string(), z.unknown())
   .transform((args) => new InvocationBody(args));

@@ -51,6 +51,11 @@ export class NucTokenBuilder {
     return this;
   }
 
+  body(body: DelegationBody | InvocationBody): NucTokenBuilder {
+    this._body = body;
+    return this;
+  }
+
   subject(subject: Did): NucTokenBuilder {
     this._subject = subject;
     return this;

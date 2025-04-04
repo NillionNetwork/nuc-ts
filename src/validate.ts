@@ -220,7 +220,7 @@ export class NucTokenValidator {
       case InvocationRequirement:
         throw new Error(NEED_INVOCATION);
       case DelegationRequirement:
-        if (token.audience !== tokenRequirements?.audience) {
+        if (!token.audience.isEqual(tokenRequirements?.audience)) {
           throw new Error(INVALID_AUDIENCE);
         }
     }
@@ -242,7 +242,7 @@ export class NucTokenValidator {
       case DelegationRequirement:
         throw new Error(NEED_DELEGATION);
       case InvocationRequirement:
-        if (token.audience !== tokenRequirements?.audience) {
+        if (!token.audience.isEqual(tokenRequirements?.audience)) {
           throw new Error(INVALID_AUDIENCE);
         }
     }
