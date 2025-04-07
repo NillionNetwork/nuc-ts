@@ -1,15 +1,9 @@
 name: CD
 
 on:
+  push:
+    branches: [ "main" ]
   workflow_dispatch:
-    inputs:
-      tag:
-        description: 'NPM tag'
-        type: choice
-        required: true
-        options:
-          - next
-          - latest
 
 concurrency:
   group: "publish"
@@ -20,14 +14,33 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "0.4.24"
+
+      - name: Set up Python
+        run: uv python install
+
+      - name: Check version
+        id: check-version
+        run: >-
+          cd scripts/version_checker && uv run ./version_checker.py ../../
+
       - uses: actions/setup-node@v4
         with:
           node-version: "23"
           registry-url: "https://registry.npmjs.org"
+
       - uses: pnpm/action-setup@v4
+
       - run: pnpm install
       - run: pnpm build
-      - run: pnpm exportscheck
+      - run: pnpm exec biome ci
+      - run: tsc
       - env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: pnpm publish --tag ${{ github.event.inputs.tag }}
+        run: pnpm publish --tag ${{ steps.check-version.outputs.tag }}
