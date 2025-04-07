@@ -35,6 +35,11 @@ export const NilauthAboutResponseSchema = z
   }));
 export type NilauthAboutResponse = z.infer<typeof NilauthAboutResponseSchema>;
 
+export const ValidatePaymentResponseSchema = z.null().transform(() => z.void());
+export type ValidatePaymentResponse = z.infer<
+  typeof ValidatePaymentResponseSchema
+>;
+
 export const SubscriptionCostResponseSchema = z
   .object({
     cost_unils: z.number(),

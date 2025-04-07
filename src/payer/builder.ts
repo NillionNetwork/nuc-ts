@@ -24,6 +24,9 @@ const PayerBuilderConfig = z.object({
   broadcastPollIntervalMs: z.number(),
 });
 
+/**
+ * Payer builder
+ */
 export class PayerBuilder {
   private _keypair?: Keypair;
   private _chainUrl?: string;
@@ -102,7 +105,7 @@ export class PayerBuilder {
   }
 }
 
-export async function createSignerFromKeyPair(
+async function createSignerFromKeyPair(
   keypair: Keypair,
 ): Promise<OfflineSigner> {
   return await DirectSecp256k1Wallet.fromKey(

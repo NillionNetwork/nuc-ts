@@ -34,6 +34,10 @@ const NilauthErrorSchema = z
     ({ error_code, message }) => new NilauthError(error_code, message),
   );
 
+/**
+ * Send a request to a Nilauth server
+ * @param request Nilauth request
+ */
 export async function sendRequest(
   request: NilauthRequest,
 ): Promise<NilauthResponse> {

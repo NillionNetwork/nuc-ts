@@ -1,3 +1,4 @@
+import { bytesToHex, hexToBytes } from "@noble/hashes/utils";
 import equal from "fast-deep-equal/es6";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
@@ -13,25 +14,47 @@ export const DidSchema = z
 
 export type DidString = `did:nil:${string}`;
 
+/**
+ * A class representing a Decentralized Identifier (DID).
+ */
 export class Did {
+  /**
+   *
+   * Creates a new DID for the given public key
+   * @param publicKey Public key in bytes format
+   */
   constructor(public readonly publicKey: Uint8Array) {}
 
+  /**
+   * Convert this DID into a string.
+   */
   toString(): DidString {
     return `did:nil:${this.publicKeyAsHex()}`;
   }
 
+  /**
+   * Get the public which this DID represents
+   */
   publicKeyAsHex(): string {
-    return Buffer.from(this.publicKey).toString("hex");
+    return bytesToHex(this.publicKey);
   }
 
+  /**
+   * Check if this and another DID are equals
+   * @param other The other DID which will be used for the equality operation.
+   */
   isEqual(other: Did): boolean {
     return (
       Buffer.from(this.publicKey).compare(Buffer.from(other.publicKey)) === 0
     );
   }
 
+  /**
+   * Creates a new DID for the given public key
+   * @param hex Public key in hex format
+   */
   static fromHex(hex: string): Did {
-    return new Did(Uint8Array.from(Buffer.from(hex, "hex")));
+    return new Did(hexToBytes(hex));
   }
 }
 
@@ -48,9 +71,16 @@ export const CommandSchema = z
     return new Command(segments);
   });
 
+/**
+ * A command to be invoked.
+ */
 export class Command {
   constructor(public readonly segments: Array<string>) {}
 
+  /**
+   * Check if this command is an attenuation of another one.
+   * @param other The command for which this command is attenuation.
+   */
   isAttenuationOf(other: Command): boolean {
     return (
       this.segments.length >= other.segments.length &&
@@ -58,17 +88,22 @@ export class Command {
     );
   }
 
+  /**
+   * Convert this command into a string.
+   */
   toString(): string {
     return `/${this.segments.join("/")}`;
   }
 }
-
 export const REVOKE_COMMAND = new Command(["nuc", "revoke"]);
 
 export const InvocationBodySchema = z
   .record(z.string(), z.unknown())
   .transform((args) => new InvocationBody(args));
 
+/**
+ * Body of an invocation token
+ */
 export class InvocationBody {
   constructor(public readonly args: Record<string, unknown>) {}
 }
@@ -76,6 +111,10 @@ export class InvocationBody {
 export const DelegationBodySchema = z
   .array(PolicySchema)
   .transform((body) => new DelegationBody(body as Array<Policy>));
+
+/**
+ * Body of a delegation token
+ */
 export class DelegationBody {
   constructor(public readonly policies: Array<Policy>) {}
 }
@@ -139,6 +178,9 @@ export const NucTokenDataSchema = z.object({
 
 export type NucTokenData = z.infer<typeof NucTokenDataSchema>;
 
+/**
+ * A class representing a NUC token.
+ */
 export class NucToken {
   constructor(private readonly _data: NucTokenData) {}
 
@@ -182,6 +224,9 @@ export class NucToken {
     return this._data.meta;
   }
 
+  /**
+   * Convert this token into JSON.
+   */
   toJson(): Record<string, unknown> {
     return {
       iss: this.issuer.toString(),
@@ -204,6 +249,9 @@ export class NucToken {
     };
   }
 
+  /**
+   * Convert this command into a string.
+   */
   toString(): string {
     return JSON.stringify(this.toJson());
   }

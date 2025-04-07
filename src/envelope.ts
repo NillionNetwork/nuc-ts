@@ -22,25 +22,31 @@ export const NucTokenEnvelopeSchema = z
   .refine((tokens) => tokens && tokens.length > 0)
   .transform((tokens) => new NucTokenEnvelope(tokens[0], tokens.slice(1)));
 
+/**
+ * A NUC token envelope, containing a parsed token along with all its proofs.
+ */
 export class NucTokenEnvelope {
   constructor(
     public readonly token: DecodedNucToken,
     public readonly proofs: Array<DecodedNucToken>,
   ) {}
 
+  /**
+   * Validate the signature in this envelope.
+   *
+   * This will raise an exception is the token or any of its proofs is not signed by its issuer.
+   */
   validateSignatures() {
-    this.token.validateSignature();
-    for (const proof of this.proofs) {
-      proof.validateSignature();
+    for (const token of [this.token, ...this.proofs]) {
+      token.validateSignature();
     }
   }
 
+  /**
+   * Serialize this envelope as a JWT-like string.
+   */
   serialize(): string {
-    const token = this.token.serialize();
-    if (!this.proofs) {
-      return token;
-    }
-    return `${[token, ...this.proofs.map((proof) => proof.serialize())].join("/")}`;
+    return `${[this.token, ...this.proofs].map((proof) => proof.serialize()).join("/")}`;
   }
 }
 
@@ -63,6 +69,9 @@ export const DecodedNucTokenSchema = z
     return new DecodedNucToken(rawHeader, rawPayload, signature, token);
   });
 
+/**
+ * A decoded NUC token.
+ */
 export class DecodedNucToken {
   constructor(
     public readonly rawHeader: string,
@@ -71,6 +80,9 @@ export class DecodedNucToken {
     public readonly token: NucToken,
   ) {}
 
+  /**
+   * Validate the signature in this token.
+   */
   validateSignature() {
     const signature = this.signature;
     const msg = new Uint8Array(
@@ -82,12 +94,18 @@ export class DecodedNucToken {
     }
   }
 
+  /**
+   * Compute the hash for this token.
+   */
   computeHash(): Uint8Array {
     return Uint8Array.from(
       createHash("sha256").update(this.serialize()).digest(),
     );
   }
 
+  /**
+   * Serialize this token as a JWT.
+   */
   serialize(): string {
     return `${this.rawHeader}.${this.rawPayload}.${base64UrlEncode(this.signature)}`;
   }
