@@ -1,5 +1,5 @@
 import { Keypair } from "#/keypair";
-import { NilauthClient } from "#/nilauth";
+import { NilauthClient } from "#/nilauth/client";
 import { PayerBuilder } from "#/payer/builder";
 import type { Payer } from "#/payer/client";
 import { Env } from "./env";

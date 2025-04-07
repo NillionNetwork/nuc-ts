@@ -4,81 +4,29 @@ import { sha256 } from "@noble/hashes/sha256";
 import { bytesToHex } from "@noble/hashes/utils";
 import { Effect as E, pipe } from "effect";
 import { Temporal } from "temporal-polyfill";
-import z from "zod";
 import { NucTokenBuilder } from "#/builder";
-import { type NucTokenEnvelope, NucTokenEnvelopeSchema } from "#/envelope";
+import type { NucTokenEnvelope } from "#/envelope";
 import type { Keypair } from "#/keypair";
 import { log } from "#/logger";
+import { type NilauthError, sendRequest } from "#/nilauth/request-sender";
+import {
+  type CreateTokenResponse,
+  CreateTokenResponseSchema,
+  type LookupRevokedTokenResponse,
+  LookupRevokedTokenResponseSchema,
+  type NilauthAboutResponse,
+  NilauthAboutResponseSchema,
+  type NilauthHealthResponse,
+  NilauthHealthResponseSchema,
+  type SubscriptionCostResponse,
+  SubscriptionCostResponseSchema,
+  type ValidatePaymentRequest,
+} from "#/nilauth/types";
 import type { Payer } from "#/payer/client";
-import type { TxHash } from "#/payer/types";
 import { Did, InvocationBody, REVOKE_COMMAND } from "#/token";
 
 const PAYMENT_TX_RETRIES = [1000, 2000, 3000, 5000, 10000, 10000, 10000];
 const TX_RETRY_ERROR_CODE = "TRANSACTION_NOT_COMMITTED";
-
-export const NilauthHealthResponseSchema = z.literal("OK");
-export type NilauthHealthResponse = z.infer<typeof NilauthHealthResponseSchema>;
-
-export const BuildSchema = z
-  .object({
-    commit: z.string(),
-    timestamp: z.string(),
-  })
-  .transform(({ commit, timestamp }) => ({
-    commit,
-    timestamp: Temporal.Instant.from(timestamp),
-  }));
-
-export const NilauthAboutResponseSchema = z
-  .object({
-    started: z.string(),
-    public_key: z.string(),
-    build: BuildSchema,
-  })
-  .transform(({ started, public_key, build }) => ({
-    started: Temporal.Instant.from(started),
-    publicKey: public_key,
-    build,
-  }));
-export type NilauthAboutResponse = z.infer<typeof NilauthAboutResponseSchema>;
-
-export const SubscriptionCostResponseSchema = z
-  .object({
-    cost_unils: z.number(),
-  })
-  .transform(({ cost_unils }) => cost_unils);
-export type SubscriptionCostResponse = z.infer<
-  typeof SubscriptionCostResponseSchema
->;
-
-export const CreateTokenResponseSchema = z.object({
-  token: NucTokenEnvelopeSchema,
-});
-export type CreateTokenResponse = z.infer<typeof CreateTokenResponseSchema>;
-
-export const RevokedTokenSchema = z
-  .object({
-    token_hash: z.string(),
-    revoked_at: z.string(),
-  })
-  .transform(({ token_hash, revoked_at }) => ({
-    tokenHash: token_hash,
-    revokedAt: revoked_at,
-  }));
-export type RevokedToken = z.infer<typeof RevokedTokenSchema>;
-
-export const LookupRevokedTokenResponseSchema = z.object({
-  revoked: z.array(RevokedTokenSchema),
-});
-export type LookupRevokedTokenResponse = z.infer<
-  typeof LookupRevokedTokenResponseSchema
->;
-
-type ValidatePaymentRequest = {
-  tx_hash: TxHash;
-  payload: string;
-  public_key: string;
-};
 
 export class NilauthClient {
   constructor(
@@ -89,7 +37,10 @@ export class NilauthClient {
   async health(): Promise<NilauthHealthResponse> {
     return pipe(
       E.tryPromise(() =>
-        sendRequest({ url: `${this.baseUrl}/health`, timeout: this.timeout }),
+        sendRequest({
+          url: `${this.baseUrl}/health`,
+          timeout: this.timeout,
+        }),
       ),
       E.flatMap((data) => E.try(() => NilauthHealthResponseSchema.parse(data))),
       E.tapBoth({
@@ -181,8 +132,8 @@ export class NilauthClient {
     await sendRequest({
       url: `${this.baseUrl}/api/v1/payments/validate`,
       timeout: this.timeout,
-      sleepTimes: PAYMENT_TX_RETRIES,
-      retryCondition: (error) => error.code === TX_RETRY_ERROR_CODE,
+      retryDelays: PAYMENT_TX_RETRIES,
+      retryWhile: (error: NilauthError) => error.code === TX_RETRY_ERROR_CODE,
       init: {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -302,68 +253,4 @@ export class NilauthClient {
       E.runPromise,
     );
   }
-}
-
-const NilauthErrorSchema = z
-  .object({
-    error_code: z.string(),
-    message: z.string(),
-  })
-  .transform(({ error_code, message }) => ({
-    code: error_code,
-    message,
-  }));
-type NilauthError = z.infer<typeof NilauthErrorSchema>;
-
-type Request = {
-  url: string;
-  timeout: number;
-  init?: RequestInit;
-  sleepTimes?: number[];
-  retryCondition?: (error: NilauthError) => boolean;
-};
-async function sendRequest(request: Request): Promise<unknown> {
-  const {
-    url,
-    timeout,
-    init,
-    sleepTimes = [0],
-    retryCondition = (_) => false,
-  } = request;
-  for (const sleepTime of sleepTimes) {
-    const response = await fetchWithTimeout(url, timeout, init);
-    const contentType = response.headers.get("content-type");
-    if (!contentType) {
-      throw E.fail("content-type not found");
-    }
-    if (contentType?.includes("text/plain")) {
-      return await response.text();
-    }
-    if (contentType !== "application/json") {
-      throw E.fail("unsupported content-type");
-    }
-    const body = await response.json();
-    if (!response.ok) {
-      const error = NilauthErrorSchema.parse(body);
-      if (!retryCondition(error)) {
-        throw new Error(`${error.code}: ${error.message}`);
-      }
-      log(`retrying in ${sleepTime}`);
-      await new Promise((f) => setTimeout(f, sleepTime));
-    } else {
-      return body;
-    }
-  }
-  throw E.fail("request failed: max retries");
-}
-
-async function fetchWithTimeout(
-  url: string,
-  timeout: number,
-  init?: RequestInit,
-): Promise<Response> {
-  const timeoutPromise = new Promise((_, reject) =>
-    setTimeout(() => reject("timeout"), timeout),
-  );
-  return (await Promise.race([fetch(url, init), timeoutPromise])) as Response;
 }
