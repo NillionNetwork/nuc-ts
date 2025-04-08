@@ -215,6 +215,11 @@ export class NilauthClient {
     );
   }
 
+  /**
+   * Validates that a payment was made on nilchain
+   * @param request The request with the pàyment's information to validate
+   * @private
+   */
   private async validatePayment(
     request: ValidatePaymentRequest,
   ): Promise<ValidatePaymentResponse> {
