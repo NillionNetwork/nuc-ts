@@ -20,8 +20,8 @@ export type DidString = `did:nil:${string}`;
 export class Did {
   /**
    *
-   * Creates a new DID for the given public key
-   * @param publicKey Public key in bytes format
+   * Creates a new DID for the given public key.
+   * @param publicKey Public key in bytes format.
    */
   constructor(public readonly publicKey: Uint8Array) {}
 
@@ -33,14 +33,14 @@ export class Did {
   }
 
   /**
-   * Get the public which this DID represents
+   * Get the public which this DID represents.
    */
   publicKeyAsHex(): string {
     return bytesToHex(this.publicKey);
   }
 
   /**
-   * Check if this and another DID are equals
+   * Check if this and another DID are equals.
    * @param other The other DID which will be used for the equality operation.
    */
   isEqual(other: Did): boolean {
@@ -50,8 +50,8 @@ export class Did {
   }
 
   /**
-   * Creates a new DID for the given public key
-   * @param hex Public key in hex format
+   * Creates a new DID for the given public key.
+   * @param hex Public key in hex format.
    */
   static fromHex(hex: string): Did {
     return new Did(hexToBytes(hex));
@@ -102,7 +102,7 @@ export const InvocationBodySchema = z
   .transform((args) => new InvocationBody(args));
 
 /**
- * Body of an invocation token
+ * Body of an invocation token.
  */
 export class InvocationBody {
   constructor(public readonly args: Record<string, unknown>) {}
@@ -113,7 +113,7 @@ export const DelegationBodySchema = z
   .transform((body) => new DelegationBody(body as Array<Policy>));
 
 /**
- * Body of a delegation token
+ * Body of a delegation token.
  */
 export class DelegationBody {
   constructor(public readonly policies: Array<Policy>) {}

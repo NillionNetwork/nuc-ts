@@ -35,8 +35,8 @@ const NilauthErrorSchema = z
   );
 
 /**
- * Send a request to a Nilauth server
- * @param request Nilauth request
+ * Send a request to a Nilauth server.
+ * @param request Nilauth request.
  */
 export async function sendRequest(
   request: NilauthRequest,

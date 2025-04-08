@@ -21,7 +21,7 @@ export const PayerConfigSchema = z.object({
 /**
  * Payer configuration.
  *
- * @property {string} address  Nilchain address
+ * @property {string} address  Nilchain address.
  * @property {SigningStargateClient} client Cosmos client to perform transactions in nilchain
  * @property {string} gasLimit Gas limit strategy auto a fixed value are allowed.
  */
@@ -34,7 +34,7 @@ export class Payer {
   /**
    * Creates a Payer instance for the given configuration.
    *
-   * @param config Payer configuration
+   * @param config Payer configuration.
    */
   constructor(private readonly config: PayerConfig) {}
 

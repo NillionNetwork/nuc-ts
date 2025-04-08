@@ -25,7 +25,7 @@ const PayerBuilderConfig = z.object({
 });
 
 /**
- * Payer builder
+ * Payer builder.
  */
 export class PayerBuilder {
   private _keypair?: Keypair;

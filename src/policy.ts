@@ -8,7 +8,7 @@ import { type Selector, SelectorSchema } from "#/selector";
 export interface Policy {
   /**
    * Checks whether this policy matches a value.
-   * @param record Value against the policy is matched
+   * @param record Value against the policy is matched.
    */
   evaluate(record: Record<string, unknown>): boolean;
 
@@ -18,7 +18,7 @@ export interface Policy {
   serialize(): Array<unknown>;
 
   /**
-   * Serialize the policy into a string
+   * Serialize the policy into a string.
    */
   toString(): string;
 }

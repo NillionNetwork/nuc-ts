@@ -16,7 +16,7 @@ import { base64UrlEncode } from "#/utils";
 const DEFAULT_NONCE_LENGTH = 16;
 
 /**
- * Builder for a NUC token
+ * Builder for a NUC token.
  */
 export class NucTokenBuilder {
   private _audience?: Did;
@@ -32,7 +32,7 @@ export class NucTokenBuilder {
 
   /**
    * Create a new token builder for a delegation token.
-   * @param policies The policies to use in the delegation
+   * @param policies The policies to use in the delegation.
    */
   static delegation(policies: Array<Policy>): NucTokenBuilder {
     return new NucTokenBuilder(new DelegationBody(policies));
@@ -47,7 +47,7 @@ export class NucTokenBuilder {
   }
 
   /**
-   * Create a NUC token builder that pulls basic properties from a given NUC token..
+   * Create a NUC token builder that pulls basic properties from a given NUC token.
    *
    * This pulls the following properties from the given envelope:
    *
@@ -80,7 +80,7 @@ export class NucTokenBuilder {
   }
 
   /**
-   * Set the body for the token being built
+   * Set the body for the token being built.
    *
    * @param body The body for the token.
    */
@@ -92,7 +92,7 @@ export class NucTokenBuilder {
   /**
    * Set the subject for the token to be built.
    *
-   * @param subject The subjet of the token
+   * @param subject The subject of the token.
    */
   subject(subject: Did): NucTokenBuilder {
     this._subject = subject;
