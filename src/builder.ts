@@ -1,7 +1,8 @@
-import * as crypto from "node:crypto";
-import { secp256k1 } from "@noble/curves/secp256k1";
+import { randomBytes } from "node:crypto";
+import { bytesToHex } from "@noble/hashes/utils";
 import type { Temporal } from "temporal-polyfill";
 import type { NucTokenEnvelope } from "#/envelope";
+import { Keypair } from "#/keypair";
 import type { Policy } from "#/policy";
 import {
   type Command,
@@ -11,7 +12,7 @@ import {
   NucToken,
   NucTokenDataSchema,
 } from "#/token";
-import { base64UrlEncode } from "#/utils";
+import { type Hex, base64UrlEncode } from "#/utils";
 
 const DEFAULT_NONCE_LENGTH = 16;
 
@@ -25,7 +26,7 @@ export class NucTokenBuilder {
   private _expiresAt?: Temporal.Instant;
   private _command?: Command;
   private _meta?: Record<string, unknown>;
-  private _nonce?: Uint8Array;
+  private _nonce?: Hex;
   private _proof?: NucTokenEnvelope;
 
   private constructor(private _body: DelegationBody | InvocationBody) {}
@@ -146,7 +147,7 @@ export class NucTokenBuilder {
    *
    * The nonce doesn't have to be explicitly set and it will default to a random 16 bytes long bytestring if not set.
    */
-  nonce(nonce: Uint8Array): NucTokenBuilder {
+  nonce(nonce: Hex): NucTokenBuilder {
     this._nonce = nonce;
     return this;
   }
@@ -169,13 +170,14 @@ export class NucTokenBuilder {
    * @param key The key to use to sing the token.
    */
   build(key: Uint8Array): string {
+    const keypair = new Keypair(key);
     const proof = this._proof;
     if (proof) {
       proof.validateSignatures();
     }
     const data = NucTokenDataSchema.parse({
       body: this._body,
-      issuer: new Did(secp256k1.getPublicKey(key, true)),
+      issuer: new Did(keypair.publicKey()),
       audience: this._audience,
       subject: this._subject,
       notBefore: this._notBefore,
@@ -184,17 +186,15 @@ export class NucTokenBuilder {
       meta: this._meta,
       nonce: this._nonce
         ? this._nonce
-        : crypto.randomBytes(DEFAULT_NONCE_LENGTH),
+        : bytesToHex(randomBytes(DEFAULT_NONCE_LENGTH)),
       proofs: proof ? [proof.token.computeHash()] : [],
     });
     let token = base64UrlEncode(new NucToken(data).toString());
     const header = base64UrlEncode('{"alg":"ES256K"}');
     token = `${header}.${token}`;
 
-    const msg = Uint8Array.from(Buffer.from(token));
-    const signature = secp256k1.sign(msg, key, { prehash: true });
-
-    token = `${token}.${base64UrlEncode(signature.toCompactRawBytes())}`;
+    const signature = keypair.sign(token);
+    token = `${token}.${base64UrlEncode(signature)}`;
     if (this._proof) {
       const allProofs = [this._proof.token, ...this._proof.proofs];
       token = `${token}/${allProofs.map((proof) => proof.serialize()).join("/")}`;

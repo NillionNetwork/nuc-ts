@@ -118,7 +118,7 @@ describe("parse token", () => {
       ),
       command: new Command(["nil", "db", "read"]),
       body: new DelegationBody([new Equals(new Selector(["foo"]), 42)]),
-      nonce: new Uint8Array([190, 239]),
+      nonce: "beef",
       proofs: [],
       notBefore: undefined,
       expiresAt: undefined,
@@ -167,7 +167,7 @@ describe("parse token", () => {
       ),
       command: new Command(["nil", "db", "read"]),
       body: new DelegationBody([new Equals(new Selector(["foo"]), 42)]),
-      nonce: new Uint8Array([190, 239]),
+      nonce: "beef",
       proofs: [
         new Uint8Array([
           244, 240, 74, 246, 168, 50, 188, 216, 166, 133, 93, 245, 208, 36, 44,
@@ -216,7 +216,7 @@ describe("parse token", () => {
       ),
       command: new Command(["nil", "db", "read"]),
       body: new InvocationBody({ bar: 42 }),
-      nonce: new Uint8Array([190, 239]),
+      nonce: "beef",
       proofs: [],
       notBefore: undefined,
       expiresAt: undefined,
@@ -265,7 +265,7 @@ describe("parse token", () => {
       ),
       command: new Command(["nil", "db", "read"]),
       body: new InvocationBody({ bar: 42 }),
-      nonce: new Uint8Array([190, 239]),
+      nonce: "beef",
       proofs: [
         new Uint8Array([
           244, 240, 74, 246, 168, 50, 188, 216, 166, 133, 93, 245, 208, 36, 44,

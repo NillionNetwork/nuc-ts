@@ -43,7 +43,7 @@ describe("nuc token builder", () => {
       .command(new Command(["nil", "db", "read"]))
       .notBefore(Temporal.Instant.fromEpochSeconds(1740494955))
       .expiresAt(Temporal.Instant.fromEpochSeconds(1740495955))
-      .nonce(new Uint8Array([1, 2, 3]))
+      .nonce("010203")
       .meta({ name: "bob" })
       .build(key);
     const envelope = NucTokenEnvelopeSchema.parse(token);
@@ -61,7 +61,7 @@ describe("nuc token builder", () => {
       command: new Command(["nil", "db", "read"]),
       notBefore: Temporal.Instant.fromEpochSeconds(1740494955),
       expiresAt: Temporal.Instant.fromEpochSeconds(1740495955),
-      nonce: new Uint8Array([1, 2, 3]),
+      nonce: "010203",
       meta: { name: "bob" },
       body: new DelegationBody([]),
       proofs: [],

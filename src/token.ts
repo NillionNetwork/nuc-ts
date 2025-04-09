@@ -3,6 +3,7 @@ import equal from "fast-deep-equal/es6";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
 import { type Policy, PolicySchema } from "#/policy";
+import { type Hex, HexSchema } from "#/utils";
 
 const DID_EXPRESSION = /^did:nil:([a-zA-Z0-9]{66})$/;
 
@@ -53,7 +54,7 @@ export class Did {
    * Creates a new DID for the given public key
    * @param hex Public key in hex format
    */
-  static fromHex(hex: string): Did {
+  static fromHex(hex: Hex): Did {
     return new Did(hexToBytes(hex));
   }
 }
@@ -130,7 +131,7 @@ export const NucTokenSchema = z
     args: InvocationBodySchema.optional(),
     pol: DelegationBodySchema.optional(),
     meta: z.record(z.string(), z.unknown()).optional(),
-    nonce: z.string(),
+    nonce: HexSchema,
     prf: z.array(z.string()).default([]),
   })
   .transform((token) => {
@@ -140,7 +141,7 @@ export const NucTokenSchema = z
       subject: token.sub,
       command: token.cmd,
       body: tokenBody(token.args, token.pol),
-      nonce: new Uint8Array(Buffer.from(token.nonce, "hex")),
+      nonce: token.nonce,
       proofs: token.prf.map((prf) => new Uint8Array(Buffer.from(prf, "hex"))),
       notBefore: token.nbf
         ? Temporal.Instant.fromEpochSeconds(token.nbf)
@@ -172,7 +173,7 @@ export const NucTokenDataSchema = z.object({
   command: z.instanceof(Command),
   body: z.union([z.instanceof(DelegationBody), z.instanceof(InvocationBody)]),
   meta: z.record(z.string(), z.unknown()).optional(),
-  nonce: z.instanceof(Uint8Array),
+  nonce: HexSchema,
   proofs: z.array(z.instanceof(Uint8Array)),
 });
 
@@ -204,7 +205,7 @@ export class NucToken {
     return this._data.body;
   }
 
-  get nonce(): Uint8Array {
+  get nonce(): Hex {
     return this._data.nonce;
   }
 
@@ -241,10 +242,10 @@ export class NucToken {
           ? this.body.policies.map((policy) => policy.serialize())
           : undefined,
       meta: this.meta,
-      nonce: Buffer.from(this.nonce).toString("hex"),
+      nonce: this.nonce,
       prf:
         this.proofs && this.proofs.length > 0
-          ? this.proofs.map((proof) => Buffer.from(proof).toString("hex"))
+          ? this.proofs.map((proof) => bytesToHex(proof))
           : undefined,
     };
   }

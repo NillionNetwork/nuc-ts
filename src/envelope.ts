@@ -1,5 +1,6 @@
-import { createHash } from "node:crypto";
 import { secp256k1 } from "@noble/curves/secp256k1";
+import { sha256 } from "@noble/hashes/sha256";
+import { toBytes } from "@noble/hashes/utils";
 import { z } from "zod";
 import { type NucToken, NucTokenSchema } from "#/token";
 import {
@@ -84,12 +85,12 @@ export class DecodedNucToken {
    * Validate the signature in this token.
    */
   validateSignature() {
-    const signature = this.signature;
-    const msg = new Uint8Array(
-      Buffer.from(`${this.rawHeader}.${this.rawPayload}`),
-    );
-    const publicKey = new Uint8Array(Buffer.from(this.token.issuer.publicKey));
-    if (!secp256k1.verify(signature, msg, publicKey, { prehash: true })) {
+    const msg = toBytes(`${this.rawHeader}.${this.rawPayload}`);
+    if (
+      !secp256k1.verify(this.signature, msg, this.token.issuer.publicKey, {
+        prehash: true,
+      })
+    ) {
       throw new Error(SIGNATURE_VERIFICATION_FAILED);
     }
   }
@@ -98,9 +99,7 @@ export class DecodedNucToken {
    * Compute the hash for this token.
    */
   computeHash(): Uint8Array {
-    return Uint8Array.from(
-      createHash("sha256").update(this.serialize()).digest(),
-    );
+    return sha256(this.serialize());
   }
 
   /**

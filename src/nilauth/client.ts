@@ -3,7 +3,6 @@
  */
 
 import { randomBytes } from "node:crypto";
-import { secp256k1 } from "@noble/curves/secp256k1";
 import { sha256 } from "@noble/hashes/sha256";
 import { bytesToHex } from "@noble/hashes/utils";
 import { Effect as E, pipe } from "effect";
@@ -33,6 +32,7 @@ import {
 } from "#/nilauth/types";
 import type { Payer } from "#/payer/client";
 import { Did, InvocationBody, REVOKE_COMMAND } from "#/token";
+import { type Hex, toHex } from "#/utils";
 
 const PAYMENT_TX_RETRIES = [1000, 2000, 3000, 5000, 10000, 10000, 10000];
 const TX_RETRY_ERROR_CODE = "TRANSACTION_NOT_COMMITTED";
@@ -52,6 +52,13 @@ export class NilauthClient {
   ) {}
 
   /**
+   * Generate a random nonce
+   */
+  static genNonce(): Hex {
+    return randomBytes(16).toString("hex");
+  }
+
+  /**
    * Creates a signed request from a given payload
    * @param requestPayload Payload of the request
    * @param keypair Keypair that will be used to create the request. The private key is only used to sign the payload
@@ -62,15 +69,10 @@ export class NilauthClient {
     keypair: Keypair,
   ): SignedRequest {
     const payload = JSON.stringify(requestPayload);
-    const signature = secp256k1.sign(
-      new Uint8Array(Buffer.from(payload)),
-      keypair.privateKey(),
-      { prehash: true },
-    );
     return {
       public_key: keypair.publicKey("hex"),
-      signature: signature.toCompactHex(),
-      payload: Buffer.from(payload).toString("hex"),
+      signature: keypair.sign(payload, "hex"),
+      payload: toHex(payload),
     };
   }
 
@@ -145,7 +147,7 @@ export class NilauthClient {
   ): Promise<SubscriptionStatusResponse> {
     const request = NilauthClient.createSignedRequest(
       {
-        nonce: randomBytes(16).toString("hex"),
+        nonce: NilauthClient.genNonce(),
         expires_at: Temporal.Now.instant().add({ seconds: 60 }).epochSeconds,
       },
       keypair,
@@ -184,7 +186,7 @@ export class NilauthClient {
     const createRequest = (aboutResponse: NilauthAboutResponse) =>
       NilauthClient.createSignedRequest(
         {
-          nonce: randomBytes(16).toString("hex"),
+          nonce: NilauthClient.genNonce(),
           target_public_key: aboutResponse.publicKey,
           expires_at: Temporal.Now.instant().add({ seconds: 60 }).epochSeconds,
         },
@@ -257,11 +259,11 @@ export class NilauthClient {
   ): Promise<ValidatePaymentResponse> {
     const buildPayload = (aboutInfo: NilauthAboutResponse, cost: number) => {
       const payload = JSON.stringify({
-        nonce: randomBytes(16).toString("hex"),
+        nonce: NilauthClient.genNonce(),
         service_public_key: aboutInfo.publicKey,
       });
       return {
-        payload: Buffer.from(payload).toString("hex"),
+        payload: toHex(payload),
         hash: sha256(payload),
         cost,
       };

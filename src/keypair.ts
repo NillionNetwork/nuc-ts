@@ -25,8 +25,7 @@ export class Keypair {
    * @param format - Output encoding (default: bytes in an Uint8Array)
    * @returns Private key in requested format
    */
-  privateKey(): Uint8Array;
-  privateKey(format: "bytes"): Uint8Array;
+  privateKey(format?: "bytes"): Uint8Array;
   privateKey(format: "hex"): string;
   privateKey(format?: KeyFormat): Uint8Array | string {
     return format === "hex"
@@ -39,8 +38,7 @@ export class Keypair {
    * @param format - Output encoding (default: bytes in an Uint8Array)
    * @returns Public key in requested format
    */
-  publicKey(): Uint8Array;
-  publicKey(format: "bytes"): Uint8Array;
+  publicKey(format?: "bytes"): Uint8Array;
   publicKey(format: "hex"): string;
   publicKey(format?: KeyFormat): Uint8Array | string {
     return format === "hex"
@@ -83,5 +81,23 @@ export class Keypair {
    */
   static generate(): Keypair {
     return new Keypair(secp256k1.utils.randomPrivateKey());
+  }
+
+  /**
+   * Signs a message
+   * @param msg Message to sign
+   * @param signatureFormat Result format. Only "hex" and "bytes" are valid (default: bytes in an Uint8Array).
+   * @return The signature in raw bytes or hex string, depending on the given format.
+   */
+  sign(msg: string, signatureFormat?: "bytes"): Uint8Array;
+  sign(msg: string, signatureFormat: "hex"): string;
+  sign(msg: string, signatureFormat?: "bytes" | "hex"): Uint8Array | string {
+    const msgHash = Uint8Array.from(Buffer.from(msg));
+    const signature = secp256k1.sign(msgHash, this.privateKey(), {
+      prehash: true,
+    });
+    return signatureFormat === "hex"
+      ? signature.toCompactHex()
+      : signature.toCompactRawBytes();
   }
 }
