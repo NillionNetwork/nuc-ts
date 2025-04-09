@@ -37,8 +37,29 @@ describe("nilauth client", () => {
     expect(response).toBe(1000000);
   });
 
+  it("is not subscribed", async ({ expect, nilauthClient, keypair }) => {
+    const response = await nilauthClient.subscriptionStatus(keypair);
+    expect(response.subscribed).toBeFalsy();
+  });
+
   it("pay subscription", async ({ nilauthClient, keypair, payer }) => {
-    await nilauthClient.paySubscription(keypair.publicKey("hex"), payer);
+    await nilauthClient.paySubscription(keypair, payer);
+  });
+
+  it("is subscribed", async ({ expect, nilauthClient, keypair }) => {
+    const response = await nilauthClient.subscriptionStatus(keypair);
+    expect(response.subscribed).toBeTruthy();
+  });
+
+  it("subscription cannot be renewed", async ({
+    expect,
+    nilauthClient,
+    keypair,
+    payer,
+  }) => {
+    await expect(() =>
+      nilauthClient.paySubscription(keypair, payer),
+    ).rejects.toThrow("subscription cannot be renewed");
   });
 
   let envelope: NucTokenEnvelope;

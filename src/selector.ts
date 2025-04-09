@@ -17,9 +17,16 @@ export const SelectorSchema = z
   )
   .transform((labels) => new Selector(labels));
 
+/**
+ * A selector that specifies a path within a JSON object to be matched.
+ */
 export class Selector {
   constructor(private readonly path: Array<string>) {}
 
+  /**
+   * Apply a selector on a value and return the matched value, if any.
+   * @param value The value that this selector should be applied to.
+   */
   apply<T = unknown>(value: unknown): T {
     let result = value;
     for (const label of this.path) {
@@ -35,6 +42,9 @@ export class Selector {
     return result as T;
   }
 
+  /**
+   * Convert this selector into a string.
+   */
   toString(): string {
     return `.${this.path.join(".")}`;
   }
