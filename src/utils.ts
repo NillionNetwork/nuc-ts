@@ -1,3 +1,13 @@
+import { z } from "zod";
+
+export const HexSchema = z.string().regex(/^[a-fA-F0-9]+$/, "invalid hex");
+export type Hex = z.infer<typeof HexSchema>;
+
+export function toHex(input: string | Record<string, unknown>): Hex {
+  const data = typeof input === "string" ? input : JSON.stringify(input);
+  return Buffer.from(data).toString("hex");
+}
+
 /**
  * Encode URL safe base64.
  * @param input data to be encoded.
