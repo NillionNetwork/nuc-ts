@@ -2,19 +2,40 @@ import equal from "fast-deep-equal/es6";
 import { z } from "zod";
 import { type Selector, SelectorSchema } from "#/selector";
 
+/**
+ * A policy that restricts how a NUC can be used.
+ */
 export interface Policy {
+  /**
+   * Checks whether this policy matches a value.
+   * @param record Value against the policy is matched.
+   */
   evaluate(record: Record<string, unknown>): boolean;
+
+  /**
+   *  Serialize the policy into an array of anything.
+   */
   serialize(): Array<unknown>;
+
+  /**
+   * Serialize the policy into a string.
+   */
   toString(): string;
 }
 
-export interface Operator extends Policy {}
+/**
+ * A policy that applies a selector on the NUC token and applies an operator to it.
+ */
+export interface OperatorPolicy extends Policy {}
 
 export const EqualsSchema = z
   .tuple([z.literal("=="), SelectorSchema, z.unknown()])
   .transform((operator) => new Equals(operator[1], operator[2]));
 
-export class Equals implements Operator {
+/**
+ * An operator that checks for equality.
+ */
+export class Equals implements OperatorPolicy {
   constructor(
     private readonly selector: Selector,
     private readonly value: unknown,
@@ -37,7 +58,10 @@ export const NotEqualsSchema = z
   .tuple([z.literal("!="), SelectorSchema, z.unknown()])
   .transform((operator) => new NotEquals(operator[1], operator[2]));
 
-export class NotEquals implements Operator {
+/**
+ * An operator that checks for inequality.
+ */
+export class NotEquals implements OperatorPolicy {
   constructor(
     private readonly selector: Selector,
     private readonly value: unknown,
@@ -60,7 +84,10 @@ export const AnyOfSchema = z
   .tuple([z.literal("anyOf"), SelectorSchema, z.array(z.unknown())])
   .transform((operator) => new AnyOf(operator[1], operator[2]));
 
-export class AnyOf implements Operator {
+/**
+ * An operator that checks that a value is within a list of values.
+ */
+export class AnyOf implements OperatorPolicy {
   constructor(
     private readonly selector: Selector,
     public readonly options: Array<unknown>,
@@ -86,7 +113,10 @@ export const OperatorSchema = z.union([
   AnyOfSchema,
 ]);
 
-export interface Connector extends Policy {}
+/**
+ * Represents a connector of policies.
+ */
+export interface ConnectorPolicy extends Policy {}
 
 export const AndSchema = z
   .lazy(() => z.tuple([z.literal("and"), z.array(PolicySchema)]))
@@ -94,7 +124,10 @@ export const AndSchema = z
     (connector) => new And(connector[1].map((policy) => policy as Policy)),
   );
 
-export class And implements Connector {
+/**
+ * A connector that checks that a sequence of policies is valid.
+ */
+export class And implements ConnectorPolicy {
   constructor(public readonly conditions: Array<Policy>) {}
 
   evaluate(record: Record<string, unknown>): boolean {
@@ -124,7 +157,10 @@ export const OrSchema = z
     (connector) => new Or(connector[1].map((policy) => policy as Policy)),
   );
 
-export class Or implements Connector {
+/**
+ * A connector that checks that at least policy in a sequence is valid.
+ */
+export class Or implements ConnectorPolicy {
   constructor(public readonly conditions: Array<Policy>) {}
 
   evaluate(record: Record<string, unknown>): boolean {
@@ -144,7 +180,10 @@ export const NotSchema = z
   .lazy(() => z.tuple([z.literal("not"), PolicySchema]))
   .transform((connector) => new Not(connector[1] as Policy));
 
-export class Not implements Connector {
+/**
+ * A connector that checks that at a policy is not valid.
+ */
+export class Not implements ConnectorPolicy {
   constructor(public readonly condition: Policy) {}
 
   evaluate(record: Record<string, unknown>): boolean {

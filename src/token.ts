@@ -1,7 +1,9 @@
+import { bytesToHex, hexToBytes } from "@noble/hashes/utils";
 import equal from "fast-deep-equal/es6";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
 import { type Policy, PolicySchema } from "#/policy";
+import { type Hex, HexSchema } from "#/utils";
 
 const DID_EXPRESSION = /^did:nil:([a-zA-Z0-9]{66})$/;
 
@@ -13,25 +15,47 @@ export const DidSchema = z
 
 export type DidString = `did:nil:${string}`;
 
+/**
+ * A class representing a Decentralized Identifier (DID).
+ */
 export class Did {
+  /**
+   *
+   * Creates a new DID for the given public key.
+   * @param publicKey Public key in bytes format.
+   */
   constructor(public readonly publicKey: Uint8Array) {}
 
+  /**
+   * Convert this DID into a string.
+   */
   toString(): DidString {
     return `did:nil:${this.publicKeyAsHex()}`;
   }
 
+  /**
+   * Get the public which this DID represents.
+   */
   publicKeyAsHex(): string {
-    return Buffer.from(this.publicKey).toString("hex");
+    return bytesToHex(this.publicKey);
   }
 
+  /**
+   * Check if this and another DID are equals.
+   * @param other The other DID which will be used for the equality operation.
+   */
   isEqual(other: Did): boolean {
     return (
       Buffer.from(this.publicKey).compare(Buffer.from(other.publicKey)) === 0
     );
   }
 
-  static fromHex(hex: string): Did {
-    return new Did(Uint8Array.from(Buffer.from(hex, "hex")));
+  /**
+   * Creates a new DID for the given public key.
+   * @param hex Public key in hex format.
+   */
+  static fromHex(hex: Hex): Did {
+    return new Did(hexToBytes(hex));
   }
 }
 
@@ -48,9 +72,16 @@ export const CommandSchema = z
     return new Command(segments);
   });
 
+/**
+ * A command to be invoked.
+ */
 export class Command {
   constructor(public readonly segments: Array<string>) {}
 
+  /**
+   * Check if this command is an attenuation of another one.
+   * @param other The command for which this command is attenuation.
+   */
   isAttenuationOf(other: Command): boolean {
     return (
       this.segments.length >= other.segments.length &&
@@ -58,17 +89,22 @@ export class Command {
     );
   }
 
+  /**
+   * Convert this command into a string.
+   */
   toString(): string {
     return `/${this.segments.join("/")}`;
   }
 }
-
 export const REVOKE_COMMAND = new Command(["nuc", "revoke"]);
 
 export const InvocationBodySchema = z
   .record(z.string(), z.unknown())
   .transform((args) => new InvocationBody(args));
 
+/**
+ * Body of an invocation token.
+ */
 export class InvocationBody {
   constructor(public readonly args: Record<string, unknown>) {}
 }
@@ -76,6 +112,10 @@ export class InvocationBody {
 export const DelegationBodySchema = z
   .array(PolicySchema)
   .transform((body) => new DelegationBody(body as Array<Policy>));
+
+/**
+ * Body of a delegation token.
+ */
 export class DelegationBody {
   constructor(public readonly policies: Array<Policy>) {}
 }
@@ -91,7 +131,7 @@ export const NucTokenSchema = z
     args: InvocationBodySchema.optional(),
     pol: DelegationBodySchema.optional(),
     meta: z.record(z.string(), z.unknown()).optional(),
-    nonce: z.string(),
+    nonce: HexSchema,
     prf: z.array(z.string()).default([]),
   })
   .transform((token) => {
@@ -101,7 +141,7 @@ export const NucTokenSchema = z
       subject: token.sub,
       command: token.cmd,
       body: tokenBody(token.args, token.pol),
-      nonce: new Uint8Array(Buffer.from(token.nonce, "hex")),
+      nonce: token.nonce,
       proofs: token.prf.map((prf) => new Uint8Array(Buffer.from(prf, "hex"))),
       notBefore: token.nbf
         ? Temporal.Instant.fromEpochSeconds(token.nbf)
@@ -133,12 +173,15 @@ export const NucTokenDataSchema = z.object({
   command: z.instanceof(Command),
   body: z.union([z.instanceof(DelegationBody), z.instanceof(InvocationBody)]),
   meta: z.record(z.string(), z.unknown()).optional(),
-  nonce: z.instanceof(Uint8Array),
+  nonce: HexSchema,
   proofs: z.array(z.instanceof(Uint8Array)),
 });
 
 export type NucTokenData = z.infer<typeof NucTokenDataSchema>;
 
+/**
+ * A class representing a NUC token.
+ */
 export class NucToken {
   constructor(private readonly _data: NucTokenData) {}
 
@@ -162,7 +205,7 @@ export class NucToken {
     return this._data.body;
   }
 
-  get nonce(): Uint8Array {
+  get nonce(): Hex {
     return this._data.nonce;
   }
 
@@ -182,6 +225,9 @@ export class NucToken {
     return this._data.meta;
   }
 
+  /**
+   * Convert this token into JSON.
+   */
   toJson(): Record<string, unknown> {
     return {
       iss: this.issuer.toString(),
@@ -196,14 +242,17 @@ export class NucToken {
           ? this.body.policies.map((policy) => policy.serialize())
           : undefined,
       meta: this.meta,
-      nonce: Buffer.from(this.nonce).toString("hex"),
+      nonce: this.nonce,
       prf:
         this.proofs && this.proofs.length > 0
-          ? this.proofs.map((proof) => Buffer.from(proof).toString("hex"))
+          ? this.proofs.map((proof) => bytesToHex(proof))
           : undefined,
     };
   }
 
+  /**
+   * Convert this command into a string.
+   */
   toString(): string {
     return JSON.stringify(this.toJson());
   }

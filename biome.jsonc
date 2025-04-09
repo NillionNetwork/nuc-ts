@@ -8,7 +8,7 @@
   "files": {
     "ignoreUnknown": false,
     "include": ["**/*.ts", "**/*.mjs", "**/*.json"],
-    "ignore": ["nilvm"]
+    "ignore": ["src/gen-proto", "scripts", "nilvm"]
   },
   "formatter": {
     "enabled": true,
