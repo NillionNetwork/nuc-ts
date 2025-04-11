@@ -5,14 +5,11 @@ import type { NucTokenEnvelope } from "#/envelope";
 import { Command, Did } from "#/token";
 import { Env } from "./fixture/env";
 import { createTestFixtureExtension } from "./fixture/it";
-import { startTokenPriceService } from "./fixture/price-service";
 
 describe("nilauth client", () => {
   const { it, beforeAll } = createTestFixtureExtension(Env.NilauthClient);
 
-  beforeAll(async () => {
-    startTokenPriceService();
-  });
+  beforeAll(async () => {});
 
   it("health", async ({ expect, nilauthClient }) => {
     const response = await nilauthClient.health();

@@ -60,9 +60,6 @@ importers:
       '@commitlint/types':
         specifier: ^19.5.0
         version: 19.5.0
-      '@hono/node-server':
-        specifier: ^1.14.0
-        version: 1.14.0(hono@4.7.5)
       '@types/debug':
         specifier: ^4.1.12
         version: 4.1.12
@@ -78,9 +75,6 @@ importers:
       dotenv:
         specifier: ^16.4.5
         version: 16.4.7
-      hono:
-        specifier: ^4.7.5
-        version: 4.7.5
       lefthook:
         specifier: ^1.11.1
         version: 1.11.1
@@ -529,12 +523,6 @@ packages:
     engines: {node: '>=18'}
     cpu: [x64]
     os: [win32]
-
-  '@hono/node-server@1.14.0':
-    resolution: {integrity: sha512-YUCxJwgHRKSqjrdTk9e4VMGKN27MK5r4+MGPyZTgKH+IYbK+KtYbHeOcPGJ91KGGD6RIQiz2dAHxvjauNhOS8g==}
-    engines: {node: '>=18.14.1'}
-    peerDependencies:
-      hono: ^4
 
   '@inquirer/confirm@5.1.8':
     resolution: {integrity: sha512-dNLWCYZvXDjO3rnQfk2iuJNL4Ivwz/T2+C3+WnNfJKsNGSuOs3wAo2F6e0p946gtSAk31nZMfW+MRmYaplPKsg==}
@@ -1222,10 +1210,6 @@ packages:
 
   hmac-drbg@1.0.1:
     resolution: {integrity: sha512-Tti3gMqLdZfhOQY1Mzf/AanLiqh1WTiJgEj26ZuYQ9fbkLomzGchCws4FyrSd4VkpBfiNhaE1On+lOz894jvXg==}
-
-  hono@4.7.5:
-    resolution: {integrity: sha512-fDOK5W2C1vZACsgLONigdZTRZxuBqFtcKh7bUQ5cVSbwI2RWjloJDcgFOVzbQrlI6pCmhlTsVYZ7zpLj4m4qMQ==}
-    engines: {node: '>=16.9.0'}
 
   html-escaper@2.0.2:
     resolution: {integrity: sha512-H2iMtd0I4Mt5eYiapRdIDjp+XzelXQ0tFE4JS7YFwFevXXMmOp9myNrUvCg0D6ws8iqkRPBfKHgbwig1SmlLfg==}
@@ -2455,10 +2439,6 @@ snapshots:
   '@esbuild/win32-x64@0.25.0':
     optional: true
 
-  '@hono/node-server@1.14.0(hono@4.7.5)':
-    dependencies:
-      hono: 4.7.5
-
   '@inquirer/confirm@5.1.8(@types/node@22.13.13)':
     dependencies:
       '@inquirer/core': 10.1.9(@types/node@22.13.13)
@@ -3146,8 +3126,6 @@ snapshots:
       hash.js: 1.1.7
       minimalistic-assert: 1.0.1
       minimalistic-crypto-utils: 1.0.1
-
-  hono@4.7.5: {}
 
   html-escaper@2.0.2: {}
 
