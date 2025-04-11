@@ -13,7 +13,6 @@ import {
   DIFFERENT_SUBJECTS,
   DelegationRequirement,
   INVALID_AUDIENCE,
-  INVALID_SIGNATURES,
   ISSUER_AUDIENCE_MISMATCH,
   InvocationRequirement,
   MISSING_PROOF,
@@ -299,7 +298,7 @@ describe("chain", () => {
     envelope = `${header}.${payload}.${base64UrlEncode(invalidSignature)}`;
     new Asserter().assertFailure(
       NucTokenEnvelopeSchema.parse(envelope),
-      INVALID_SIGNATURES,
+      ROOT_KEY_SIGNATURE_MISSING,
     );
   });
 

@@ -88,7 +88,10 @@ export class NucTokenValidator {
   }
 
   validateProofs(proofs: Array<NucToken>): void {
-    if (!proofs.length) {
+    if (proofs.length === 0) {
+      if (this.rootIssuers.length > 0) {
+        throw new Error(ROOT_KEY_SIGNATURE_MISSING);
+      }
       return;
     }
     if (
