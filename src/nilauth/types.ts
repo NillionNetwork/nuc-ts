@@ -35,7 +35,7 @@ export const NilauthAboutResponseSchema = z
   }));
 export type NilauthAboutResponse = z.infer<typeof NilauthAboutResponseSchema>;
 
-export const ValidatePaymentResponseSchema = z.null().transform(() => z.void());
+export const ValidatePaymentResponseSchema = z.null().transform(() => {});
 export type ValidatePaymentResponse = z.infer<
   typeof ValidatePaymentResponseSchema
 >;
