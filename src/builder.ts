@@ -1,4 +1,3 @@
-import { randomBytes } from "node:crypto";
 import { bytesToHex } from "@noble/hashes/utils";
 import type { Temporal } from "temporal-polyfill";
 import type { NucTokenEnvelope } from "#/envelope";
@@ -12,6 +11,7 @@ import {
   NucToken,
   NucTokenDataSchema,
 } from "#/token";
+import { randomBytes } from "#/utils";
 import { type Hex, base64UrlEncode } from "#/utils";
 
 const DEFAULT_NONCE_LENGTH = 16;

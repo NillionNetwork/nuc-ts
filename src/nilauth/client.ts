@@ -2,7 +2,6 @@
  * Nilauth client
  */
 
-import { randomBytes } from "node:crypto";
 import { sha256 } from "@noble/hashes/sha256";
 import { bytesToHex } from "@noble/hashes/utils";
 import { Effect as E, pipe } from "effect";
@@ -32,6 +31,7 @@ import {
 } from "#/nilauth/types";
 import type { Payer } from "#/payer/client";
 import { Did, InvocationBody, REVOKE_COMMAND } from "#/token";
+import { randomBytes } from "#/utils";
 import { type Hex, toHex } from "#/utils";
 
 const PAYMENT_TX_RETRIES = [1000, 2000, 3000, 5000, 10000, 10000, 10000];
@@ -55,7 +55,10 @@ export class NilauthClient {
    * Generate a random nonce
    */
   static genNonce(): Hex {
-    return randomBytes(16).toString("hex");
+    const bytes = randomBytes(16);
+    return Array.from(bytes)
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
   }
 
   /**
