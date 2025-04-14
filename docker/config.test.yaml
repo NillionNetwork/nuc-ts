@@ -11,13 +11,13 @@ payments:
   nilchain_url: http://nilchain:26648
 
   subscriptions:
-    renewal_threshold_seconds: 60 
+    renewal_threshold_seconds: 60
     length_seconds: 120
     dollar_cost: 1
 
   token_price:
+    base_url: http://token-price-api/api/v3/simple/price
     api_key: abc
-    base_url: http://172.17.0.1:59123
 
 postgres:
   url: postgres://postgres:postgres@db:5432/postgres

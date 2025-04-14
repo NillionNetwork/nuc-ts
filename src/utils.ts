@@ -54,3 +54,29 @@ function base64UrlToBase64(input: string | Uint8Array): string {
 export function pairwise<T>(input: Array<T>): Array<Array<T>> {
   return input.slice(0, -1).map((item, index) => [item, input[index + 1]]);
 }
+
+/**
+ * Generate random bytes using Web Crypto API
+ * @param size the number of random bytes to generate
+ * @returns An array of random bytes
+ * @throws Error if globalThis or crypto.getRandomValues is not available
+ */
+export function randomBytes(size: number): Uint8Array {
+  // Check if globalThis is available
+  if (typeof globalThis === "undefined") {
+    throw new Error("globalThis is not available in this environment");
+  }
+
+  // Check if crypto API is available
+  if (
+    !globalThis.crypto ||
+    typeof globalThis.crypto.getRandomValues !== "function"
+  ) {
+    throw new Error("Web Crypto API is not available in this environment");
+  }
+
+  // Use Web Crypto API to generate random bytes
+  const buffer = new Uint8Array(size);
+  globalThis.crypto.getRandomValues(buffer);
+  return buffer;
+}

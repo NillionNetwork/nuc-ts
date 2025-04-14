@@ -1,5 +1,5 @@
-import { randomBytes } from "node:crypto";
 import { describe } from "vitest";
+import { randomBytes } from "#/utils";
 import { Env } from "./fixture/env";
 import { createTestFixtureExtension } from "./fixture/it";
 
