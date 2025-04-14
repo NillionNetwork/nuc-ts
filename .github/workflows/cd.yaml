@@ -13,8 +13,8 @@ jobs:
   check-version:
     runs-on: ubuntu-latest
     outputs:
-      should_publish: ${{ steps.version-check.outputs.local_version_is_higher }}
-      tag: ${{ steps.version-check.outputs.tag }}
+      should_publish: ${{ steps.check-version.outputs.local_version_is_higher }}
+      tag: ${{ steps.check-version.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
       - name: Install uv
