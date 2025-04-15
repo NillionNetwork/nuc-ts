@@ -13,12 +13,20 @@ export function toHex(input: string | Record<string, unknown>): Hex {
  * @param input data to be encoded.
  */
 export function base64UrlEncode(input: string | Uint8Array): string {
-  const buffer =
-    typeof input === "string"
-      ? Buffer.from(input, "utf-8")
-      : Buffer.from(input);
+  // Convert input to Uint8Array if it's a string
+  const data =
+    typeof input === "string" ? new TextEncoder().encode(input) : input;
 
-  return buffer.toString("base64url");
+  // Convert Uint8Array to binary string
+  const binaryString = [...new Uint8Array(data)]
+    .map((byte) => String.fromCharCode(byte))
+    .join("");
+
+  // Encode to base64
+  const base64 = btoa(binaryString);
+
+  // Make base64 URL-safe
+  return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
 /**
