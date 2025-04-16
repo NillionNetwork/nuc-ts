@@ -1,16 +1,23 @@
-/**
- * Nilauth client
- */
-
 import { sha256 } from "@noble/hashes/sha256";
 import { bytesToHex } from "@noble/hashes/utils";
-import { Effect as E, pipe } from "effect";
+import { Duration as D, Effect as E, Schedule as S, pipe } from "effect";
 import { Temporal } from "temporal-polyfill";
+import type { ZodError } from "zod";
 import { NucTokenBuilder } from "#/builder";
 import type { NucTokenEnvelope } from "#/envelope";
+import {
+  type InvalidContentType,
+  NilauthErrorCodeSchema,
+  NilauthErrorResponse,
+  PaymentTxFailed,
+} from "#/errors";
 import type { Keypair } from "#/keypair";
 import { log } from "#/logger";
-import { type NilauthError, sendRequest } from "#/nilauth/request-sender";
+import {
+  type FetchError,
+  type RequestOptions,
+  fetchWithTimeout,
+} from "#/nilauth/retryable-fetch";
 import {
   type CreateTokenResponse,
   CreateTokenResponseSchema,
@@ -20,383 +27,503 @@ import {
   NilauthAboutResponseSchema,
   type NilauthHealthResponse,
   NilauthHealthResponseSchema,
-  type SignedRequest,
+  type PublicKey,
   type SubscriptionCostResponse,
   SubscriptionCostResponseSchema,
   type SubscriptionStatusResponse,
   SubscriptionStatusResponseSchema,
-  type ValidatePaymentRequest,
   type ValidatePaymentResponse,
   ValidatePaymentResponseSchema,
 } from "#/nilauth/types";
+import { NilauthUrl } from "#/nilauth/urls";
 import type { Payer } from "#/payer/client";
 import { Did, InvocationBody, REVOKE_COMMAND } from "#/token";
-import { randomBytes } from "#/utils";
-import { type Hex, toHex } from "#/utils";
-
-const PAYMENT_TX_RETRIES = [1000, 2000, 3000, 5000, 10000, 10000, 10000];
-const TX_RETRY_ERROR_CODE = "TRANSACTION_NOT_COMMITTED";
+import {
+  type Hex,
+  assertType,
+  createSignedRequest,
+  extractResponseJson,
+  extractResponseText,
+  generateNonce,
+  parseWithZodSchema,
+  toHex,
+  unwrapEffect,
+} from "#/utils";
 
 /**
- * Client to interact with nilauth.
+ * Options required to construct a NilauthClient.
+ */
+export type NilauthClientOptions = {
+  keypair: Keypair;
+  payer: Payer;
+  nilauth: {
+    baseUrl: string;
+    publicKey: PublicKey;
+  };
+};
+
+/**
+ * Client for interacting with the Nilauth service.
+ *
+ * Provides methods for health checks, subscription management, payments,
+ * token issuance, revocation, and proof chain lookups.
+ * Uses effectful, composable pipelines for all network operations.
  */
 export class NilauthClient {
-  /**
-   * Creates a NilauthClient instance to interact to nilauth at given url
-   * @param baseUrl nilauth's URL
-   * @param timeout The default timeout to use for all requests
-   */
-  constructor(
-    private baseUrl: string,
-    private timeout = 10000,
-  ) {}
+  #options: NilauthClientOptions;
 
   /**
-   * Generate a random nonce
+   * Construct a NilauthClient from options.
+   * @param options - Client configuration including keypair, payer, and nilauth service info.
+   * @returns A new NilauthClient instance.
    */
-  static genNonce(): Hex {
-    const bytes = randomBytes(16);
-    return Array.from(bytes)
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
+  constructor(options: NilauthClientOptions) {
+    this.#options = options;
   }
 
   /**
-   * Creates a signed request from a given payload
-   * @param requestPayload Payload of the request
-   * @param keypair Keypair that will be used to create the request. The private key is only used to sign the payload
-   * to prove ownership and is never transmitted anywhere.
+   * Initialise a NilauthClient by fetching the service's public key.
+   * @param options - Object with `baseUrl`, `keypair`, and `payer`.
+   * @returns Promise resolving to a ready-to-use NilauthClient.
    */
-  private static createSignedRequest(
-    requestPayload: unknown,
-    keypair: Keypair,
-  ): SignedRequest {
-    const payload = JSON.stringify(requestPayload);
-    return {
-      public_key: keypair.publicKey("hex"),
-      signature: keypair.sign(payload, "hex"),
-      payload: toHex(payload),
-    };
+  static async from(options: {
+    baseUrl: string;
+    keypair: Keypair;
+    payer: Payer;
+  }): Promise<NilauthClient> {
+    const { baseUrl, keypair, payer } = options;
+
+    const about = await NilauthClient.about(baseUrl);
+
+    return new NilauthClient({
+      keypair,
+      payer,
+      nilauth: {
+        baseUrl,
+        publicKey: about.publicKey,
+      },
+    });
   }
 
   /**
-   * Check the health of the nilauth server.
+   * Fetch service metadata for a given Nilauth base URL.
+   * @param serviceUrl - The base URL of the Nilauth service.
+   * @returns Promise resolving to the service metadata.
    */
-  async health(): Promise<NilauthHealthResponse> {
+  static about(serviceUrl: string): Promise<NilauthAboutResponse> {
+    const url = NilauthUrl.about(serviceUrl);
+    const request: RequestOptions = { url, method: "GET" };
+
     return pipe(
-      E.tryPromise(() =>
-        sendRequest({
-          url: `${this.baseUrl}/health`,
-          timeout: this.timeout,
-        }),
-      ),
-      E.flatMap((data) => E.try(() => NilauthHealthResponseSchema.parse(data))),
-      E.tapBoth({
-        onFailure: (e) => E.sync(() => log(`get health failed: ${e.cause}`)),
-        onSuccess: (_) => E.sync(() => log("get health successfully")),
-      }),
-      E.runPromise,
+      fetchWithTimeout(request),
+      extractResponseJson(),
+      parseWithZodSchema(NilauthAboutResponseSchema),
+      assertType<NilauthAboutResponse>(),
+      logOutcome(request),
+      unwrapEffect,
     );
   }
 
   /**
-   * Get information about the nilauth server.
+   * Perform a health check for a given Nilauth base URL.
+   * @param serviceUrl - The base URL of the Nilauth service.
+   * @returns Promise resolving to the service health response.
    */
-  async about(): Promise<NilauthAboutResponse> {
+  static health(serviceUrl: string): Promise<NilauthHealthResponse> {
+    const url = NilauthUrl.health(serviceUrl);
+    const request: RequestOptions = { url, method: "GET" };
+
     return pipe(
-      E.tryPromise(() =>
-        sendRequest({ url: `${this.baseUrl}/about`, timeout: this.timeout }),
-      ),
-      E.flatMap((data) => E.try(() => NilauthAboutResponseSchema.parse(data))),
-      E.tapBoth({
-        onFailure: (e) => E.sync(() => log(`get about failed: ${e.cause}`)),
-        onSuccess: (_) => E.sync(() => log("get about successfully")),
-      }),
-      E.runPromise,
+      fetchWithTimeout(request),
+      extractResponseText(),
+      parseWithZodSchema(NilauthHealthResponseSchema),
+      assertType<NilauthHealthResponse>(),
+      logOutcome(request),
+      unwrapEffect,
+    );
+  }
+
+  /** The nilchain payer used for subscription payments. */
+  get payer(): Payer {
+    return this.#options.payer;
+  }
+
+  /** The client's keypair. */
+  get keypair(): Keypair {
+    return this.#options.keypair;
+  }
+
+  /** The Nilauth service's public key. */
+  get nilauthPublicKey(): string {
+    return this.#options.nilauth.publicKey;
+  }
+
+  /** The Nilauth service's base URL. */
+  get nilauthBaseUrl(): string {
+    return this.#options.nilauth.baseUrl;
+  }
+
+  /**
+   * Get nilauth service information for the configured base URL.
+   * @returns Promise resolving to the service metadata.
+   */
+  about(): Promise<NilauthAboutResponse> {
+    return NilauthClient.about(this.nilauthBaseUrl);
+  }
+
+  /**
+   * Perform a health check against the nilauth service.
+   * @returns Promise resolving to the service health response.
+   */
+  health(): Promise<NilauthHealthResponse> {
+    return NilauthClient.health(this.nilauthBaseUrl);
+  }
+
+  /**
+   * Fetch the current subscription cost.
+   */
+  subscriptionCost(): Promise<SubscriptionCostResponse> {
+    return unwrapEffect(this.subscriptionCostEffect());
+  }
+
+  /**
+   * Fetch the current subscription cost.
+   * @returns Promise resolving to the subscription cost.
+   */
+  subscriptionCostEffect(): E.Effect<
+    SubscriptionCostResponse,
+    ZodError | InvalidContentType | FetchError
+  > {
+    const url = NilauthUrl.payments.cost(this.nilauthBaseUrl);
+    const request: RequestOptions = { url, method: "GET" };
+
+    return pipe(
+      fetchWithTimeout(request),
+      extractResponseJson(),
+      parseWithZodSchema(SubscriptionCostResponseSchema),
+      assertType<SubscriptionCostResponse>(),
+      logOutcome(request),
     );
   }
 
   /**
-   * Get the subscription cost in unils.
+   * Fetch the current subscription status.
+   * @returns Promise resolving to the subscription status.
    */
-  async subscriptionCost(): Promise<SubscriptionCostResponse> {
-    return pipe(
-      E.tryPromise(() =>
-        sendRequest({
-          url: `${this.baseUrl}/api/v1/payments/cost`,
-          timeout: this.timeout,
-        }),
-      ),
-      E.flatMap((data) =>
-        E.try(() => SubscriptionCostResponseSchema.parse(data)),
-      ),
-      E.tapBoth({
-        onFailure: (e) =>
-          E.sync(() => log(`get subscription cost failed: ${e.cause}`)),
-        onSuccess: (_) =>
-          E.sync(() => log("get subscription cost successfully")),
-      }),
-      E.runPromise,
-    );
+  subscriptionStatus(): Promise<SubscriptionStatusResponse> {
+    return unwrapEffect(this.subscriptionStatusEffect());
   }
 
   /**
-   * Get the status of the subscription
-   * @param keypair The key for which to get the subscription information. The private key is only used to sign the
-   * payload to prove ownership and is never transmitted anywhere.
+   * Effectful fetch of the current subscription status.
+   * Returns `{ subscribed: false, details: null }` if not subscribed.
+   * @returns Effect resolving to the subscription status or failing with a typed error.
    */
-  async subscriptionStatus(
-    keypair: Keypair,
-  ): Promise<SubscriptionStatusResponse> {
-    const request = NilauthClient.createSignedRequest(
+  subscriptionStatusEffect(): E.Effect<
+    SubscriptionStatusResponse,
+    ZodError | InvalidContentType | FetchError
+  > {
+    const url = NilauthUrl.subscriptions.status(this.nilauthBaseUrl);
+    const body = createSignedRequest(
       {
-        nonce: NilauthClient.genNonce(),
+        nonce: generateNonce(),
         expires_at: Temporal.Now.instant().add({ seconds: 60 }).epochSeconds,
       },
-      keypair,
+      this.keypair,
     );
-    return pipe(
-      E.tryPromise(() =>
-        sendRequest({
-          url: `${this.baseUrl}/api/v1/subscriptions/status`,
-          timeout: this.timeout,
-          init: {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(request),
-          },
-        }),
-      ),
-      E.flatMap((response) =>
-        E.try(() => SubscriptionStatusResponseSchema.parse(response)),
-      ),
-      E.tapBoth({
-        onFailure: (e) =>
-          E.sync(() => log(`request subscription status failed: ${e.cause}`)),
-        onSuccess: (_) =>
-          E.sync(() => log("request subscription status successfully")),
-      }),
-      E.runPromise,
-    );
-  }
-
-  /**
-   * Request a token, issued to the public key tied to the given private key.
-   * @param keypair The key for which the token should be issued to. The private key is only used to sign the
-   * payload to prove ownership and is never transmitted anywhere.
-   */
-  async requestToken(keypair: Keypair): Promise<CreateTokenResponse> {
-    const createRequest = (aboutResponse: NilauthAboutResponse) =>
-      NilauthClient.createSignedRequest(
-        {
-          nonce: NilauthClient.genNonce(),
-          target_public_key: aboutResponse.publicKey,
-          expires_at: Temporal.Now.instant().add({ seconds: 60 }).epochSeconds,
-        },
-        keypair,
-      );
-    return pipe(
-      E.tryPromise(() => this.about()),
-      E.map(createRequest),
-      E.andThen((request) =>
-        sendRequest({
-          url: `${this.baseUrl}/api/v1/nucs/create`,
-          timeout: this.timeout,
-          init: {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(request),
-          },
-        }),
-      ),
-      E.flatMap((response) =>
-        E.try(() => CreateTokenResponseSchema.parse(response)),
-      ),
-      E.tapBoth({
-        onFailure: (e) => E.sync(() => log(`request token failed: ${e.cause}`)),
-        onSuccess: (_) => E.sync(() => log("request token successfully")),
-      }),
-      E.runPromise,
-    );
-  }
-
-  /**
-   * Validates that a payment was made on nilchain
-   * @param request The request with the pàyment's information to validate
-   * @private
-   */
-  private async validatePayment(
-    request: ValidatePaymentRequest,
-  ): Promise<ValidatePaymentResponse> {
-    return pipe(
-      E.tryPromise(() =>
-        sendRequest({
-          url: `${this.baseUrl}/api/v1/payments/validate`,
-          timeout: this.timeout,
-          retryDelays: PAYMENT_TX_RETRIES,
-          retryWhile: (error: NilauthError) =>
-            error.code === TX_RETRY_ERROR_CODE,
-          init: {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(request),
-          },
-        }),
-      ),
-      E.flatMap((response) =>
-        E.try(() => ValidatePaymentResponseSchema.parse(response)),
-      ),
-      E.tapBoth({
-        onFailure: (e) =>
-          E.sync(() => log(`validate payment failed: ${e.cause}`)),
-        onSuccess: (_) => E.sync(() => log("validate payment successfully")),
-      }),
-      E.runPromise,
-    );
-  }
-
-  /**
-   * Pay for a subscription.
-   * @param keypair The key the subscription is for. The private key will be used to sign the subscription message
-   * request to prove ownership and is never transmitted anywhere.
-   * @param payer The payer that will be used.
-   */
-  async paySubscription(
-    keypair: Keypair,
-    payer: Payer,
-  ): Promise<ValidatePaymentResponse> {
-    const buildPayload = (aboutInfo: NilauthAboutResponse, cost: number) => {
-      const payload = JSON.stringify({
-        nonce: NilauthClient.genNonce(),
-        service_public_key: aboutInfo.publicKey,
-      });
-      return {
-        payload: toHex(payload),
-        hash: sha256(payload),
-        cost,
-      };
+    const request: RequestOptions = {
+      url,
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
     };
 
     return pipe(
-      E.tryPromise(() => this.subscriptionStatus(keypair)),
-      E.andThen((subscriptionStatus) => {
-        const now = Temporal.Now.instant();
-        if (
-          subscriptionStatus.subscribed &&
-          subscriptionStatus.details &&
-          subscriptionStatus.details.renewableAt.epochSeconds > now.epochSeconds
-        ) {
-          return E.fail(
-            new Error("subscription cannot be renewed", {
-              cause: `cannot renew before ${subscriptionStatus.details.renewableAt}`,
-            }),
-          );
+      fetchWithTimeout(request),
+      extractResponseJson(),
+      parseWithZodSchema(SubscriptionStatusResponseSchema),
+      E.catchTag("NilauthErrorResponse", (response) => {
+        if (response.code === NilauthErrorCodeSchema.enum.NOT_SUBSCRIBED) {
+          // Return a "subscribed: false" success value
+          const status: SubscriptionStatusResponse = {
+            subscribed: false,
+            details: null,
+          };
+          return E.succeed(status);
         }
-        return pipe(
-          E.all([
-            E.tryPromise(() => this.about()),
-            E.tryPromise(() => this.subscriptionCost()),
-          ]),
-          E.map(([aboutInfo, cost]) => buildPayload(aboutInfo, cost)),
-          E.flatMap(({ payload, hash, cost }) =>
-            pipe(
-              E.tryPromise(() => payer.pay(hash, cost)),
-              E.map((txHash) => ({ payload, txHash })),
-            ),
-          ),
-          E.andThen(({ payload, txHash }) =>
-            this.validatePayment({
-              tx_hash: txHash,
-              payload,
-              public_key: keypair.publicKey("hex"),
-            }),
-          ),
-        );
+        // Re-throw the error for other cases
+        return E.fail(response);
       }),
-      E.tapBoth({
-        onFailure: (e) =>
-          E.sync(() => log(`subscription pay failed: ${e.cause}`)),
-        onSuccess: (_) =>
-          E.sync(() => log("subscription has been paid successfully")),
-      }),
-      E.runPromise,
+      assertType<SubscriptionStatusResponse>(),
+      logOutcome(request),
     );
   }
 
   /**
-   * Revoke a token.
-   * @param keypair The key to use to mint the token.
-   * @param token The token to be revoked.
+   * Pay for a subscription on nilchain and then validate the payment with nilauth.
+   * @returns Promise resolving when payment and validation succeed, or throws on failure.
    */
-  async revokeToken(keypair: Keypair, token: NucTokenEnvelope): Promise<void> {
-    return pipe(
-      E.all([
-        E.tryPromise(() => this.about()),
-        E.tryPromise(() => this.requestToken(keypair)),
-      ]),
-      E.flatMap(([aboutInfo, authToken]) =>
-        E.try(() => {
-          authToken.token.validateSignatures();
-          return NucTokenBuilder.extending(authToken.token)
-            .body(new InvocationBody({ token: token.serialize() }))
-            .command(REVOKE_COMMAND)
-            .audience(Did.fromHex(aboutInfo.publicKey))
-            .build(keypair.privateKey());
-        }),
+  payAndValidate(): Promise<void> {
+    return unwrapEffect(
+      pipe(
+        this.subscriptionCostEffect(),
+        E.flatMap((cost) => this.payEffect(cost)),
+        E.flatMap(({ txHash, payloadHex }) =>
+          this.validatePaymentEffect(txHash, payloadHex),
+        ),
       ),
-      E.andThen((invocation) => {
-        sendRequest({
-          url: `${this.baseUrl}/api/v1/revocations/revoke`,
-          timeout: this.timeout,
-          init: {
-            method: "POST",
-            headers: { Authorization: `Bearer ${invocation}` },
-          },
-        });
-      }),
-      E.tapBoth({
-        onFailure: (e) =>
-          E.sync(() => log(`token revocation failed: ${e.cause}`)),
-        onSuccess: (_) => E.sync(() => log("token was revoked successfully")),
-      }),
-      E.runPromise,
     );
   }
 
   /**
-   * Lookup revoked token that would invalidate the given token
-   * @param token The token to do lookups for.
+   * Initiate a payment for a subscription.
+   * @param amount - The payment amount.
+   * @returns Effect resolving to the transaction hash and payload used, or failing with a payment error.
    */
-  async lookupRevokedTokens(
+  payEffect(
+    amount: number,
+  ): E.Effect<{ txHash: string; payloadHex: Hex }, PaymentTxFailed> {
+    const payload = JSON.stringify({
+      nonce: generateNonce(),
+      service_public_key: this.nilauthPublicKey,
+    });
+    const payloadHex = toHex(payload);
+
+    const request = {
+      payload: payloadHex,
+      hash: sha256(payload),
+      cost: amount,
+    };
+
+    return pipe(
+      E.tryPromise({
+        try: () => this.payer.pay(request.hash, request.cost),
+        catch: (cause) => new PaymentTxFailed({ cause }),
+      }),
+      E.map((txHash) => ({ txHash, payloadHex })),
+    );
+  }
+
+  /**
+   * Validate a payment transaction by hash and payload.
+   * Retries if the transaction is not yet committed.
+   * @param txHash - The transaction hash.
+   * @param payloadHex - The hex-encoded payment payload.
+   * @returns Effect resolving to the validation response or failing with a typed error.
+   */
+  validatePaymentEffect(
+    txHash: string,
+    payloadHex: Hex,
+  ): E.Effect<
+    ValidatePaymentResponse,
+    ZodError | InvalidContentType | FetchError
+  > {
+    const url = NilauthUrl.payments.validate(this.nilauthBaseUrl);
+
+    const request: RequestOptions = {
+      url,
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: {
+        tx_hash: txHash,
+        payload: payloadHex,
+        public_key: this.keypair.publicKey("hex"),
+      },
+    };
+
+    const retry = {
+      baseDelay: D.millis(200),
+      max: 3,
+    };
+
+    const schedule = S.exponential(retry.baseDelay)
+      .pipe(S.jittered)
+      .pipe((s) => S.intersect(s, S.recurs(retry.max)))
+      .pipe((s) =>
+        S.onDecision(s, (delay, decision) =>
+          E.sync(() => {
+            switch (decision._tag) {
+              case "Continue":
+                log(
+                  `Retrying request to ${request.url} after ${delay}ms delay`,
+                );
+                break;
+              case "Done":
+                log(`Retries exhausted for ${request.url}`);
+                break;
+              default:
+                break;
+            }
+          }),
+        ),
+      );
+
+    return pipe(
+      fetchWithTimeout(request),
+      E.retry({
+        schedule,
+        while: (error) =>
+          error instanceof NilauthErrorResponse &&
+          error.code === NilauthErrorCodeSchema.enum.TRANSACTION_NOT_COMMITTED,
+      }),
+      extractResponseJson(),
+      parseWithZodSchema(ValidatePaymentResponseSchema),
+      assertType<ValidatePaymentResponse>(),
+      logOutcome(request),
+    );
+  }
+
+  /**
+   * Request a new token from Nilauth.
+   * @returns Promise resolving to the created token response.
+   */
+  requestToken(): Promise<CreateTokenResponse> {
+    return pipe(this.requestTokenEffect(), unwrapEffect);
+  }
+
+  /**
+   * Effectful request for a new token from Nilauth.
+   * @returns Effect resolving to the created token response or failing with a typed error.
+   */
+  requestTokenEffect(): E.Effect<
+    CreateTokenResponse,
+    ZodError | InvalidContentType | FetchError
+  > {
+    const url = NilauthUrl.nucs.create(this.nilauthBaseUrl);
+    const body = createSignedRequest(
+      {
+        nonce: generateNonce(),
+        target_public_key: this.nilauthPublicKey,
+        expires_at: Temporal.Now.instant().add({ seconds: 60 }).epochSeconds,
+      },
+      this.keypair,
+    );
+    const request: RequestOptions = {
+      url,
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+    };
+
+    return pipe(
+      fetchWithTimeout(request),
+      extractResponseJson(),
+      parseWithZodSchema(CreateTokenResponseSchema),
+      assertType<CreateTokenResponse>(),
+      logOutcome(request),
+    );
+  }
+
+  /**
+   * Revoke a token by submitting a revocation invocation.
+   * @param tokenToRevoke - The envelope of the token to revoke.
+   * @returns Promise resolving when revocation is complete.
+   */
+  revokeToken(tokenToRevoke: NucTokenEnvelope): Promise<void> {
+    return unwrapEffect(
+      pipe(
+        this.requestTokenEffect(),
+        E.map((envelope) => {
+          return NucTokenBuilder.extending(envelope.token)
+            .body(new InvocationBody({ token: tokenToRevoke.serialize() }))
+            .command(REVOKE_COMMAND)
+            .audience(Did.fromHex(this.nilauthPublicKey))
+            .build(this.keypair.privateKey());
+        }),
+        E.flatMap((revokeTokenInvocation) =>
+          this.revokeTokenEffect(revokeTokenInvocation),
+        ),
+      ),
+    );
+  }
+
+  /**
+   * Revoke a token by submitting a revocation invocation.
+   */
+  revokeTokenEffect(
+    revokeTokenInvocation: string,
+  ): E.Effect<void, ZodError | InvalidContentType | FetchError> {
+    const url = NilauthUrl.nucs.revoke(this.nilauthBaseUrl);
+    const request: RequestOptions = {
+      url,
+      method: "POST",
+      headers: { Authorization: `Bearer ${revokeTokenInvocation}` },
+    };
+
+    return pipe(
+      fetchWithTimeout(request),
+      extractResponseJson(),
+      parseWithZodSchema(ValidatePaymentResponseSchema),
+      assertType<ValidatePaymentResponse>(),
+      logOutcome({ url, method: "POST" }),
+    );
+  }
+
+  /**
+   * Lookup revoked tokens in the proof chain.
+   * @param token - The envelope of the token to check.
+   * @returns Promise resolving to the lookup response.
+   */
+  lookupRevokedTokens(
     token: NucTokenEnvelope,
   ): Promise<LookupRevokedTokenResponse> {
-    const request = {
+    return unwrapEffect(this.findRevocationsInProofChainEffect(token));
+  }
+
+  /**
+   * Effectful lookup of revoked tokens in the proof chain.
+   * @param token - The envelope of the token to check.
+   * @returns Effect resolving to the lookup response or failing with a typed error.
+   */
+  findRevocationsInProofChainEffect(
+    token: NucTokenEnvelope,
+  ): E.Effect<
+    LookupRevokedTokenResponse,
+    ZodError | InvalidContentType | FetchError
+  > {
+    const url = NilauthUrl.nucs.findRevocations(this.nilauthBaseUrl);
+    const body = {
       hashes: [token.token, ...token.proofs].map((token) =>
         bytesToHex(token.computeHash()),
       ),
     };
+    const request: RequestOptions = {
+      url,
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+    };
+
     return pipe(
-      E.tryPromise(() =>
-        sendRequest({
-          url: `${this.baseUrl}/api/v1/revocations/lookup`,
-          timeout: this.timeout,
-          init: {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(request),
-          },
-        }),
-      ),
-      E.flatMap((data) =>
-        E.try(() => LookupRevokedTokenResponseSchema.parse(data)),
-      ),
-      E.tapBoth({
-        onFailure: (e) =>
-          E.sync(() => log(`lookup revoked tokens failed: ${e.cause}`)),
-        onSuccess: (_) =>
-          E.sync(() => log("lookup revoked tokens finished successfully")),
-      }),
-      E.runPromise,
+      fetchWithTimeout(request),
+      extractResponseJson(),
+      parseWithZodSchema(LookupRevokedTokenResponseSchema),
+      assertType<LookupRevokedTokenResponse>(),
+      logOutcome(request),
     );
   }
+}
+
+/**
+ * Pipeable combinator to log the outcome (success or failure) of an Effect.
+ *
+ * @param request - The request options, including URL and method.
+ * @returns A function that logs the outcome of the effect.
+ */
+function logOutcome<A, E>(
+  request: RequestOptions,
+): (effect: E.Effect<A, E>) => E.Effect<A, E> {
+  const { method, url } = request;
+
+  return (effect) =>
+    effect.pipe(
+      E.tapBoth({
+        onFailure: (e) =>
+          E.sync(() =>
+            log(`Request failed: method=${method} url=${url} error=${e}`),
+          ),
+        onSuccess: () =>
+          E.sync(() => log(`Request succeeded: method=${method} url=${url}`)),
+      }),
+    );
 }
