@@ -1,7 +1,15 @@
 import { Temporal } from "temporal-polyfill";
 import z from "zod";
 import { NucTokenEnvelopeSchema } from "#/envelope";
-import type { TxHash } from "#/payer/types";
+
+const PUBLIC_KEY_LENGTH = 66;
+
+export const PublicKeySchema = z
+  .string()
+  .length(PUBLIC_KEY_LENGTH)
+  .brand("PublicKey");
+
+export type PublicKey = z.infer<typeof PublicKeySchema>;
 
 export type SignedRequest = {
   public_key: string;
@@ -25,7 +33,7 @@ export const BuildSchema = z
 export const NilauthAboutResponseSchema = z
   .object({
     started: z.string(),
-    public_key: z.string(),
+    public_key: PublicKeySchema,
     build: BuildSchema,
   })
   .transform(({ started, public_key, build }) => ({
@@ -33,7 +41,7 @@ export const NilauthAboutResponseSchema = z
     publicKey: public_key,
     build,
   }));
-export type NilauthAboutResponse = z.infer<typeof NilauthAboutResponseSchema>;
+export type NilauthAboutResponse = z.output<typeof NilauthAboutResponseSchema>;
 
 export const ValidatePaymentResponseSchema = z.null().transform(() => {});
 export type ValidatePaymentResponse = z.infer<
@@ -45,7 +53,7 @@ export const SubscriptionCostResponseSchema = z
     cost_unils: z.number(),
   })
   .transform(({ cost_unils }) => cost_unils);
-export type SubscriptionCostResponse = z.infer<
+export type SubscriptionCostResponse = z.output<
   typeof SubscriptionCostResponseSchema
 >;
 
@@ -82,17 +90,11 @@ export const RevokedTokenSchema = z
     tokenHash: token_hash,
     revokedAt: revoked_at,
   }));
-export type RevokedToken = z.infer<typeof RevokedTokenSchema>;
+export type RevokedToken = z.output<typeof RevokedTokenSchema>;
 
 export const LookupRevokedTokenResponseSchema = z.object({
   revoked: z.array(RevokedTokenSchema),
 });
-export type LookupRevokedTokenResponse = z.infer<
+export type LookupRevokedTokenResponse = z.output<
   typeof LookupRevokedTokenResponseSchema
 >;
-
-export type ValidatePaymentRequest = {
-  tx_hash: TxHash;
-  payload: string;
-  public_key: string;
-};

@@ -34,37 +34,32 @@ describe("nilauth client", () => {
     expect(response).toBe(1000000);
   });
 
-  it("is not subscribed", async ({ expect, nilauthClient, keypair }) => {
-    const response = await nilauthClient.subscriptionStatus(keypair);
+  it("is not subscribed", async ({ expect, nilauthClient }) => {
+    const response = await nilauthClient.subscriptionStatus();
     expect(response.subscribed).toBeFalsy();
   });
 
-  it("pay subscription", async ({ nilauthClient, keypair, payer }) => {
-    await nilauthClient.paySubscription(keypair, payer);
+  it("pay and validate subscription", async ({ expect, nilauthClient }) => {
+    const result = await nilauthClient.payAndValidate();
+    expect(result).toBeUndefined();
   });
 
-  it("is subscribed", async ({ expect, nilauthClient, keypair }) => {
-    const response = await nilauthClient.subscriptionStatus(keypair);
+  it("is subscribed", async ({ expect, nilauthClient }) => {
+    const response = await nilauthClient.subscriptionStatus();
     expect(response.subscribed).toBeTruthy();
   });
 
-  it("subscription cannot be renewed", async ({
-    expect,
-    nilauthClient,
-    keypair,
-    payer,
-  }) => {
-    await expect(() =>
-      nilauthClient.paySubscription(keypair, payer),
-    ).rejects.toThrow("subscription cannot be renewed");
+  it("cannot renew subscription yet", async ({ expect, nilauthClient }) => {
+    const promise = nilauthClient.payAndValidate();
+    await expect(promise).rejects.toThrow("cannot renew subscription yet");
   });
 
   let envelope: NucTokenEnvelope;
-  it("request token", async ({ expect, nilauthClient, keypair }) => {
-    const did = new Did(keypair.publicKey("bytes"));
+  it("request token", async ({ expect, nilauthClient }) => {
+    const did = new Did(nilauthClient.keypair.publicKey());
     const now = Temporal.Now.instant().epochSeconds;
 
-    envelope = (await nilauthClient.requestToken(keypair)).token;
+    envelope = (await nilauthClient.requestToken()).token;
 
     envelope.validateSignatures();
 
@@ -81,8 +76,8 @@ describe("nilauth client", () => {
     ).toBeFalsy();
   });
 
-  it("revoke token", async ({ expect, nilauthClient, keypair }) => {
-    await nilauthClient.revokeToken(keypair, envelope);
+  it("revoke token", async ({ expect, nilauthClient }) => {
+    await nilauthClient.revokeToken(envelope);
 
     await new Promise((f) => setTimeout(f, 200));
     const computeHash = bytesToHex(envelope.token.computeHash());
