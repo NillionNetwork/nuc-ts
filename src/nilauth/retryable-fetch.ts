@@ -1,8 +1,10 @@
 import { Effect as E, pipe } from "effect";
+import { StatusCodes } from "http-status-codes";
 import {
   NilauthErrorCodeSchema,
   NilauthErrorResponse,
-  NilauthErrorResponseSchema,
+  type NilauthErrorResponseBody,
+  NilauthErrorResponseBodySchema,
   NilauthUnreachable,
 } from "#/errors";
 import { assertType, extractResponseJson, parseWithZodSchema } from "#/utils";
@@ -81,20 +83,46 @@ export function fetchWithTimeout(
       return pipe(
         E.succeed(response),
         extractResponseJson(),
-        parseWithZodSchema(NilauthErrorResponseSchema),
-        assertType<NilauthErrorResponse>(),
+        parseWithZodSchema(NilauthErrorResponseBodySchema),
+        assertType<NilauthErrorResponseBody>(),
 
-        // If parsing fails, map the error to a generic NilauthErrorResponse with details.
-        E.mapError(
-          (cause) =>
-            new NilauthErrorResponse({
+        // Convert into nilauth error
+        E.map((body) => {
+          return new NilauthErrorResponse({
+            url,
+            code: body.error_code,
+            message: body.message,
+            status: response.status,
+            cause: body,
+          });
+        }),
+
+        // If parsing failed (eg malformed or not json body)
+        E.mapError((cause) => {
+          // This is a TRANSACTION_LOOKUP response workaround since the pipeline below cannot handle the empty content-type header
+          if (
+            url.includes("/api/v1/subscriptions/status") &&
+            response.status === StatusCodes.NOT_FOUND &&
+            response.headers.get("content-type") === null
+          ) {
+            console.log("got transaction not found");
+            return new NilauthErrorResponse({
               url,
-              code: NilauthErrorCodeSchema.enum.INTERNAL,
-              message: "Failed to parse non 200 status code",
+              code: NilauthErrorCodeSchema.enum.TRANSACTION_LOOKUP,
+              message: "transaction not found",
               status: response.status,
-              cause,
-            }),
-        ),
+              cause: response,
+            });
+          }
+
+          return new NilauthErrorResponse({
+            url,
+            code: NilauthErrorCodeSchema.enum.INTERNAL,
+            message: "Failed to parse non-200 status code",
+            status: response.status,
+            cause,
+          });
+        }),
 
         // If we get to this point the response represents a failure, even if it was successfully
         // parsed, so we need to switch onto the failure track
