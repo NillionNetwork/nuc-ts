@@ -1,4 +1,5 @@
 import dockerCompose from "docker-compose";
+import * as dotenv from "dotenv";
 import type { TestProject } from "vitest/node";
 import { NilauthClient } from "#/nilauth/client";
 
@@ -8,6 +9,7 @@ const composeOptions = {
 };
 
 export async function setup(_project: TestProject) {
+  dotenv.config({ path: ".env.test" });
   console.log("🚀 Starting containers...");
   try {
     // Check if containers are already running
@@ -32,15 +34,12 @@ export async function setup(_project: TestProject) {
     await retryProcess(dockerStatus, "Error starting containers");
 
     // Although Docker is active, nilauth could be initializing. We'll wait for it to respond to our requests.
-    const nilAuth = new NilauthClient("http://127.0.0.1:30921");
-    const nilAuthIsUp = async () => {
-      try {
-        return (await nilAuth.health()) === "OK";
-      } catch (_) {
-        return false;
-      }
-    };
-    await retryProcess(nilAuthIsUp, "Error starting nilauth container");
+    const isNilauthUp = () =>
+      NilauthClient.health(process.env.NILLION_NILAUTH_URL!)
+        .then((response) => response === "OK")
+        .catch(() => false);
+
+    await retryProcess(isNilauthUp, "Error starting nilauth container");
 
     console.log("✅ Containers started successfully.");
   } catch (error) {
