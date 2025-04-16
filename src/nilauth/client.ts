@@ -243,7 +243,10 @@ export class NilauthClient {
       extractResponseJson(),
       parseWithZodSchema(SubscriptionStatusResponseSchema),
       E.catchTag("NilauthErrorResponse", (response) => {
-        if (response.code === NilauthErrorCodeSchema.enum.NOT_SUBSCRIBED) {
+        if (
+          response.code === NilauthErrorCodeSchema.enum.NOT_SUBSCRIBED ||
+          response.code === NilauthErrorCodeSchema.enum.TRANSACTION_LOOKUP
+        ) {
           // Return a "subscribed: false" success value
           const status: SubscriptionStatusResponse = {
             subscribed: false,

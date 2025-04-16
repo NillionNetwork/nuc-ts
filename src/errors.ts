@@ -95,10 +95,14 @@ export type NilauthErrorCode = z.infer<typeof NilauthErrorCodeSchema>;
  * @property message - Human-readable error message.
  * @property code - Machine-readable error code.
  */
-export const NilauthErrorResponseSchema = z.object({
+export const NilauthErrorResponseBodySchema = z.object({
   message: z.string(),
   error_code: NilauthErrorCodeSchema,
 });
+
+export type NilauthErrorResponseBody = z.infer<
+  typeof NilauthErrorResponseBodySchema
+>;
 
 /**
  * Error thrown when the Nilauth server returns a structured error response.
