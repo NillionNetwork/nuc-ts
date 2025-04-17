@@ -70,10 +70,12 @@ describe("nilauth client", () => {
 
     await new Promise((f) => setTimeout(f, 200));
     const computeHash = bytesToHex(envelope.token.computeHash());
-    const revokedToken = await nilauthClient.lookupRevokedTokens(envelope);
-    expect(
-      revokedToken.revoked.map((t) => t.tokenHash).includes(computeHash),
-    ).toBeFalsy();
+
+    const { revoked } =
+      await nilauthClient.findRevocationsInProofChain(envelope);
+
+    const wasRevoked = revoked.map((t) => t.tokenHash).includes(computeHash);
+    expect(wasRevoked).toBeFalsy();
   });
 
   it("revoke token", async ({ expect, nilauthClient }) => {
@@ -81,9 +83,10 @@ describe("nilauth client", () => {
 
     await new Promise((f) => setTimeout(f, 200));
     const computeHash = bytesToHex(envelope.token.computeHash());
-    const revokedToken = await nilauthClient.lookupRevokedTokens(envelope);
-    expect(
-      revokedToken.revoked.map((t) => t.tokenHash).includes(computeHash),
-    ).toBeTruthy();
+    const { revoked } =
+      await nilauthClient.findRevocationsInProofChain(envelope);
+
+    const wasRevoked = revoked.map((t) => t.tokenHash).includes(computeHash);
+    expect(wasRevoked).toBeTruthy();
   });
 });
