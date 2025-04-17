@@ -143,6 +143,59 @@ export class NilauthClient {
     );
   }
 
+  /**
+   * Asks the nilauth server to provide, if any, revoked tokens in the proof chain. If any revocations are returned
+   * then any entity receiving the provided token should reject it.
+   *
+   * @param baseUrl - The base URL of the Nilauth service.
+   * @param token - The envelope of the token to check.
+   * @returns Promise resolving to the lookup response.
+   */
+  static findRevocationsInProofChain(
+    baseUrl: string,
+    token: NucTokenEnvelope,
+  ): Promise<LookupRevokedTokenResponse> {
+    return unwrapEffect(
+      NilauthClient.findRevocationsInProofChainEffect(baseUrl, token),
+    );
+  }
+
+  /**
+   * Effectfully queries the specified nilauth server to provide, if any, revoked tokens in the proof chain.
+   *
+   * @param baseUrl - The base URL of the Nilauth service.
+   * @param token - The envelope of the token to check.
+   * @returns Effect resolving to the lookup response or failing with a typed error.
+   */
+  static findRevocationsInProofChainEffect(
+    baseUrl: string,
+    token: NucTokenEnvelope,
+  ): E.Effect<
+    LookupRevokedTokenResponse,
+    ZodError | InvalidContentType | FetchError
+  > {
+    const url = NilauthUrl.nucs.findRevocations(baseUrl);
+    const body = {
+      hashes: [token.token, ...token.proofs].map((token) =>
+        bytesToHex(token.computeHash()),
+      ),
+    };
+    const request: RequestOptions = {
+      url,
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+    };
+
+    return pipe(
+      fetchWithTimeout(request),
+      extractResponseJson(),
+      parseWithZodSchema(LookupRevokedTokenResponseSchema),
+      assertType<LookupRevokedTokenResponse>(),
+      logOutcome(request),
+    );
+  }
+
   /** The nilchain payer used for subscription payments. */
   get payer(): Payer {
     return this.#options.payer;
@@ -460,46 +513,20 @@ export class NilauthClient {
   }
 
   /**
-   * Lookup revoked tokens in the proof chain.
+   * Asks the nilauth server to provide, if any, revoked tokens in the proof chain. If any revocations are returned
+   * then any entity receiving the provided token should reject it.
+   *
    * @param token - The envelope of the token to check.
    * @returns Promise resolving to the lookup response.
    */
-  lookupRevokedTokens(
+  findRevocationsInProofChain(
     token: NucTokenEnvelope,
   ): Promise<LookupRevokedTokenResponse> {
-    return unwrapEffect(this.findRevocationsInProofChainEffect(token));
-  }
-
-  /**
-   * Effectful lookup of revoked tokens in the proof chain.
-   * @param token - The envelope of the token to check.
-   * @returns Effect resolving to the lookup response or failing with a typed error.
-   */
-  findRevocationsInProofChainEffect(
-    token: NucTokenEnvelope,
-  ): E.Effect<
-    LookupRevokedTokenResponse,
-    ZodError | InvalidContentType | FetchError
-  > {
-    const url = NilauthUrl.nucs.findRevocations(this.nilauthBaseUrl);
-    const body = {
-      hashes: [token.token, ...token.proofs].map((token) =>
-        bytesToHex(token.computeHash()),
+    return unwrapEffect(
+      NilauthClient.findRevocationsInProofChainEffect(
+        this.nilauthBaseUrl,
+        token,
       ),
-    };
-    const request: RequestOptions = {
-      url,
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body,
-    };
-
-    return pipe(
-      fetchWithTimeout(request),
-      extractResponseJson(),
-      parseWithZodSchema(LookupRevokedTokenResponseSchema),
-      assertType<LookupRevokedTokenResponse>(),
-      logOutcome(request),
     );
   }
 }
