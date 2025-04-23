@@ -1,0 +1,7 @@
+{
+  "entryPoints": ["./src/lib.ts"],
+  "out": "docs",
+  "excludePrivate": true,
+  "excludeProtected": true,
+  "theme": "default"
+}
