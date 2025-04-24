@@ -13,6 +13,7 @@ import {
   DIFFERENT_SUBJECTS,
   DelegationRequirement,
   INVALID_AUDIENCE,
+  INVALID_SIGNATURES,
   ISSUER_AUDIENCE_MISMATCH,
   InvocationRequirement,
   MISSING_PROOF,
@@ -71,16 +72,26 @@ class Chainer {
   }
 }
 
+type AsserterConfiguration = {
+  parameters: ValidationParameters;
+  rootDids: Did[];
+};
+
 class Asserter {
-  constructor(
-    private readonly parameters: ValidationParameters = new ValidationParameters(),
-  ) {}
+  private readonly config: AsserterConfiguration;
+  constructor(config: Partial<AsserterConfiguration> = {}) {
+    this.config = {
+      parameters: new ValidationParameters(),
+      rootDids: ROOT_DIDS,
+      ...config,
+    };
+  }
 
   assertFailure(envelope: NucTokenEnvelope, message: string) {
     Asserter.log_tokens(envelope);
     const validator = new NucTokenValidator(ROOT_DIDS);
     try {
-      validator.validate(envelope, this.parameters);
+      validator.validate(envelope, this.config.parameters);
     } catch (e) {
       if (e instanceof Error) {
         if (e.message === message) {
@@ -94,8 +105,8 @@ class Asserter {
 
   assertSuccess(envelope: NucTokenEnvelope) {
     Asserter.log_tokens(envelope);
-    const validator = new NucTokenValidator(ROOT_DIDS);
-    validator.validate(envelope, this.parameters);
+    const validator = new NucTokenValidator(this.config.rootDids);
+    validator.validate(envelope, this.config.parameters);
   }
 
   static log_tokens(envelope: NucTokenEnvelope) {
@@ -198,7 +209,7 @@ describe("chain", () => {
 
     const parameters = new ValidationParameters();
     parameters.config.maxChainLength = 2;
-    new Asserter(parameters).assertFailure(envelope, CHAIN_TOO_LONG);
+    new Asserter({ parameters }).assertFailure(envelope, CHAIN_TOO_LONG);
   });
 
   it("command not attenuated", () => {
@@ -259,7 +270,7 @@ describe("chain", () => {
     parameters.config.tokenRequirements = new InvocationRequirement(
       expectedDid,
     );
-    new Asserter(parameters).assertFailure(envelope, INVALID_AUDIENCE);
+    new Asserter({ parameters }).assertFailure(envelope, INVALID_AUDIENCE);
   });
 
   it("invalid audience delegation", () => {
@@ -280,7 +291,7 @@ describe("chain", () => {
     parameters.config.tokenRequirements = new DelegationRequirement(
       expectedDid,
     );
-    new Asserter(parameters).assertFailure(envelope, INVALID_AUDIENCE);
+    new Asserter({ parameters }).assertFailure(envelope, INVALID_AUDIENCE);
   });
 
   it("invalid signature", () => {
@@ -298,7 +309,7 @@ describe("chain", () => {
     envelope = `${header}.${payload}.${base64UrlEncode(invalidSignature)}`;
     new Asserter().assertFailure(
       NucTokenEnvelopeSchema.parse(envelope),
-      ROOT_KEY_SIGNATURE_MISSING,
+      INVALID_SIGNATURES,
     );
   });
 
@@ -333,7 +344,7 @@ describe("chain", () => {
     parameters.config.tokenRequirements = new DelegationRequirement(
       new Did(Uint8Array.from(Array(33).fill(0xaa))),
     );
-    new Asserter(parameters).assertFailure(envelope, NEED_DELEGATION);
+    new Asserter({ parameters }).assertFailure(envelope, NEED_DELEGATION);
   });
 
   it("need invocation", () => {
@@ -349,7 +360,7 @@ describe("chain", () => {
     parameters.config.tokenRequirements = new InvocationRequirement(
       new Did(Uint8Array.from(Array(33).fill(0xaa))),
     );
-    new Asserter(parameters).assertFailure(envelope, NEED_INVOCATION);
+    new Asserter({ parameters }).assertFailure(envelope, NEED_INVOCATION);
   });
 
   it("not before backwards", () => {
@@ -368,7 +379,7 @@ describe("chain", () => {
 
     const parameters = new ValidationParameters();
     parameters.config.currentTime = now;
-    new Asserter(parameters).assertFailure(envelope, NOT_BEFORE_BACKWARDS);
+    new Asserter({ parameters }).assertFailure(envelope, NOT_BEFORE_BACKWARDS);
   });
 
   it("not before not met", () => {
@@ -385,7 +396,7 @@ describe("chain", () => {
 
     const parameters = new ValidationParameters();
     parameters.config.currentTime = now;
-    new Asserter(parameters).assertFailure(envelope, NOT_BEFORE_NOT_MET);
+    new Asserter({ parameters }).assertFailure(envelope, NOT_BEFORE_NOT_MET);
   });
 
   it("root policy not met", () => {
@@ -449,7 +460,7 @@ describe("chain", () => {
     ]);
     const parameters = new ValidationParameters();
     parameters.config.maxPolicyDepth = maxDepth;
-    new Asserter(parameters).assertFailure(envelope, POLICY_TOO_DEEP);
+    new Asserter({ parameters }).assertFailure(envelope, POLICY_TOO_DEEP);
   });
 
   it("policy too wide", () => {
@@ -468,7 +479,7 @@ describe("chain", () => {
     ]);
     const parameters = new ValidationParameters();
     parameters.config.maxPolicyWidth = maxWidth;
-    new Asserter(parameters).assertFailure(envelope, POLICY_TOO_WIDE);
+    new Asserter({ parameters }).assertFailure(envelope, POLICY_TOO_WIDE);
   });
 
   it("proofs must be delegations", () => {
@@ -569,6 +580,24 @@ describe("chain", () => {
     ]);
     const parameters = new ValidationParameters();
     parameters.config.tokenRequirements = new InvocationRequirement(rpcDid);
-    new Asserter(parameters).assertSuccess(envelope);
+    new Asserter({ parameters }).assertSuccess(envelope);
+  });
+
+  it("test root token", () => {
+    const key = secp256k1.utils.randomPrivateKey();
+    const root = delegation(key).command(new Command(["nil"]));
+    const envelope = new Chainer().chain([
+      SignableNucTokenBuilder.issuedByRoot(root),
+    ]);
+    new Asserter().assertSuccess(envelope);
+  });
+
+  it("test no root keys", () => {
+    const key = secp256k1.utils.randomPrivateKey();
+    const root = delegation(key).command(new Command(["nil"]));
+    const envelope = new Chainer().chain([
+      new SignableNucTokenBuilder(key, root),
+    ]);
+    new Asserter({ rootDids: [] }).assertSuccess(envelope);
   });
 });

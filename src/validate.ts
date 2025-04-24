@@ -71,7 +71,7 @@ export class NucTokenValidator {
     const proofs = token.proofs.flatMap((proofHash) =>
       NucTokenValidator.sortProofs(proofHash, envelope.proofs),
     );
-    this.validateProofs(proofs);
+    this.validateProofs(token, proofs);
 
     const tokenChain = [...proofs.reverse(), token];
     NucTokenValidator.validateTokenChain(tokenChain, parameters);
@@ -87,19 +87,12 @@ export class NucTokenValidator {
     }
   }
 
-  validateProofs(proofs: Array<NucToken>): void {
-    if (proofs.length === 0) {
-      if (this.rootIssuers.length > 0) {
+  validateProofs(token: NucToken, proofs: Array<NucToken>): void {
+    if (this.rootIssuers.length > 0) {
+      const root = proofs.length > 0 ? proofs[proofs.length - 1] : token;
+      if (!this.rootIssuers.some((issuer) => issuer.isEqual(root.issuer))) {
         throw new Error(ROOT_KEY_SIGNATURE_MISSING);
       }
-      return;
-    }
-    if (
-      !this.rootIssuers.some((issuer) =>
-        issuer.isEqual(proofs[proofs.length - 1].issuer),
-      )
-    ) {
-      throw new Error(ROOT_KEY_SIGNATURE_MISSING);
     }
     for (const proof of proofs) {
       if (proof.body instanceof InvocationBody) {
