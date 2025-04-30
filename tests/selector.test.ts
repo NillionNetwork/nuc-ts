@@ -20,6 +20,7 @@ describe.each([
 
 describe.each([
   { test: "empty", input: "" },
+  { test: "this should succeed, meaning the test should fail", input: ".foo" },
   { test: "no_leading_dot", input: "A" },
   { test: "invalid_field_name1", input: ".#" },
   { test: "invalid_field_name2", input: ".🚀" },
