@@ -1,10 +1,11 @@
 import { secp256k1 } from "@noble/curves/secp256k1";
+import type { Record } from "effect";
 import { Temporal } from "temporal-polyfill";
 import { describe, it } from "vitest";
 import { NucTokenBuilder } from "#/builder";
 import { type NucTokenEnvelope, NucTokenEnvelopeSchema } from "#/envelope";
 import { And, AnyOf, Equals, Not, Or, type Policy } from "#/policy";
-import { Selector } from "#/selector";
+import { SelectorSchema } from "#/selector";
 import { Command, Did } from "#/token";
 import { base64UrlDecodeToBytes, base64UrlEncode, pairwise } from "#/utils";
 import {
@@ -75,6 +76,7 @@ class Chainer {
 type AsserterConfiguration = {
   parameters: ValidationParameters;
   rootDids: Did[];
+  context: Record<string, unknown>;
 };
 
 class Asserter {
@@ -83,6 +85,7 @@ class Asserter {
     this.config = {
       parameters: new ValidationParameters(),
       rootDids: ROOT_DIDS,
+      context: {},
       ...config,
     };
   }
@@ -91,7 +94,7 @@ class Asserter {
     Asserter.log_tokens(envelope);
     const validator = new NucTokenValidator(ROOT_DIDS);
     try {
-      validator.validate(envelope, this.config.parameters);
+      validator.validate(envelope, this.config.parameters, this.config.context);
     } catch (e) {
       if (e instanceof Error) {
         if (e.message === message) {
@@ -106,7 +109,7 @@ class Asserter {
   assertSuccess(envelope: NucTokenEnvelope) {
     Asserter.log_tokens(envelope);
     const validator = new NucTokenValidator(this.config.rootDids);
-    validator.validate(envelope, this.config.parameters);
+    validator.validate(envelope, this.config.parameters, this.config.context);
   }
 
   static log_tokens(envelope: NucTokenEnvelope) {
@@ -135,43 +138,43 @@ function invocation(key: Uint8Array): NucTokenBuilder {
 
 describe.each([
   {
-    policy: new Equals(new Selector(["field"]), 42),
+    policy: new Equals(SelectorSchema.parse(".field"), 42),
     expected: new PolicyTreeProperties({ maxDepth: 1, maxWidth: 1 }),
   },
   {
-    policy: new AnyOf(new Selector(["field"]), [42, 1337]),
+    policy: new AnyOf(SelectorSchema.parse(".field"), [42, 1337]),
     expected: new PolicyTreeProperties({ maxDepth: 1, maxWidth: 2 }),
   },
   {
-    policy: new Not(new Equals(new Selector(["field"]), 42)),
+    policy: new Not(new Equals(SelectorSchema.parse(".field"), 42)),
     expected: new PolicyTreeProperties({ maxDepth: 2, maxWidth: 1 }),
   },
   {
-    policy: new And([new Equals(new Selector(["field"]), 42)]),
+    policy: new And([new Equals(SelectorSchema.parse(".field"), 42)]),
     expected: new PolicyTreeProperties({ maxDepth: 2, maxWidth: 1 }),
   },
   {
-    policy: new Or([new Equals(new Selector(["field"]), 42)]),
+    policy: new Or([new Equals(SelectorSchema.parse(".field"), 42)]),
     expected: new PolicyTreeProperties({ maxDepth: 2, maxWidth: 1 }),
   },
   {
     policy: new And([
-      new Equals(new Selector(["field"]), 42),
-      new Equals(new Selector(["field"]), 42),
+      new Equals(SelectorSchema.parse(".field"), 42),
+      new Equals(SelectorSchema.parse(".field"), 42),
     ]),
     expected: new PolicyTreeProperties({ maxDepth: 2, maxWidth: 2 }),
   },
   {
     policy: new Or([
-      new Equals(new Selector(["field"]), 42),
-      new Equals(new Selector(["field"]), 42),
+      new Equals(SelectorSchema.parse(".field"), 42),
+      new Equals(SelectorSchema.parse(".field"), 42),
     ]),
     expected: new PolicyTreeProperties({ maxDepth: 2, maxWidth: 2 }),
   },
   {
     policy: new And([
-      new Not(new Equals(new Selector(["field"]), 42)),
-      new AnyOf(new Selector(["field"]), [42, 1337]),
+      new Not(new Equals(SelectorSchema.parse(".field"), 42)),
+      new AnyOf(SelectorSchema.parse(".field"), [42, 1337]),
     ]),
     expected: new PolicyTreeProperties({ maxDepth: 3, maxWidth: 2 }),
   },
@@ -403,7 +406,7 @@ describe("chain", () => {
     const key = secp256k1.utils.randomPrivateKey();
     const subject = didFromPrivateKey(key);
     const root = NucTokenBuilder.delegation([
-      new Equals(new Selector(["foo"]), 42),
+      new Equals(SelectorSchema.parse(".foo"), 42),
     ])
       .subject(subject)
       .command(new Command(["nil"]));
@@ -425,7 +428,7 @@ describe("chain", () => {
       .subject(subject)
       .command(new Command(["nil"]));
     const intermediate = NucTokenBuilder.delegation([
-      new Equals(new Selector(["foo"]), 42),
+      new Equals(SelectorSchema.parse(".foo"), 42),
     ])
       .subject(subject)
       .command(new Command(["nil"]));
@@ -442,7 +445,7 @@ describe("chain", () => {
   });
 
   it("policy too deep", () => {
-    let policy: Policy = new Equals(new Selector(["foo"]), 42);
+    let policy: Policy = new Equals(SelectorSchema.parse(".foo"), 42);
     const maxDepth = 10;
     for (let i = 0; i < maxDepth; i++) {
       policy = new Not(policy);
@@ -468,7 +471,7 @@ describe("chain", () => {
     const key = secp256k1.utils.randomPrivateKey();
     const subject = didFromPrivateKey(key);
     const root = NucTokenBuilder.delegation(
-      Array(maxWidth + 1).fill(new Equals(new Selector(["foo"]), 42)),
+      Array(maxWidth + 1).fill(new Equals(SelectorSchema.parse(".foo"), 42)),
     )
       .subject(subject)
       .command(new Command(["nil"]));
@@ -557,12 +560,13 @@ describe("chain", () => {
     const subject = didFromPrivateKey(subjectKey);
     const rpcDid = new Did(new Uint8Array(Array(33).fill(33)));
     const root = NucTokenBuilder.delegation([
-      new Equals(new Selector(["args", "foo"]), 42),
+      new Equals(SelectorSchema.parse(".args.foo"), 42),
+      new Equals(SelectorSchema.parse("$.req.bar"), 1337),
     ])
       .subject(subject)
       .command(new Command(["nil"]));
     const intermediate = NucTokenBuilder.delegation([
-      new Equals(new Selector(["args", "bar"]), 1337),
+      new Equals(SelectorSchema.parse(".args.bar"), 1337),
     ])
       .subject(subject)
       .command(new Command(["nil", "bar"]));
@@ -580,7 +584,9 @@ describe("chain", () => {
     ]);
     const parameters = new ValidationParameters();
     parameters.config.tokenRequirements = new InvocationRequirement(rpcDid);
-    new Asserter({ parameters }).assertSuccess(envelope);
+    new Asserter({ parameters, context: { req: 1337 } }).assertSuccess(
+      envelope,
+    );
   });
 
   it("test root token", () => {

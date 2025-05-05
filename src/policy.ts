@@ -9,8 +9,12 @@ export interface Policy {
   /**
    * Checks whether this policy matches a value.
    * @param record Value against the policy is matched.
+   * @param context Application context against the policy is matched.
    */
-  evaluate(record: Record<string, unknown>): boolean;
+  evaluate(
+    record: Record<string, unknown>,
+    context: Record<string, unknown>,
+  ): boolean;
 
   /**
    *  Serialize the policy into an array of anything.
@@ -41,8 +45,11 @@ export class Equals implements OperatorPolicy {
     private readonly value: unknown,
   ) {}
 
-  evaluate(record: Record<string, unknown>): boolean {
-    return equal(this.selector.apply(record), this.value);
+  evaluate(
+    record: Record<string, unknown>,
+    context: Record<string, unknown>,
+  ): boolean {
+    return equal(this.selector.apply(record, context), this.value);
   }
 
   serialize(): Array<unknown> {
@@ -67,8 +74,11 @@ export class NotEquals implements OperatorPolicy {
     private readonly value: unknown,
   ) {}
 
-  evaluate(record: Record<string, unknown>): boolean {
-    return !equal(this.selector.apply(record), this.value);
+  evaluate(
+    record: Record<string, unknown>,
+    context: Record<string, unknown>,
+  ): boolean {
+    return !equal(this.selector.apply(record, context), this.value);
   }
 
   serialize(): Array<unknown> {
@@ -93,8 +103,11 @@ export class AnyOf implements OperatorPolicy {
     public readonly options: Array<unknown>,
   ) {}
 
-  evaluate(record: Record<string, unknown>): boolean {
-    const value = this.selector.apply(record);
+  evaluate(
+    record: Record<string, unknown>,
+    context: Record<string, unknown>,
+  ): boolean {
+    const value = this.selector.apply(record, context);
     return Array.from(this.options).some((option) => equal(value, option));
   }
 
@@ -130,12 +143,15 @@ export const AndSchema = z
 export class And implements ConnectorPolicy {
   constructor(public readonly conditions: Array<Policy>) {}
 
-  evaluate(record: Record<string, unknown>): boolean {
+  evaluate(
+    record: Record<string, unknown>,
+    context: Record<string, unknown>,
+  ): boolean {
     const conditions = this.conditions;
     return (
       conditions &&
       conditions.length > 0 &&
-      conditions.every((condition) => condition.evaluate(record))
+      conditions.every((condition) => condition.evaluate(record, context))
     );
   }
 
@@ -163,8 +179,13 @@ export const OrSchema = z
 export class Or implements ConnectorPolicy {
   constructor(public readonly conditions: Array<Policy>) {}
 
-  evaluate(record: Record<string, unknown>): boolean {
-    return this.conditions.some((condition) => condition.evaluate(record));
+  evaluate(
+    record: Record<string, unknown>,
+    context: Record<string, unknown>,
+  ): boolean {
+    return this.conditions.some((condition) =>
+      condition.evaluate(record, context),
+    );
   }
 
   serialize(): Array<unknown> {
@@ -186,8 +207,11 @@ export const NotSchema = z
 export class Not implements ConnectorPolicy {
   constructor(public readonly condition: Policy) {}
 
-  evaluate(record: Record<string, unknown>): boolean {
-    return !this.condition.evaluate(record);
+  evaluate(
+    record: Record<string, unknown>,
+    context: Record<string, unknown>,
+  ): boolean {
+    return !this.condition.evaluate(record, context);
   }
 
   serialize(): Array<unknown> {
