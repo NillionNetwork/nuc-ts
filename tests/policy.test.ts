@@ -5,7 +5,6 @@ import {
   Equals,
   Not,
   NotEquals,
-  OperatorSchema,
   Or,
   type Policy,
   PolicySchema,
@@ -112,7 +111,7 @@ describe.each([
   { test: "not_bogus_policy", input: ["not", "hi"] },
 ])("invalid policy", ({ test, input }) => {
   it(`${test}`, ({ expect }) => {
-    expect(() => OperatorSchema.parse(input)).toThrowError();
+    expect(() => PolicySchema.parse(input)).toThrowError();
   });
 });
 

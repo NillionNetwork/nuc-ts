@@ -1,5 +1,4 @@
 import { describe, it } from "vitest";
-import { OperatorSchema } from "#/policy";
 import { Selector, SelectorSchema } from "#/selector";
 
 describe.each([
@@ -27,7 +26,7 @@ describe.each([
   { test: "empty_label", input: ".A..B" },
 ])("invalid policy", ({ test, input }) => {
   it(`${test}`, ({ expect }) => {
-    expect(() => OperatorSchema.parse(input)).toThrowError();
+    expect(() => SelectorSchema.parse(input)).toThrowError();
   });
 });
 
