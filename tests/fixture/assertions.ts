@@ -1,14 +1,24 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { secp256k1 } from "@noble/curves/secp256k1";
+import type { Record } from "effect";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
-import { NucTokenEnvelopeSchema } from "#/envelope";
+import { type NucTokenEnvelope, NucTokenEnvelopeSchema } from "#/envelope";
 import { Did, DidSchema } from "#/token";
 import {
   DelegationRequirement,
   InvocationRequirement,
+  NucTokenValidator,
   ValidationParameters,
 } from "#/validate";
+
+export const ROOT_KEYS = [secp256k1.utils.randomPrivateKey()];
+export const ROOT_DIDS = ROOT_KEYS.map(didFromPrivateKey);
+
+export function didFromPrivateKey(key: Uint8Array): Did {
+  return new Did(secp256k1.getPublicKey(key));
+}
 
 const TokenRequirementsSchema = z.union([
   z
@@ -69,23 +79,72 @@ const AssertionExpectationSchema = z.discriminatedUnion("result", [
 ]);
 export type AssertionExpectation = z.infer<typeof AssertionExpectationSchema>;
 
-const AssertionSchema = z
-  .object({
-    input: AssertionInputSchema,
-    expectation: AssertionExpectationSchema,
-  })
-  .transform(({ input, expectation }) => new Assertion(input, expectation));
+const AssertionSchema = z.object({
+  input: AssertionInputSchema,
+  expectation: AssertionExpectationSchema,
+});
+export type Assertion = z.infer<typeof AssertionSchema>;
 
-export class Assertion {
-  constructor(
-    public readonly input: AssertInput,
-    public readonly expectation: AssertionExpectation,
-  ) {}
+export type AsserterConfiguration = {
+  parameters: ValidationParameters;
+  rootDids: Did[];
+  context: Record<string, unknown>;
+  currentTime?: Temporal.Instant;
+};
+
+export class Asserter {
+  private readonly config: AsserterConfiguration;
+  constructor(config: Partial<AsserterConfiguration> = {}) {
+    this.config = {
+      parameters: new ValidationParameters(),
+      rootDids: ROOT_DIDS,
+      context: {},
+      ...config,
+    };
+  }
+
+  assertFailure(envelope: NucTokenEnvelope, message: string) {
+    Asserter.log_tokens(envelope);
+    const validator = this.validator(this.config.currentTime);
+    try {
+      validator.validate(envelope, this.config.parameters, this.config.context);
+    } catch (e) {
+      if (e instanceof Error) {
+        if (e.message === message) {
+          return;
+        }
+        throw new Error(`unexpected failed: ${e.message}`);
+      }
+    }
+    throw new Error("did not fail");
+  }
+
+  assertSuccess(envelope: NucTokenEnvelope) {
+    Asserter.log_tokens(envelope);
+    this.validator(this.config.currentTime).validate(
+      envelope,
+      this.config.parameters,
+      this.config.context,
+    );
+  }
+
+  validator(currentTime?: Temporal.Instant): NucTokenValidator {
+    if (currentTime) {
+      return new NucTokenValidator(this.config.rootDids, () => currentTime);
+    }
+    return new NucTokenValidator(this.config.rootDids);
+  }
+
+  static log_tokens(envelope: NucTokenEnvelope) {
+    console.log(`token being asserted: ${envelope.token.token.toString()}`);
+    console.log(
+      `proofs for it: ${envelope.proofs.map((proof) => proof.token.toString())}`,
+    );
+  }
 }
 
-const filePath = path.resolve(__dirname, "../data/assertions.txt");
-export const assertions = fs
-  .readFileSync(filePath, "utf-8")
+export const TEST_ASSERTIONS = fs
+  .readFileSync(path.resolve(__dirname, "../data/assertions.txt"), "utf-8")
   .split("\n")
   .filter((line) => line.trim() !== "")
   .map((line) => {
