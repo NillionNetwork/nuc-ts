@@ -13,6 +13,7 @@ import {
   CHAIN_TOO_LONG,
   COMMAND_NOT_ATTENUATED,
   DIFFERENT_SUBJECTS,
+  DelegationRequirement,
   INVALID_AUDIENCE,
   INVALID_SIGNATURES,
   ISSUER_AUDIENCE_MISMATCH,
@@ -33,8 +34,8 @@ import {
   TOKEN_EXPIRED,
   UNCHAINED_PROOFS,
   ValidationParameters,
-  DelegationRequirement,
 } from "#/validate";
+import { assertions } from "./fixture/assertions";
 
 const ROOT_KEYS = [secp256k1.utils.randomPrivateKey()];
 const ROOT_DIDS = ROOT_KEYS.map(didFromPrivateKey);
@@ -300,9 +301,8 @@ describe("chain", () => {
       new SignableNucTokenBuilder(key, last),
     ]);
 
-    const parameters = new ValidationParameters({
-      tokenRequirements: new DelegationRequirement(expectedDid),
-    });
+    const tokenRequirements = new DelegationRequirement(expectedDid);
+    const parameters = new ValidationParameters({ tokenRequirements });
     new Asserter({ parameters }).assertFailure(envelope, INVALID_AUDIENCE);
   });
 
@@ -352,11 +352,9 @@ describe("chain", () => {
       new SignableNucTokenBuilder(key, last),
     ]);
 
-    const parameters = new ValidationParameters({
-      tokenRequirements: new DelegationRequirement(
-        new Did(Uint8Array.from(Array(33).fill(0xaa))),
-      ),
-    });
+    const expectedDid = new Did(Uint8Array.from(Array(33).fill(0xaa)));
+    const tokenRequirements = new DelegationRequirement(expectedDid);
+    const parameters = new ValidationParameters({ tokenRequirements });
     new Asserter({ parameters }).assertFailure(envelope, NEED_DELEGATION);
   });
 
@@ -369,11 +367,9 @@ describe("chain", () => {
       new SignableNucTokenBuilder(key, last),
     ]);
 
-    const parameters = new ValidationParameters({
-      tokenRequirements: new InvocationRequirement(
-        new Did(Uint8Array.from(Array(33).fill(0xaa))),
-      ),
-    });
+    const expectedDid = new Did(Uint8Array.from(Array(33).fill(0xaa)));
+    const tokenRequirements = new InvocationRequirement(expectedDid);
+    const parameters = new ValidationParameters({ tokenRequirements });
     new Asserter({ parameters }).assertFailure(envelope, NEED_INVOCATION);
   });
 
@@ -640,5 +636,39 @@ describe("chain", () => {
       new SignableNucTokenBuilder(key, root),
     ]);
     new Asserter({ rootDids: [] }).assertSuccess(envelope);
+  });
+
+  assertions.forEach((assertion, index) => {
+    it(`test assertion ${index + 1}`, ({ expect }) => {
+      const errorMessage =
+        assertion.expectation.result === "failure"
+          ? assertion.expectation.kind
+          : "";
+      try {
+        const validator = new NucTokenValidator(
+          assertion.input.rootKeys,
+          () => assertion.input.currentTime,
+        );
+        validator.validate(
+          assertion.input.token,
+          assertion.input.parameters,
+          assertion.input.context,
+        );
+        expect(
+          "success",
+          `succeeded but expected failure: ${errorMessage}`,
+        ).toBe(assertion.expectation.result);
+      } catch (e) {
+        if (e instanceof Error) {
+          expect("failure", `expected success but failed: ${e.message}`).toBe(
+            assertion.expectation.result,
+          );
+          expect(
+            e.message,
+            `failed with unexpected error: expected ${errorMessage}, got ${e.message}`,
+          ).toBe(errorMessage);
+        }
+      }
+    });
   });
 });
