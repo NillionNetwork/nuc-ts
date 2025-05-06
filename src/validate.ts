@@ -42,13 +42,11 @@ export class DelegationRequirement {
 export class ValidationParameters {
   constructor(
     public readonly config: {
-      currentTime: Temporal.Instant;
       maxChainLength: number;
       maxPolicyWidth: number;
       maxPolicyDepth: number;
       tokenRequirements?: InvocationRequirement | DelegationRequirement;
     } = {
-      currentTime: Temporal.Now.instant(),
       maxChainLength: 5,
       maxPolicyWidth: 10,
       maxPolicyDepth: 5,
@@ -57,7 +55,10 @@ export class ValidationParameters {
 }
 
 export class NucTokenValidator {
-  constructor(private readonly rootIssuers: Array<Did>) {}
+  constructor(
+    private readonly rootIssuers: Array<Did>,
+    public timeProvider: () => Temporal.Instant = () => Temporal.Now.instant(),
+  ) {}
 
   validate(
     envelope: NucTokenEnvelope,
@@ -75,10 +76,11 @@ export class NucTokenValidator {
     const proofs = token.proofs.flatMap((proofHash) =>
       NucTokenValidator.sortProofs(proofHash, envelope.proofs),
     );
-    this.validateProofs(token, proofs);
 
+    const now = this.timeProvider();
+    this.validateProofs(token, proofs);
     const tokenChain = [...proofs.reverse(), token];
-    NucTokenValidator.validateTokenChain(tokenChain, parameters);
+    NucTokenValidator.validateTokenChain(tokenChain, parameters, now);
     NucTokenValidator.validateToken(
       token,
       proofs,
@@ -109,15 +111,13 @@ export class NucTokenValidator {
   static validateTokenChain(
     tokens: Array<NucToken>,
     parameters: ValidationParameters,
+    now: Temporal.Instant,
   ): void {
     for (const [previous, current] of pairwise(tokens)) {
       NucTokenValidator.validateRelationshipProperties(previous, current);
     }
     for (const token of tokens) {
-      NucTokenValidator.validateTemporalProperties(
-        token,
-        parameters.config.currentTime,
-      );
+      NucTokenValidator.validateTemporalProperties(token, now);
       if (token.body instanceof DelegationBody) {
         NucTokenValidator.validatePoliciesProperties(
           token.body.policies,
