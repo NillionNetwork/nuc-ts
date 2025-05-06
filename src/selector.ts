@@ -51,10 +51,8 @@ export class Selector {
         return Selector.applyOnValue(this.path, value) as T;
       case "context": {
         if (!this.path) return undefined as T;
-        return Selector.applyOnValue(
-          this.path.slice(1),
-          context[this.path[0]],
-        ) as T;
+
+        return Selector.applyOnValue(this.path, context) as T;
       }
     }
   }
@@ -69,6 +67,8 @@ export class Selector {
         } else {
           return undefined as T;
         }
+      } else {
+        return undefined as T;
       }
     }
     return result;

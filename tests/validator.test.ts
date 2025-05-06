@@ -584,7 +584,7 @@ describe("chain", () => {
     ]);
     const parameters = new ValidationParameters();
     parameters.config.tokenRequirements = new InvocationRequirement(rpcDid);
-    new Asserter({ parameters, context: { req: 1337 } }).assertSuccess(
+    new Asserter({ parameters, context: { req: { bar: 1337 } } }).assertSuccess(
       envelope,
     );
   });
