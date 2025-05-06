@@ -6,6 +6,7 @@ import {
   type Did,
   InvocationBody,
   type NucToken,
+  REVOKE_COMMAND,
 } from "#/token";
 import { pairwise } from "#/utils";
 
@@ -39,19 +40,23 @@ export class DelegationRequirement {
   constructor(public audience: Did) {}
 }
 
+export type ValidationParametersConfig = {
+  maxChainLength: number;
+  maxPolicyWidth: number;
+  maxPolicyDepth: number;
+  tokenRequirements?: InvocationRequirement | DelegationRequirement;
+};
+
 export class ValidationParameters {
-  constructor(
-    public readonly config: {
-      maxChainLength: number;
-      maxPolicyWidth: number;
-      maxPolicyDepth: number;
-      tokenRequirements?: InvocationRequirement | DelegationRequirement;
-    } = {
+  public readonly config: ValidationParametersConfig;
+  constructor(config?: Partial<ValidationParametersConfig>) {
+    this.config = {
       maxChainLength: 5,
       maxPolicyWidth: 10,
       maxPolicyDepth: 5,
-    },
-  ) {}
+      ...config,
+    };
+  }
 }
 
 export class NucTokenValidator {
@@ -143,7 +148,10 @@ export class NucTokenValidator {
     if (!previous.subject.isEqual(current.subject)) {
       throw new Error(DIFFERENT_SUBJECTS);
     }
-    if (!current.command.isAttenuationOf(previous.command)) {
+    if (
+      !current.command.isAttenuationOf(previous.command) &&
+      !current.command.isAttenuationOf(REVOKE_COMMAND)
+    ) {
       throw new Error(COMMAND_NOT_ATTENUATED);
     }
     if (

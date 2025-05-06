@@ -55,10 +55,17 @@ export class Keypair {
   }
 
   /**
+   * Returns a Did
+   */
+  toDid(): Did {
+    return new Did(this.#publicKey);
+  }
+
+  /**
    * Returns a stringified Did, e.g., did:nil:<public_key_as_hex>
    */
   toDidString(): DidString {
-    return new Did(this.#publicKey).toString();
+    return this.toDid().toString();
   }
 
   /**

@@ -4,15 +4,15 @@ import { Temporal } from "temporal-polyfill";
 import { describe, it } from "vitest";
 import { NucTokenBuilder } from "#/builder";
 import { type NucTokenEnvelope, NucTokenEnvelopeSchema } from "#/envelope";
+import { Keypair } from "#/keypair";
 import { And, AnyOf, Equals, Not, Or, type Policy } from "#/policy";
 import { SelectorSchema } from "#/selector";
-import { Command, Did } from "#/token";
+import { Command, Did, REVOKE_COMMAND } from "#/token";
 import { base64UrlDecodeToBytes, base64UrlEncode, pairwise } from "#/utils";
 import {
   CHAIN_TOO_LONG,
   COMMAND_NOT_ATTENUATED,
   DIFFERENT_SUBJECTS,
-  DelegationRequirement,
   INVALID_AUDIENCE,
   INVALID_SIGNATURES,
   ISSUER_AUDIENCE_MISMATCH,
@@ -33,6 +33,7 @@ import {
   TOKEN_EXPIRED,
   UNCHAINED_PROOFS,
   ValidationParameters,
+  DelegationRequirement,
 } from "#/validate";
 
 const ROOT_KEYS = [secp256k1.utils.randomPrivateKey()];
@@ -221,8 +222,7 @@ describe("chain", () => {
       new SignableNucTokenBuilder(key, base),
     ]);
 
-    const parameters = new ValidationParameters();
-    parameters.config.maxChainLength = 2;
+    const parameters = new ValidationParameters({ maxChainLength: 2 });
     new Asserter({ parameters }).assertFailure(envelope, CHAIN_TOO_LONG);
   });
 
@@ -280,10 +280,9 @@ describe("chain", () => {
       new SignableNucTokenBuilder(key, last),
     ]);
 
-    const parameters = new ValidationParameters();
-    parameters.config.tokenRequirements = new InvocationRequirement(
-      expectedDid,
-    );
+    const parameters = new ValidationParameters({
+      tokenRequirements: new InvocationRequirement(expectedDid),
+    });
     new Asserter({ parameters }).assertFailure(envelope, INVALID_AUDIENCE);
   });
 
@@ -301,10 +300,9 @@ describe("chain", () => {
       new SignableNucTokenBuilder(key, last),
     ]);
 
-    const parameters = new ValidationParameters();
-    parameters.config.tokenRequirements = new DelegationRequirement(
-      expectedDid,
-    );
+    const parameters = new ValidationParameters({
+      tokenRequirements: new DelegationRequirement(expectedDid),
+    });
     new Asserter({ parameters }).assertFailure(envelope, INVALID_AUDIENCE);
   });
 
@@ -354,10 +352,11 @@ describe("chain", () => {
       new SignableNucTokenBuilder(key, last),
     ]);
 
-    const parameters = new ValidationParameters();
-    parameters.config.tokenRequirements = new DelegationRequirement(
-      new Did(Uint8Array.from(Array(33).fill(0xaa))),
-    );
+    const parameters = new ValidationParameters({
+      tokenRequirements: new DelegationRequirement(
+        new Did(Uint8Array.from(Array(33).fill(0xaa))),
+      ),
+    });
     new Asserter({ parameters }).assertFailure(envelope, NEED_DELEGATION);
   });
 
@@ -370,10 +369,11 @@ describe("chain", () => {
       new SignableNucTokenBuilder(key, last),
     ]);
 
-    const parameters = new ValidationParameters();
-    parameters.config.tokenRequirements = new InvocationRequirement(
-      new Did(Uint8Array.from(Array(33).fill(0xaa))),
-    );
+    const parameters = new ValidationParameters({
+      tokenRequirements: new InvocationRequirement(
+        new Did(Uint8Array.from(Array(33).fill(0xaa))),
+      ),
+    });
     new Asserter({ parameters }).assertFailure(envelope, NEED_INVOCATION);
   });
 
@@ -391,8 +391,7 @@ describe("chain", () => {
       new SignableNucTokenBuilder(key, last),
     ]);
 
-    const parameters = new ValidationParameters();
-    new Asserter({ parameters, currentTime: now }).assertFailure(
+    new Asserter({ currentTime: now }).assertFailure(
       envelope,
       NOT_BEFORE_BACKWARDS,
     );
@@ -410,8 +409,7 @@ describe("chain", () => {
       new SignableNucTokenBuilder(key, last),
     ]);
 
-    const parameters = new ValidationParameters();
-    new Asserter({ parameters, currentTime: now }).assertFailure(
+    new Asserter({ currentTime: now }).assertFailure(
       envelope,
       NOT_BEFORE_NOT_MET,
     );
@@ -476,8 +474,7 @@ describe("chain", () => {
       SignableNucTokenBuilder.issuedByRoot(root),
       new SignableNucTokenBuilder(key, last),
     ]);
-    const parameters = new ValidationParameters();
-    parameters.config.maxPolicyDepth = maxDepth;
+    const parameters = new ValidationParameters({ maxPolicyDepth: maxDepth });
     new Asserter({ parameters }).assertFailure(envelope, POLICY_TOO_DEEP);
   });
 
@@ -495,8 +492,7 @@ describe("chain", () => {
       SignableNucTokenBuilder.issuedByRoot(root),
       new SignableNucTokenBuilder(key, last),
     ]);
-    const parameters = new ValidationParameters();
-    parameters.config.maxPolicyWidth = maxWidth;
+    const parameters = new ValidationParameters({ maxPolicyWidth: maxWidth });
     new Asserter({ parameters }).assertFailure(envelope, POLICY_TOO_WIDE);
   });
 
@@ -597,11 +593,35 @@ describe("chain", () => {
       new SignableNucTokenBuilder(subjectKey, intermediate),
       new SignableNucTokenBuilder(invocationKey, invocation),
     ]);
-    const parameters = new ValidationParameters();
-    parameters.config.tokenRequirements = new InvocationRequirement(rpcDid);
+    const parameters = new ValidationParameters({
+      tokenRequirements: new InvocationRequirement(rpcDid),
+    });
     new Asserter({ parameters, context: { req: { bar: 1337 } } }).assertSuccess(
       envelope,
     );
+  });
+
+  it("test valid revocation", () => {
+    const subjectKey = Keypair.generate();
+    const subject = subjectKey.toDid();
+    const rpcDid = new Did(new Uint8Array(Array(33).fill(33)));
+    const root = NucTokenBuilder.delegation([
+      new Equals(SelectorSchema.parse(".args.foo"), 42),
+    ])
+      .subject(subject)
+      .command(new Command(["nil"]));
+    const invocation = NucTokenBuilder.invocation({ foo: 42, bar: 1337 })
+      .subject(subject)
+      .audience(rpcDid)
+      .command(REVOKE_COMMAND);
+    const envelope = new Chainer().chain([
+      SignableNucTokenBuilder.issuedByRoot(root),
+      new SignableNucTokenBuilder(subjectKey.privateKey(), invocation),
+    ]);
+    const parameters = new ValidationParameters({
+      tokenRequirements: new InvocationRequirement(rpcDid),
+    });
+    new Asserter({ parameters }).assertSuccess(envelope);
   });
 
   it("test root token", () => {
