@@ -26,17 +26,17 @@ describe.each([
 });
 
 describe.each([
-  // { test: "empty", input: "" },
-  // { test: "empty context", input: "$" },
+  { test: "empty", input: "" },
+  { test: "empty context", input: "$" },
   { test: "empty context 2", input: "$." },
-  // { test: "no_leading_dot", input: "A" },
-  // { test: "invalid_field_name1", input: ".#" },
-  // { test: "invalid_field_name2", input: ".🚀" },
-  // { test: "invalid_field_context_name1", input: "$.#" },
-  // { test: "invalid_field_context_name2", input: "$.$" },
-  // { test: "trailing_dot", input: ".A." },
-  // { test: "empty_label", input: ".A..B" },
-  // { test: "empty_label_context", input: "$.A..B" },
+  { test: "no_leading_dot", input: "A" },
+  { test: "invalid_field_name1", input: ".#" },
+  { test: "invalid_field_name2", input: ".🚀" },
+  { test: "invalid_field_context_name1", input: "$.#" },
+  { test: "invalid_field_context_name2", input: "$.$" },
+  { test: "trailing_dot", input: ".A." },
+  { test: "empty_label", input: ".A..B" },
+  { test: "empty_label_context", input: "$.A..B" },
 ])("invalid policy", ({ test, input }) => {
   it(`${test}`, ({ expect }) => {
     expect(() => SelectorSchema.parse(input)).toThrowError();
