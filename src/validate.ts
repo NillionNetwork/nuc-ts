@@ -1,3 +1,4 @@
+import equal from "fast-deep-equal/es6";
 import { Temporal } from "temporal-polyfill";
 import type { DecodedNucToken, NucTokenEnvelope } from "#/envelope";
 import { And, AnyOf, Equals, Not, NotEquals, Or, type Policy } from "#/policy";
@@ -150,7 +151,7 @@ export class NucTokenValidator {
     }
     if (
       !current.command.isAttenuationOf(previous.command) &&
-      !current.command.isAttenuationOf(REVOKE_COMMAND)
+      !equal(current.command, REVOKE_COMMAND)
     ) {
       throw new Error(COMMAND_NOT_ATTENUATED);
     }
