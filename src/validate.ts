@@ -59,7 +59,11 @@ export class ValidationParameters {
 export class NucTokenValidator {
   constructor(private readonly rootIssuers: Array<Did>) {}
 
-  validate(envelope: NucTokenEnvelope, parameters: ValidationParameters): void {
+  validate(
+    envelope: NucTokenEnvelope,
+    parameters: ValidationParameters,
+    context: Record<string, unknown> = {},
+  ): void {
     if (envelope.proofs.length + 1 > parameters.config.maxChainLength) {
       throw new Error(CHAIN_TOO_LONG);
     }
@@ -78,6 +82,7 @@ export class NucTokenValidator {
     NucTokenValidator.validateToken(
       token,
       proofs,
+      context,
       parameters.config.tokenRequirements,
     );
     try {
@@ -189,6 +194,7 @@ export class NucTokenValidator {
   static validateToken(
     token: NucToken,
     proofs: Array<NucToken>,
+    context: Record<string, unknown>,
     tokenRequirements?: InvocationRequirement | DelegationRequirement,
   ): void {
     switch (token.body.constructor) {
@@ -199,6 +205,7 @@ export class NucTokenValidator {
         NucTokenValidator.validateInvocationToken(
           token,
           proofs,
+          context,
           tokenRequirements,
         );
         break;
@@ -225,11 +232,12 @@ export class NucTokenValidator {
   static validateInvocationToken(
     token: NucToken,
     proofs: Array<NucToken>,
+    context: Record<string, unknown>,
     tokenRequirements?: InvocationRequirement | DelegationRequirement,
   ): void {
     const tokenJson = token.toJson();
     for (const proof of proofs) {
-      NucTokenValidator.validatePolicyEvaluates(proof, tokenJson);
+      NucTokenValidator.validatePolicyEvaluates(proof, tokenJson, context);
     }
     if (!tokenRequirements) {
       return;
@@ -247,13 +255,14 @@ export class NucTokenValidator {
   static validatePolicyEvaluates(
     proof: NucToken,
     tokenJson: Record<string, unknown>,
+    context: Record<string, unknown>,
   ): void {
     switch (true) {
       case proof.body instanceof InvocationBody:
         throw new Error(PROOFS_MUST_BE_DELEGATIONS);
       case proof.body instanceof DelegationBody: {
         for (const policy of proof.body.policies) {
-          if (!policy.evaluate(tokenJson)) {
+          if (!policy.evaluate(tokenJson, context)) {
             throw new Error(POLICY_NOT_MET);
           }
         }

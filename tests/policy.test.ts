@@ -9,28 +9,28 @@ import {
   type Policy,
   PolicySchema,
 } from "#/policy";
-import { Selector } from "#/selector";
+import { SelectorSchema } from "#/selector";
 
 describe.each([
   {
     test: "eq",
     input: ["==", ".foo", { ".bar": 42 }],
-    expected: new Equals(new Selector(["foo"]), { ".bar": 42 }),
+    expected: new Equals(SelectorSchema.parse(".foo"), { ".bar": 42 }),
   },
   {
     test: "ne",
     input: ["!=", ".foo", { ".bar": 42 }],
-    expected: new NotEquals(new Selector(["foo"]), { ".bar": 42 }),
+    expected: new NotEquals(SelectorSchema.parse(".foo"), { ".bar": 42 }),
   },
   {
     test: "anyOf1",
     input: ["anyOf", ".foo", [42, "hi"]],
-    expected: new AnyOf(new Selector(["foo"]), [42, "hi"]),
+    expected: new AnyOf(SelectorSchema.parse(".foo"), [42, "hi"]),
   },
   {
     test: "anyOf2",
     input: ["anyOf", ".foo", [{ foo: 42 }]],
-    expected: new AnyOf(new Selector(["foo"]), [{ foo: 42 }]),
+    expected: new AnyOf(SelectorSchema.parse(".foo"), [{ foo: 42 }]),
   },
   {
     test: "and",
@@ -42,8 +42,8 @@ describe.each([
       ],
     ],
     expected: new And([
-      new Equals(new Selector(["foo"]), 42),
-      new NotEquals(new Selector(["bar"]), false),
+      new Equals(SelectorSchema.parse(".foo"), 42),
+      new NotEquals(SelectorSchema.parse(".bar"), false),
     ]),
   },
   {
@@ -56,14 +56,14 @@ describe.each([
       ],
     ],
     expected: new Or([
-      new Equals(new Selector(["foo"]), 42),
-      new NotEquals(new Selector(["bar"]), false),
+      new Equals(SelectorSchema.parse(".foo"), 42),
+      new NotEquals(SelectorSchema.parse(".bar"), false),
     ]),
   },
   {
     test: "not",
     input: ["not", ["==", ".foo", 42]],
-    expected: new Not(new Equals(new Selector(["foo"]), 42)),
+    expected: new Not(new Equals(SelectorSchema.parse(".foo"), 42)),
   },
   {
     test: "nested",
@@ -81,10 +81,10 @@ describe.each([
       ],
     ],
     expected: new Or([
-      new Equals(new Selector(["foo"]), 42),
+      new Equals(SelectorSchema.parse(".foo"), 42),
       new And([
-        new NotEquals(new Selector(["bar"]), 1337),
-        new Not(new Equals(new Selector(["tar"]), true)),
+        new NotEquals(SelectorSchema.parse(".bar"), 1337),
+        new Not(new Equals(SelectorSchema.parse(".tar"), true)),
       ]),
     ]),
   },
@@ -118,50 +118,61 @@ describe.each([
 describe.each([
   {
     test: "eq value",
-    policy: new Equals(new Selector(["name", "first"]), "bob"),
+    policy: new Equals(SelectorSchema.parse(".name.first"), "bob"),
   },
   {
     test: "ne",
-    policy: new NotEquals(new Selector(["name", "first"]), "john"),
+    policy: new NotEquals(SelectorSchema.parse(".name.first"), "john"),
   },
   {
     test: "eq object",
-    policy: new Equals(new Selector(["name"]), { first: "bob", last: "smith" }),
+    policy: new Equals(SelectorSchema.parse(".name"), {
+      first: "bob",
+      last: "smith",
+    }),
+  },
+  {
+    test: "eq value context",
+    policy: new Equals(SelectorSchema.parse("$.req.foo"), 42),
+  },
+  {
+    test: "ne context",
+    policy: new NotEquals(SelectorSchema.parse("$.other"), 1335),
   },
   {
     test: "eq root",
-    policy: new Equals(new Selector([]), {
+    policy: new Equals(SelectorSchema.parse("."), {
       name: { first: "bob", last: "smith" },
       age: 42,
     }),
   },
   {
     test: "notEq",
-    policy: new NotEquals(new Selector(["age"]), 150),
+    policy: new NotEquals(SelectorSchema.parse(".age"), 150),
   },
   {
     test: "anyOf",
-    policy: new AnyOf(new Selector(["name", "first"]), ["john", "bob"]),
+    policy: new AnyOf(SelectorSchema.parse(".name.first"), ["john", "bob"]),
   },
   {
     test: "and",
     policy: new And([
-      new Equals(new Selector(["age"]), 42),
-      new Equals(new Selector(["name", "first"]), "bob"),
+      new Equals(SelectorSchema.parse(".age"), 42),
+      new Equals(SelectorSchema.parse(".name.first"), "bob"),
     ]),
   },
   {
     test: "or short circuit",
     policy: new Or([
-      new Equals(new Selector(["age"]), 42),
-      new Equals(new Selector(["age"]), 100),
+      new Equals(SelectorSchema.parse(".age"), 42),
+      new Equals(SelectorSchema.parse(".age"), 100),
     ]),
   },
   {
     test: "or long circuit",
     policy: new Or([
-      new Equals(new Selector(["age"]), 100),
-      new Equals(new Selector(["age"]), 42),
+      new Equals(SelectorSchema.parse(".age"), 100),
+      new Equals(SelectorSchema.parse(".age"), 42),
     ]),
   },
 ])("evaluation matches", ({ test, policy }) => {
@@ -173,7 +184,8 @@ describe.each([
       },
       age: 42,
     };
-    const result = policy.evaluate(value);
+    const context = { req: { foo: 42, bar: "zar" }, other: 1337 };
+    const result = policy.evaluate(value, context);
     expect(result).toBe(true);
   });
 });
@@ -181,54 +193,62 @@ describe.each([
 describe.each([
   {
     test: "eq value",
-    policy: new Equals(new Selector(["name", "first"]), "john"),
+    policy: new Equals(SelectorSchema.parse(".name.first"), "john"),
   },
   {
     test: "ne",
-    policy: new NotEquals(new Selector(["name", "first"]), "bob"),
+    policy: new NotEquals(SelectorSchema.parse(".name.first"), "bob"),
   },
   {
     test: "eq object",
-    policy: new Equals(new Selector(["name"]), {
+    policy: new Equals(SelectorSchema.parse(".name"), {
       first: "john",
       last: "smith",
     }),
   },
   {
+    test: "eq value context",
+    policy: new Equals(SelectorSchema.parse("$.req.foo"), 43),
+  },
+  {
+    test: "ne context",
+    policy: new NotEquals(SelectorSchema.parse("$.other"), 1337),
+  },
+  {
     test: "eq root",
-    policy: new Equals(new Selector([]), {
+    policy: new Equals(SelectorSchema.parse("."), {
       name: { first: "bob", last: "smith" },
       age: 100,
     }),
   },
   {
     test: "notEq",
-    policy: new NotEquals(new Selector(["age"]), 42),
+    policy: new NotEquals(SelectorSchema.parse(".age"), 42),
   },
   {
     test: "anyOf",
-    policy: new AnyOf(new Selector(["name", "first"]), ["john", "jack"]),
+    policy: new AnyOf(SelectorSchema.parse(".name.first"), ["john", "jack"]),
   },
   {
     test: "and1",
     policy: new And([
-      new Equals(new Selector(["age"]), 150),
-      new Equals(new Selector(["name", "first"]), "bob"),
+      new Equals(SelectorSchema.parse(".age"), 150),
+      new Equals(SelectorSchema.parse(".name.first"), "bob"),
     ]),
   },
   {
     test: "and2",
     policy: new And([
-      new Equals(new Selector(["age"]), 42),
-      new Equals(new Selector(["name", "first"]), "john"),
+      new Equals(SelectorSchema.parse(".age"), 42),
+      new Equals(SelectorSchema.parse(".name.first"), "john"),
     ]),
   },
   { test: "empty and", policy: new And([]) },
   {
     test: "or",
     policy: new Or([
-      new Equals(new Selector(["age"]), 101),
-      new Equals(new Selector(["age"]), 100),
+      new Equals(SelectorSchema.parse(".age"), 101),
+      new Equals(SelectorSchema.parse(".age"), 100),
     ]),
   },
   { test: "or empty", policy: new Or([]) },
@@ -241,7 +261,8 @@ describe.each([
       },
       age: 42,
     };
-    const result = policy.evaluate(value);
+    const context = { req: { foo: 42, bar: "zar" }, other: 1337 };
+    const result = policy.evaluate(value, context);
     expect(result).toBe(false);
   });
 });
