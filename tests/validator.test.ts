@@ -77,6 +77,7 @@ type AsserterConfiguration = {
   parameters: ValidationParameters;
   rootDids: Did[];
   context: Record<string, unknown>;
+  currentTime?: Temporal.Instant;
 };
 
 class Asserter {
@@ -92,7 +93,7 @@ class Asserter {
 
   assertFailure(envelope: NucTokenEnvelope, message: string) {
     Asserter.log_tokens(envelope);
-    const validator = new NucTokenValidator(ROOT_DIDS);
+    const validator = this.validator(this.config.currentTime);
     try {
       validator.validate(envelope, this.config.parameters, this.config.context);
     } catch (e) {
@@ -108,8 +109,18 @@ class Asserter {
 
   assertSuccess(envelope: NucTokenEnvelope) {
     Asserter.log_tokens(envelope);
-    const validator = new NucTokenValidator(this.config.rootDids);
-    validator.validate(envelope, this.config.parameters, this.config.context);
+    this.validator(this.config.currentTime).validate(
+      envelope,
+      this.config.parameters,
+      this.config.context,
+    );
+  }
+
+  validator(currentTime?: Temporal.Instant): NucTokenValidator {
+    if (currentTime) {
+      return new NucTokenValidator(this.config.rootDids, () => currentTime);
+    }
+    return new NucTokenValidator(this.config.rootDids);
   }
 
   static log_tokens(envelope: NucTokenEnvelope) {
@@ -381,8 +392,10 @@ describe("chain", () => {
     ]);
 
     const parameters = new ValidationParameters();
-    parameters.config.currentTime = now;
-    new Asserter({ parameters }).assertFailure(envelope, NOT_BEFORE_BACKWARDS);
+    new Asserter({ parameters, currentTime: now }).assertFailure(
+      envelope,
+      NOT_BEFORE_BACKWARDS,
+    );
   });
 
   it("not before not met", () => {
@@ -398,8 +411,10 @@ describe("chain", () => {
     ]);
 
     const parameters = new ValidationParameters();
-    parameters.config.currentTime = now;
-    new Asserter({ parameters }).assertFailure(envelope, NOT_BEFORE_NOT_MET);
+    new Asserter({ parameters, currentTime: now }).assertFailure(
+      envelope,
+      NOT_BEFORE_NOT_MET,
+    );
   });
 
   it("root policy not met", () => {
@@ -535,9 +550,9 @@ describe("chain", () => {
       SignableNucTokenBuilder.issuedByRoot(root),
       new SignableNucTokenBuilder(key, last),
     ]);
-    const parameters = new ValidationParameters();
-    parameters.config.currentTime = Temporal.Instant.fromEpochSeconds(10);
-    new Asserter().assertFailure(envelope, TOKEN_EXPIRED);
+    new Asserter({
+      currentTime: Temporal.Instant.fromEpochSeconds(10),
+    }).assertFailure(envelope, TOKEN_EXPIRED);
   });
 
   it("last token expired", () => {
@@ -550,9 +565,9 @@ describe("chain", () => {
       SignableNucTokenBuilder.issuedByRoot(root),
       new SignableNucTokenBuilder(key, last),
     ]);
-    const parameters = new ValidationParameters();
-    parameters.config.currentTime = Temporal.Instant.fromEpochSeconds(10);
-    new Asserter().assertFailure(envelope, TOKEN_EXPIRED);
+    new Asserter({
+      currentTime: Temporal.Instant.fromEpochSeconds(10),
+    }).assertFailure(envelope, TOKEN_EXPIRED);
   });
 
   it("valid", () => {
