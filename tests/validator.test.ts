@@ -1,14 +1,13 @@
 import { secp256k1 } from "@noble/curves/secp256k1";
-import type { Record } from "effect";
 import { Temporal } from "temporal-polyfill";
 import { describe, it } from "vitest";
 import { NucTokenBuilder } from "#/builder";
-import { type NucTokenEnvelope, NucTokenEnvelopeSchema } from "#/envelope";
+import { NucTokenEnvelopeSchema } from "#/envelope";
 import { Keypair } from "#/keypair";
 import { And, AnyOf, Equals, Not, Or, type Policy } from "#/policy";
 import { SelectorSchema } from "#/selector";
 import { Command, Did, REVOKE_COMMAND } from "#/token";
-import { base64UrlDecodeToBytes, base64UrlEncode, pairwise } from "#/utils";
+import { base64UrlDecodeToBytes, base64UrlEncode } from "#/utils";
 import {
   CHAIN_TOO_LONG,
   COMMAND_NOT_ATTENUATED,
@@ -23,7 +22,6 @@ import {
   NEED_INVOCATION,
   NOT_BEFORE_BACKWARDS,
   NOT_BEFORE_NOT_MET,
-  NucTokenValidator,
   POLICY_NOT_MET,
   POLICY_TOO_DEEP,
   POLICY_TOO_WIDE,
@@ -35,107 +33,8 @@ import {
   UNCHAINED_PROOFS,
   ValidationParameters,
 } from "#/validate";
-import { assertions } from "./fixture/assertions";
-
-const ROOT_KEYS = [secp256k1.utils.randomPrivateKey()];
-const ROOT_DIDS = ROOT_KEYS.map(didFromPrivateKey);
-
-class SignableNucTokenBuilder {
-  constructor(
-    public key: Uint8Array,
-    public builder: NucTokenBuilder,
-  ) {}
-
-  build(): string {
-    return this.builder.build(this.key);
-  }
-
-  static issuedByRoot(builder: NucTokenBuilder): SignableNucTokenBuilder {
-    return new SignableNucTokenBuilder(ROOT_KEYS[0], builder);
-  }
-}
-
-class Chainer {
-  constructor(private readonly chainIssuerAudience: boolean = true) {}
-
-  chain(builders: Array<SignableNucTokenBuilder>): NucTokenEnvelope {
-    if (this.chainIssuerAudience) {
-      for (const [previous, current] of pairwise(builders)) {
-        const issuerKey = secp256k1.getPublicKey(current.key);
-        previous.builder = previous.builder.audience(new Did(issuerKey));
-      }
-    }
-
-    let envelope = NucTokenEnvelopeSchema.parse(builders[0].build());
-    for (const builder of builders.slice(1)) {
-      builder.builder = builder.builder.proof(envelope);
-      envelope = NucTokenEnvelopeSchema.parse(builder.build());
-    }
-    return envelope;
-  }
-}
-
-type AsserterConfiguration = {
-  parameters: ValidationParameters;
-  rootDids: Did[];
-  context: Record<string, unknown>;
-  currentTime?: Temporal.Instant;
-};
-
-class Asserter {
-  private readonly config: AsserterConfiguration;
-  constructor(config: Partial<AsserterConfiguration> = {}) {
-    this.config = {
-      parameters: new ValidationParameters(),
-      rootDids: ROOT_DIDS,
-      context: {},
-      ...config,
-    };
-  }
-
-  assertFailure(envelope: NucTokenEnvelope, message: string) {
-    Asserter.log_tokens(envelope);
-    const validator = this.validator(this.config.currentTime);
-    try {
-      validator.validate(envelope, this.config.parameters, this.config.context);
-    } catch (e) {
-      if (e instanceof Error) {
-        if (e.message === message) {
-          return;
-        }
-        throw new Error(`unexpected failed: ${e.message}`);
-      }
-    }
-    throw new Error("did not fail");
-  }
-
-  assertSuccess(envelope: NucTokenEnvelope) {
-    Asserter.log_tokens(envelope);
-    this.validator(this.config.currentTime).validate(
-      envelope,
-      this.config.parameters,
-      this.config.context,
-    );
-  }
-
-  validator(currentTime?: Temporal.Instant): NucTokenValidator {
-    if (currentTime) {
-      return new NucTokenValidator(this.config.rootDids, () => currentTime);
-    }
-    return new NucTokenValidator(this.config.rootDids);
-  }
-
-  static log_tokens(envelope: NucTokenEnvelope) {
-    console.log(`token being asserted: ${envelope.token.token.toString()}`);
-    console.log(
-      `proofs for it: ${envelope.proofs.map((proof) => proof.token.toString())}`,
-    );
-  }
-}
-
-function didFromPrivateKey(key: Uint8Array): Did {
-  return new Did(secp256k1.getPublicKey(key));
-}
+import { Asserter, didFromPrivateKey } from "./fixture/assertions";
+import { Chainer, SignableNucTokenBuilder } from "./fixture/chainer";
 
 function delegation(key: Uint8Array): NucTokenBuilder {
   return NucTokenBuilder.delegation([])
@@ -636,39 +535,5 @@ describe("chain", () => {
       new SignableNucTokenBuilder(key, root),
     ]);
     new Asserter({ rootDids: [] }).assertSuccess(envelope);
-  });
-
-  assertions.forEach((assertion, index) => {
-    it(`test assertion ${index + 1}`, ({ expect }) => {
-      const errorMessage =
-        assertion.expectation.result === "failure"
-          ? assertion.expectation.kind
-          : "";
-      try {
-        const validator = new NucTokenValidator(
-          assertion.input.rootKeys,
-          () => assertion.input.currentTime,
-        );
-        validator.validate(
-          assertion.input.token,
-          assertion.input.parameters,
-          assertion.input.context,
-        );
-        expect(
-          "success",
-          `succeeded but expected failure: ${errorMessage}`,
-        ).toBe(assertion.expectation.result);
-      } catch (e) {
-        if (e instanceof Error) {
-          expect("failure", `expected success but failed: ${e.message}`).toBe(
-            assertion.expectation.result,
-          );
-          expect(
-            e.message,
-            `failed with unexpected error: expected ${errorMessage}, got ${e.message}`,
-          ).toBe(errorMessage);
-        }
-      }
-    });
   });
 });
