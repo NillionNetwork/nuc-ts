@@ -175,8 +175,8 @@ describe("parse token", () => {
           169, 68,
         ]),
       ],
-      notBefore: Temporal.Instant.fromEpochSeconds(1740494955),
-      expiresAt: Temporal.Instant.fromEpochSeconds(1740495955),
+      notBefore: Temporal.Instant.fromEpochMilliseconds(1740494955000),
+      expiresAt: Temporal.Instant.fromEpochMilliseconds(1740495955000),
       meta: { name: "bob" },
     });
     expect(token).toStrictEqual(expected);
@@ -273,8 +273,8 @@ describe("parse token", () => {
           169, 68,
         ]),
       ],
-      notBefore: Temporal.Instant.fromEpochSeconds(1740494955),
-      expiresAt: Temporal.Instant.fromEpochSeconds(1740495955),
+      notBefore: Temporal.Instant.fromEpochMilliseconds(1740494955000),
+      expiresAt: Temporal.Instant.fromEpochMilliseconds(1740495955000),
       meta: { name: "bob" },
     });
     expect(token).toStrictEqual(expected);
