@@ -11,8 +11,7 @@ import {
   NucToken,
   NucTokenDataSchema,
 } from "#/token";
-import { randomBytes } from "#/utils";
-import { type Hex, base64UrlEncode } from "#/utils";
+import { base64UrlEncode, type Hex, randomBytes } from "#/utils";
 
 const DEFAULT_NONCE_LENGTH = 16;
 

@@ -1,6 +1,6 @@
 import { sha256 } from "@noble/hashes/sha256";
 import { bytesToHex } from "@noble/hashes/utils";
-import { Duration as D, Effect as E, Schedule as S, pipe } from "effect";
+import { Duration as D, Effect as E, pipe, Schedule as S } from "effect";
 import { Temporal } from "temporal-polyfill";
 import type { ZodError } from "zod";
 import { NucTokenBuilder } from "#/builder";
@@ -15,8 +15,8 @@ import type { Keypair } from "#/keypair";
 import { log } from "#/logger";
 import {
   type FetchError,
-  type RequestOptions,
   fetchWithTimeout,
+  type RequestOptions,
 } from "#/nilauth/retryable-fetch";
 import {
   type CreateTokenResponse,
@@ -39,12 +39,12 @@ import { NilauthUrl } from "#/nilauth/urls";
 import type { Payer } from "#/payer/client";
 import { Did, InvocationBody, REVOKE_COMMAND } from "#/token";
 import {
-  type Hex,
   assertType,
   createSignedRequest,
   extractResponseJson,
   extractResponseText,
   generateNonce,
+  type Hex,
   parseWithZodSchema,
   toHex,
   unwrapEffect,
@@ -252,6 +252,7 @@ export class NilauthClient {
    *
    * @returns Promise resolving to the service metadata.
    */
+  // biome-ignore lint/suspicious/useAdjacentOverloadSignatures: false positive
   about(): Promise<NilauthAboutResponse> {
     return NilauthClient.about(this.nilauthBaseUrl);
   }
