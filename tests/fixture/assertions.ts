@@ -62,7 +62,9 @@ const AssertionInputSchema = z
   .transform((input) => ({
     token: input.token,
     rootKeys: input.root_keys.map((key) => Did.fromHex(key)),
-    currentTime: Temporal.Instant.fromEpochSeconds(input.current_time),
+    currentTime: Temporal.Instant.fromEpochMilliseconds(
+      input.current_time * 1000,
+    ),
     context: input.context,
     parameters: input.parameters,
   }));

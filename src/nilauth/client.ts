@@ -331,7 +331,9 @@ export class NilauthClient {
     const body = createSignedRequest(
       {
         nonce: generateNonce(),
-        expires_at: Temporal.Now.instant().add({ seconds: 60 }).epochSeconds,
+        expires_at: Math.floor(
+          Temporal.Now.instant().add({ seconds: 60 }).epochMilliseconds / 1000,
+        ),
       },
       this.keypair,
     );
@@ -522,7 +524,9 @@ export class NilauthClient {
       {
         nonce: generateNonce(),
         target_public_key: this.nilauthPublicKey,
-        expires_at: Temporal.Now.instant().add({ seconds: 60 }).epochSeconds,
+        expires_at: Math.floor(
+          Temporal.Now.instant().add({ seconds: 60 }).epochMilliseconds / 1000,
+        ),
       },
       this.keypair,
     );

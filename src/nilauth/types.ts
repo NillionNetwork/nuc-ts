@@ -63,8 +63,8 @@ export const SubscriptionDetailsSchema = z
     renewable_at: z.number(),
   })
   .transform(({ expires_at, renewable_at }) => ({
-    expiresAt: Temporal.Instant.fromEpochSeconds(expires_at),
-    renewableAt: Temporal.Instant.fromEpochSeconds(renewable_at),
+    expiresAt: Temporal.Instant.fromEpochMilliseconds(expires_at * 1000),
+    renewableAt: Temporal.Instant.fromEpochMilliseconds(renewable_at * 1000),
   }));
 export type SubscriptionDetails = z.infer<typeof SubscriptionDetailsSchema>;
 
