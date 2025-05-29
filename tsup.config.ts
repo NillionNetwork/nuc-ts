@@ -8,5 +8,4 @@ export default defineConfig({
   target: "es2022",
   sourcemap: true,
   minify: false,
-  noExternal: ["fast-deep-equal"],
 });

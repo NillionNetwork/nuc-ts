@@ -1,5 +1,5 @@
 import { bytesToHex } from "@noble/hashes/utils";
-import equal from "fast-deep-equal/es6";
+import { dequal } from "dequal";
 import { Temporal } from "temporal-polyfill";
 import type { DecodedNucToken, NucTokenEnvelope } from "#/envelope";
 import { And, AnyOf, Equals, Not, NotEquals, Or, type Policy } from "#/policy";
@@ -152,7 +152,7 @@ export class NucTokenValidator {
     }
     if (
       !current.command.isAttenuationOf(previous.command) &&
-      !equal(current.command, REVOKE_COMMAND)
+      !dequal(current.command, REVOKE_COMMAND)
     ) {
       throw new Error(COMMAND_NOT_ATTENUATED);
     }

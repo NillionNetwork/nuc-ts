@@ -1,5 +1,5 @@
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils";
-import equal from "fast-deep-equal/es6";
+import { dequal } from "dequal";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
 import { type Policy, PolicySchema } from "#/policy";
@@ -83,7 +83,7 @@ export class Command {
   isAttenuationOf(other: Command): boolean {
     return (
       this.segments.length >= other.segments.length &&
-      equal(other.segments, this.segments.slice(0, other.segments.length))
+      dequal(other.segments, this.segments.slice(0, other.segments.length))
     );
   }
 
