@@ -1,3 +1,4 @@
+import { bytesToHex } from "@noble/hashes/utils";
 import equal from "fast-deep-equal/es6";
 import { Temporal } from "temporal-polyfill";
 import type { DecodedNucToken, NucTokenEnvelope } from "#/envelope";
@@ -291,7 +292,7 @@ export class NucTokenValidator {
     let nextHash = hash;
     while (nextHash) {
       const nextProofIndex = indexedProofs.findIndex(
-        ([hash, _]) => Buffer.from(hash).compare(Buffer.from(nextHash)) === 0,
+        ([hash, _]) => bytesToHex(hash) === bytesToHex(nextHash),
       );
       if (nextProofIndex < 0) {
         throw new Error(MISSING_PROOF);

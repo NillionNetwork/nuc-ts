@@ -45,9 +45,7 @@ export class Did {
    * @param other The other DID which will be used for the equality operation.
    */
   isEqual(other: Did): boolean {
-    return (
-      Buffer.from(this.publicKey).compare(Buffer.from(other.publicKey)) === 0
-    );
+    return bytesToHex(this.publicKey) === bytesToHex(other.publicKey);
   }
 
   /**
@@ -142,7 +140,7 @@ export const NucTokenSchema = z
       command: token.cmd,
       body: tokenBody(token.args, token.pol),
       nonce: token.nonce,
-      proofs: token.prf.map((prf) => new Uint8Array(Buffer.from(prf, "hex"))),
+      proofs: token.prf.map((prf) => hexToBytes(prf)),
       notBefore: token.nbf
         ? Temporal.Instant.fromEpochMilliseconds(token.nbf * 1000)
         : undefined,
