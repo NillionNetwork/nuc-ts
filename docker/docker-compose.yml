@@ -16,7 +16,7 @@ services:
       - "26648:26648" # JSON RPC
 
   nilauth:
-    image: public.ecr.aws/k5d9x2g2/nilauth:c829608fae5131cc8582e1c21cb78dbb6645a9e6
+    image: public.ecr.aws/k5d9x2g2/nilauth:0574c4c0a1c38570e3f01e0a9f5cbd7fe3dc41c9
     depends_on:
       - db
       - nilchain
