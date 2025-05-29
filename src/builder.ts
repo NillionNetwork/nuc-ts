@@ -1,5 +1,5 @@
 import { bytesToHex } from "@noble/hashes/utils";
-import type { Temporal } from "temporal-polyfill";
+import { Temporal } from "temporal-polyfill";
 import type { NucTokenEnvelope } from "#/envelope";
 import { Keypair } from "#/keypair";
 import type { Policy } from "#/policy";
@@ -100,22 +100,26 @@ export class NucTokenBuilder {
   }
 
   /**
-   * Set the `not before` date for the token to be built.
+   * Set the token's `not before` instant.
    *
-   * @param notBefore The timestamp at which the token will become valid.
+   * @param notBeforeInSeconds The Unix timestamp (in seconds) at which the token becomes valid.
    */
-  notBefore(notBefore: Temporal.Instant): NucTokenBuilder {
-    this._notBefore = notBefore;
+  notBefore(notBeforeInSeconds: number): NucTokenBuilder {
+    this._notBefore = Temporal.Instant.fromEpochMilliseconds(
+      notBeforeInSeconds * 1000,
+    );
     return this;
   }
 
   /**
-   * Set the `expires at` date for the token to be built.
+   * Set the token's `expires at` instant.
    *
-   * @param expiresAt The timestamp at which the token will expire.
+   * @param expiresAtInSeconds The Unix timestamp (in seconds) at which the token expires.
    */
-  expiresAt(expiresAt: Temporal.Instant): NucTokenBuilder {
-    this._expiresAt = expiresAt;
+  expiresAt(expiresAtInSeconds: number): NucTokenBuilder {
+    this._expiresAt = Temporal.Instant.fromEpochMilliseconds(
+      expiresAtInSeconds * 1000,
+    );
     return this;
   }
 

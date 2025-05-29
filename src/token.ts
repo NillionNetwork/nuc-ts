@@ -1,5 +1,5 @@
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils";
-import equal from "fast-deep-equal/es6";
+import { dequal } from "dequal";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
 import { type Policy, PolicySchema } from "#/policy";
@@ -45,9 +45,7 @@ export class Did {
    * @param other The other DID which will be used for the equality operation.
    */
   isEqual(other: Did): boolean {
-    return (
-      Buffer.from(this.publicKey).compare(Buffer.from(other.publicKey)) === 0
-    );
+    return bytesToHex(this.publicKey) === bytesToHex(other.publicKey);
   }
 
   /**
@@ -85,7 +83,7 @@ export class Command {
   isAttenuationOf(other: Command): boolean {
     return (
       this.segments.length >= other.segments.length &&
-      equal(other.segments, this.segments.slice(0, other.segments.length))
+      dequal(other.segments, this.segments.slice(0, other.segments.length))
     );
   }
 
@@ -142,7 +140,7 @@ export const NucTokenSchema = z
       command: token.cmd,
       body: tokenBody(token.args, token.pol),
       nonce: token.nonce,
-      proofs: token.prf.map((prf) => new Uint8Array(Buffer.from(prf, "hex"))),
+      proofs: token.prf.map((prf) => hexToBytes(prf)),
       notBefore: token.nbf
         ? Temporal.Instant.fromEpochMilliseconds(token.nbf * 1000)
         : undefined,

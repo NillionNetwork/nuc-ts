@@ -1,4 +1,4 @@
-import equal from "fast-deep-equal/es6";
+import { dequal } from "dequal";
 import { z } from "zod";
 import { type Selector, SelectorSchema } from "#/selector";
 
@@ -49,7 +49,7 @@ export class Equals implements OperatorPolicy {
     record: Record<string, unknown>,
     context: Record<string, unknown>,
   ): boolean {
-    return equal(this.selector.apply(record, context), this.value);
+    return dequal(this.selector.apply(record, context), this.value);
   }
 
   serialize(): Array<unknown> {
@@ -78,7 +78,7 @@ export class NotEquals implements OperatorPolicy {
     record: Record<string, unknown>,
     context: Record<string, unknown>,
   ): boolean {
-    return !equal(this.selector.apply(record, context), this.value);
+    return !dequal(this.selector.apply(record, context), this.value);
   }
 
   serialize(): Array<unknown> {
@@ -108,7 +108,7 @@ export class AnyOf implements OperatorPolicy {
     context: Record<string, unknown>,
   ): boolean {
     const value = this.selector.apply(record, context);
-    return Array.from(this.options).some((option) => equal(value, option));
+    return Array.from(this.options).some((option) => dequal(value, option));
   }
 
   serialize(): Array<unknown> {

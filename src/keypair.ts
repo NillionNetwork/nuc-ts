@@ -50,8 +50,8 @@ export class Keypair {
    * Returns true if this keypair matches the provided public key
    */
   matchesPublicKey(pk: Uint8Array | string): boolean {
-    const compareKey = typeof pk === "string" ? hexToBytes(pk) : pk;
-    return Buffer.from(this.publicKey()).equals(Buffer.from(compareKey));
+    const compareKeyHex = typeof pk === "string" ? pk : bytesToHex(pk);
+    return this.publicKey("hex") === compareKeyHex;
   }
 
   /**
@@ -99,8 +99,8 @@ export class Keypair {
   sign(msg: string, signatureFormat?: "bytes"): Uint8Array;
   sign(msg: string, signatureFormat: "hex"): string;
   sign(msg: string, signatureFormat?: "bytes" | "hex"): Uint8Array | string {
-    const msgHash = Uint8Array.from(Buffer.from(msg));
-    const signature = secp256k1.sign(msgHash, this.privateKey(), {
+    const msgBytes = new TextEncoder().encode(msg);
+    const signature = secp256k1.sign(msgBytes, this.privateKey(), {
       prehash: true,
     });
     return signatureFormat === "hex"

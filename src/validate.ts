@@ -1,4 +1,5 @@
-import equal from "fast-deep-equal/es6";
+import { bytesToHex } from "@noble/hashes/utils";
+import { dequal } from "dequal";
 import { Temporal } from "temporal-polyfill";
 import type { DecodedNucToken, NucTokenEnvelope } from "#/envelope";
 import { And, AnyOf, Equals, Not, NotEquals, Or, type Policy } from "#/policy";
@@ -151,7 +152,7 @@ export class NucTokenValidator {
     }
     if (
       !current.command.isAttenuationOf(previous.command) &&
-      !equal(current.command, REVOKE_COMMAND)
+      !dequal(current.command, REVOKE_COMMAND)
     ) {
       throw new Error(COMMAND_NOT_ATTENUATED);
     }
@@ -291,7 +292,7 @@ export class NucTokenValidator {
     let nextHash = hash;
     while (nextHash) {
       const nextProofIndex = indexedProofs.findIndex(
-        ([hash, _]) => Buffer.from(hash).compare(Buffer.from(nextHash)) === 0,
+        ([hash, _]) => bytesToHex(hash) === bytesToHex(nextHash),
       );
       if (nextProofIndex < 0) {
         throw new Error(MISSING_PROOF);
