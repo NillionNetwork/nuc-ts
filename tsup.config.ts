@@ -6,5 +6,7 @@ export default defineConfig({
   dts: true,
   format: "esm",
   target: "es2022",
+  sourcemap: true,
+  minify: false,
   noExternal: ["fast-deep-equal"],
 });

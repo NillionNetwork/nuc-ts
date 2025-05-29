@@ -15,7 +15,7 @@ export class NilauthUnreachable extends Data.TaggedError("NilauthUnreachable")<{
   /**
    * Returns a formatted string for logging.
    */
-  toString(): string {
+  override toString(): string {
     const causeStr =
       this.cause instanceof Error
         ? this.cause.message
@@ -43,7 +43,7 @@ export class InvalidContentType extends Data.TaggedError("InvalidContentType")<{
   /**
    * Returns a formatted string for logging.
    */
-  toString(): string {
+  override toString(): string {
     return `${this._tag}: status=${this.response.status} url=${this.response.url} expected=${this.expected} actual=${this.actual} cause=${this.cause.message}`;
   }
 }
@@ -59,7 +59,7 @@ export class PaymentTxFailed extends Data.TaggedError("PaymentTxFailed")<{
   /**
    * Returns a formatted string for logging.
    */
-  toString(): string {
+  override toString(): string {
     const causeStr =
       this.cause instanceof Error
         ? this.cause.message
@@ -125,7 +125,7 @@ export class NilauthErrorResponse extends Data.TaggedError(
   /**
    * Returns a formatted string for logging.
    */
-  toString(): string {
+  override toString(): string {
     const causeStr =
       this.cause instanceof Error
         ? this.cause.message
