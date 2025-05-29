@@ -277,10 +277,10 @@ describe("chain", () => {
     const key = secp256k1.utils.randomPrivateKey();
     const root = delegation(key)
       .command(new Command(["nil"]))
-      .notBefore(Temporal.Instant.fromEpochMilliseconds(5 * 1000));
+      .notBefore(5);
     const last = delegation(key)
       .command(new Command(["nil"]))
-      .notBefore(Temporal.Instant.fromEpochMilliseconds(3 * 1000));
+      .notBefore(3);
     const envelope = new Chainer().chain([
       SignableNucTokenBuilder.issuedByRoot(root),
       new SignableNucTokenBuilder(key, last),
@@ -297,7 +297,7 @@ describe("chain", () => {
     const key = secp256k1.utils.randomPrivateKey();
     const root = delegation(key)
       .command(new Command(["nil"]))
-      .notBefore(Temporal.Instant.fromEpochMilliseconds(10 * 1000));
+      .notBefore(10);
     const last = delegation(key).command(new Command(["nil"]));
     const envelope = new Chainer().chain([
       SignableNucTokenBuilder.issuedByRoot(root),
@@ -435,7 +435,7 @@ describe("chain", () => {
     const key = secp256k1.utils.randomPrivateKey();
     const root = delegation(key)
       .command(new Command(["nil"]))
-      .expiresAt(Temporal.Instant.fromEpochMilliseconds(5 * 1000));
+      .expiresAt(5);
     const last = delegation(key).command(new Command(["nil"]));
     const envelope = new Chainer().chain([
       SignableNucTokenBuilder.issuedByRoot(root),
@@ -451,7 +451,7 @@ describe("chain", () => {
     const root = delegation(key).command(new Command(["nil"]));
     const last = delegation(key)
       .command(new Command(["nil"]))
-      .expiresAt(Temporal.Instant.fromEpochMilliseconds(5 * 1000));
+      .expiresAt(5);
     const envelope = new Chainer().chain([
       SignableNucTokenBuilder.issuedByRoot(root),
       new SignableNucTokenBuilder(key, last),
