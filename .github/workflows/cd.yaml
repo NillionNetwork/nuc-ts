@@ -56,10 +56,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           [[ "${{ needs.check-version.outputs.tag }}" == "next" ]] && PRERELEASE="-p" || PRERELEASE=""
-          gh release create 'nuc-ts-v${{ needs.check-version.outputs.verson }}' --generate-notes $PRERELEASE --title "nuc-ts-v${{ needs.check-version.outputs.verson }}"
+          gh release create 'nuc-ts-v${{ needs.check-version.outputs.version }}' --generate-notes $PRERELEASE --title "nuc-ts-v${{ needs.check-version.outputs.version }}"
 
       - name: Upload artifact to GH Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: >-
-          gh release upload 'nuc-ts-v${{ needs.check-version.outputs.verson }}' *.tgz
+          gh release upload 'nuc-ts-v${{ needs.check-version.outputs.version }}' *.tgz
