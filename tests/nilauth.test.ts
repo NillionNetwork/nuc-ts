@@ -32,27 +32,33 @@ describe("nilauth client", () => {
   });
 
   it("fetch subscription cost", async ({ expect, nilauthClient }) => {
-    const response = await nilauthClient.subscriptionCost();
+    const response = await nilauthClient.subscriptionCost("nildb");
     expect(response).toBe(1000000);
   });
 
   it("is not subscribed", async ({ expect, nilauthClient }) => {
-    const response = await nilauthClient.subscriptionStatus();
+    const response = await nilauthClient.subscriptionStatus(
+      nilauthClient.keypair.publicKey("hex"),
+      "nildb",
+    );
     expect(response.subscribed).toBeFalsy();
   });
 
   it("pay and validate subscription", async ({ expect, nilauthClient }) => {
-    const result = await nilauthClient.payAndValidate();
+    const result = await nilauthClient.payAndValidate("nildb");
     expect(result).toBeUndefined();
   });
 
   it("is subscribed", async ({ expect, nilauthClient }) => {
-    const response = await nilauthClient.subscriptionStatus();
+    const response = await nilauthClient.subscriptionStatus(
+      nilauthClient.keypair.publicKey("hex"),
+      "nildb",
+    );
     expect(response.subscribed).toBeTruthy();
   });
 
   it("cannot renew subscription yet", async ({ expect, nilauthClient }) => {
-    const promise = nilauthClient.payAndValidate();
+    const promise = nilauthClient.payAndValidate("nildb");
     await expect(promise).rejects.toThrow("cannot renew subscription yet");
   });
 
@@ -61,13 +67,15 @@ describe("nilauth client", () => {
     const did = new Did(nilauthClient.keypair.publicKey());
     const now = Temporal.Now.instant().epochMilliseconds;
 
-    envelope = (await nilauthClient.requestToken()).token;
+    envelope = (await nilauthClient.requestToken("nildb")).token;
 
     envelope.validateSignatures();
 
     expect(envelope.token.token.subject.isEqual(did)).toBeTruthy();
     expect(envelope.token.token.audience.isEqual(did)).toBeTruthy();
-    expect(envelope.token.token.command).toStrictEqual(new Command(["nil"]));
+    expect(envelope.token.token.command).toStrictEqual(
+      new Command(["nil", "db"]),
+    );
     expect(envelope.token.token.expiresAt?.epochMilliseconds).toBeGreaterThan(
       now,
     );
@@ -83,7 +91,8 @@ describe("nilauth client", () => {
   });
 
   it("revoke token", async ({ expect, nilauthClient }) => {
-    await nilauthClient.revokeToken(envelope);
+    const authToken = await nilauthClient.requestToken("nildb");
+    await nilauthClient.revokeToken(authToken.token, envelope);
 
     await new Promise((f) => setTimeout(f, 200));
     const computeHash = bytesToHex(envelope.token.computeHash());
