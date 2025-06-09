@@ -1,6 +1,6 @@
 version: v2
 modules:
-  - path: nilvm/libs/node-api/proto/nillion/meta
+  - path: proto/nillion/meta
 lint:
   use:
     - STANDARD
