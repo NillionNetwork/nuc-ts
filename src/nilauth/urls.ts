@@ -1,3 +1,6 @@
+import type { BlindModule } from "#/nilauth/client";
+import type { Hex } from "#/utils";
+
 /**
  * Utility object for constructing Nilauth service endpoint URLs.
  *
@@ -13,10 +16,12 @@ export const NilauthUrl = {
     findRevocations: (base: string) => `${base}/api/v1/revocations/lookup`,
   },
   payments: {
-    cost: (base: string) => `${base}/api/v1/payments/cost`,
+    cost: (base: string, blindModule: BlindModule) =>
+      `${base}/api/v1/payments/cost?blind_module=${blindModule}`,
     validate: (base: string) => `${base}/api/v1/payments/validate`,
   },
   subscriptions: {
-    status: (base: string) => `${base}/api/v1/subscriptions/status`,
+    status: (base: string, publicKey: Hex, blindModule: BlindModule) =>
+      `${base}/api/v1/subscriptions/status?public_key=${publicKey}&blind_module=${blindModule}`,
   },
 } as const;

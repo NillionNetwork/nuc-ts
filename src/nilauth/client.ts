@@ -50,6 +50,8 @@ import {
   unwrapEffect,
 } from "#/utils";
 
+export type BlindModule = "nilai" | "nildb";
+
 /**
  * Options required to construct a NilauthClient.
  */
@@ -273,10 +275,13 @@ export class NilauthClient {
    *
    * Returns the cost in unils (Nilchain's token units).
    *
+   * @param blindModule - The module for which the subscription cost is requested (e.g., "nilai" or "nildb").
    * @returns Promise resolving to the numeric subscription cost.
    */
-  subscriptionCost(): Promise<SubscriptionCostResponse> {
-    return unwrapEffect(this.subscriptionCostEffect());
+  subscriptionCost(
+    blindModule: BlindModule,
+  ): Promise<SubscriptionCostResponse> {
+    return unwrapEffect(this.subscriptionCostEffect(blindModule));
   }
 
   /**
@@ -285,13 +290,16 @@ export class NilauthClient {
    * Provides the same functionality as `subscriptionCost()` but returns an
    * Effect that can be composed with other operations.
    *
+   * @param blindModule - The module for which the subscription cost is requested (e.g., "nilai" or "nildb").
    * @returns Effect resolving to the subscription cost or failing with typed errors.
    */
-  subscriptionCostEffect(): E.Effect<
+  subscriptionCostEffect(
+    blindModule: BlindModule,
+  ): E.Effect<
     SubscriptionCostResponse,
     ZodError | InvalidContentType | FetchError
   > {
-    const url = NilauthUrl.payments.cost(this.nilauthBaseUrl);
+    const url = NilauthUrl.payments.cost(this.nilauthBaseUrl, blindModule);
     const request: RequestOptions = { url, method: "GET" };
 
     return pipe(
@@ -309,10 +317,15 @@ export class NilauthClient {
    * Returns information about whether the client is subscribed and if so,
    * the subscription's expiration and renewal details.
    *
+   * @param publicKey - The public key of the client to check subscription status for.
+   * @param blindModule - The module for which the subscription status is checked (e.g., "nilai" or "nildb").
    * @returns Promise resolving to the subscription status.
    */
-  subscriptionStatus(): Promise<SubscriptionStatusResponse> {
-    return unwrapEffect(this.subscriptionStatusEffect());
+  subscriptionStatus(
+    publicKey: Hex,
+    blindModule: BlindModule,
+  ): Promise<SubscriptionStatusResponse> {
+    return unwrapEffect(this.subscriptionStatusEffect(publicKey, blindModule));
   }
 
   /**
@@ -321,27 +334,26 @@ export class NilauthClient {
    * Returns `{ subscribed: false, details: null }` if not subscribed, or
    * `{ subscribed: true, details: {...} }` with expiration details if subscribed.
    *
+   * @param publicKey - The public key of the client to check subscription status for.
+   * @param blindModule - The module for which the subscription status is checked (e.g., "nilai" or "nildb").
    * @returns Effect resolving to the subscription status or failing with typed errors.
    */
-  subscriptionStatusEffect(): E.Effect<
+  subscriptionStatusEffect(
+    publicKey: Hex,
+    blindModule: BlindModule,
+  ): E.Effect<
     SubscriptionStatusResponse,
     ZodError | InvalidContentType | FetchError
   > {
-    const url = NilauthUrl.subscriptions.status(this.nilauthBaseUrl);
-    const body = createSignedRequest(
-      {
-        nonce: generateNonce(),
-        expires_at: Math.floor(
-          Temporal.Now.instant().add({ seconds: 60 }).epochMilliseconds / 1000,
-        ),
-      },
-      this.keypair,
+    const url = NilauthUrl.subscriptions.status(
+      this.nilauthBaseUrl,
+      publicKey,
+      blindModule,
     );
     const request: RequestOptions = {
       url,
-      method: "POST",
+      method: "GET",
       headers: { "Content-Type": "application/json" },
-      body,
     };
 
     return pipe(
@@ -378,11 +390,11 @@ export class NilauthClient {
    *
    * @returns Promise resolving when payment and validation succeed, or throws on failure.
    */
-  payAndValidate(): Promise<void> {
+  payAndValidate(blindModule: BlindModule): Promise<void> {
     return unwrapEffect(
       pipe(
-        this.subscriptionCostEffect(),
-        E.flatMap((cost) => this.payEffect(cost)),
+        this.subscriptionCostEffect(blindModule),
+        E.flatMap((cost) => this.payEffect(cost, blindModule)),
         E.flatMap(({ txHash, payloadHex }) =>
           this.validatePaymentEffect(txHash, payloadHex),
         ),
@@ -396,14 +408,17 @@ export class NilauthClient {
    * Uses the configured payer to submit a transaction to Nilchain for the specified amount.
    *
    * @param amount - The payment amount in unils.
+   * @param blindModule - The module for which the payment is made (e.g., "nilai" or "nildb").
    * @returns Effect resolving to the transaction hash and payload, or failing with a payment error.
    */
   payEffect(
     amount: number,
+    blindModule: BlindModule,
   ): E.Effect<{ txHash: string; payloadHex: Hex }, PaymentTxFailed> {
     const payload = JSON.stringify({
       nonce: generateNonce(),
       service_public_key: this.nilauthPublicKey,
+      blind_module: blindModule,
     });
     const payloadHex = toHex(payload);
 
@@ -501,10 +516,13 @@ export class NilauthClient {
    * Creates a fresh token that can be used for authentication and authorization
    * with Nilauth and compatible services.
    *
+   * Requesting tokens can only be done if a subscription for the blind module is paid.
+   *
+   * @param blindModule - The module for which the token is requested (e.g., "nilai" or "nildb").
    * @returns Promise resolving to the created token response.
    */
-  requestToken(): Promise<CreateTokenResponse> {
-    return pipe(this.requestTokenEffect(), unwrapEffect);
+  requestToken(blindModule: BlindModule): Promise<CreateTokenResponse> {
+    return pipe(this.requestTokenEffect(blindModule), unwrapEffect);
   }
 
   /**
@@ -513,12 +531,12 @@ export class NilauthClient {
    * Provides the same functionality as `requestToken()` but returns an
    * Effect that can be composed with other operations.
    *
+   * @param blindModule - The module for which the token is requested (e.g., "nilai" or "nildb").
    * @returns Effect resolving to the created token response or failing with typed errors.
    */
-  requestTokenEffect(): E.Effect<
-    CreateTokenResponse,
-    ZodError | InvalidContentType | FetchError
-  > {
+  requestTokenEffect(
+    blindModule: BlindModule,
+  ): E.Effect<CreateTokenResponse, ZodError | InvalidContentType | FetchError> {
     const url = NilauthUrl.nucs.create(this.nilauthBaseUrl);
     const body = createSignedRequest(
       {
@@ -527,6 +545,7 @@ export class NilauthClient {
         expires_at: Math.floor(
           Temporal.Now.instant().add({ seconds: 60 }).epochMilliseconds / 1000,
         ),
+        blind_module: blindModule,
       },
       this.keypair,
     );
@@ -552,25 +571,20 @@ export class NilauthClient {
    * This invalidates the specified token by registering a revocation with the
    * Nilauth service. Any future verification of this token should fail.
    *
+   * @param authToken The token to be used as a base for authentication.
    * @param tokenToRevoke - The token envelope to revoke.
    * @returns Promise resolving when revocation is successfully registered.
    */
-  revokeToken(tokenToRevoke: NucTokenEnvelope): Promise<void> {
-    return unwrapEffect(
-      pipe(
-        this.requestTokenEffect(),
-        E.map((envelope) => {
-          return NucTokenBuilder.extending(envelope.token)
-            .body(new InvocationBody({ token: tokenToRevoke.serialize() }))
-            .command(REVOKE_COMMAND)
-            .audience(Did.fromHex(this.nilauthPublicKey))
-            .build(this.keypair.privateKey());
-        }),
-        E.flatMap((revokeTokenInvocation) =>
-          this.revokeTokenEffect(revokeTokenInvocation),
-        ),
-      ),
-    );
+  revokeToken(
+    authToken: NucTokenEnvelope,
+    tokenToRevoke: NucTokenEnvelope,
+  ): Promise<void> {
+    const revokeTokenInvocation = NucTokenBuilder.extending(authToken)
+      .body(new InvocationBody({ token: tokenToRevoke.serialize() }))
+      .command(REVOKE_COMMAND)
+      .audience(Did.fromHex(this.nilauthPublicKey))
+      .build(this.keypair.privateKey());
+    return unwrapEffect(this.revokeTokenEffect(revokeTokenInvocation));
   }
 
   /**
