@@ -301,7 +301,7 @@ export class NilauthClient {
    * Returns information about whether the client is subscribed and if so,
    * the subscription's expiration and renewal details.
    *
-   * @param publicKey - The public key of the client to check subscription status for.
+   * @param publicKey - The public key whose subscription status will be checked. This key does not need to belong to the payer.
    * @param blindModule - The module for which the subscription status is checked (e.g., "nilai" or "nildb").
    * @returns Promise resolving to the subscription status.
    */
@@ -318,7 +318,7 @@ export class NilauthClient {
    * Returns `{ subscribed: false, details: null }` if not subscribed, or
    * `{ subscribed: true, details: {...} }` with expiration details if subscribed.
    *
-   * @param publicKey - The public key of the client to check subscription status for.
+   * @param publicKey - The public key whose subscription status will be checked. This key does not need to belong to the payer.
    * @param blindModule - The module for which the subscription status is checked (e.g., "nilai" or "nildb").
    * @returns Effect resolving to the subscription status or failing with typed errors.
    */
@@ -429,7 +429,7 @@ export class NilauthClient {
    * if the transaction has not yet been committed to the blockchain.
    *
    * @param config - Configuration object containing:
-   * - `publicKey`: The public key of the client making the payment.
+   * - `publicKey`: The public key of the account for which to activate the subscription.
    * - `txHash`: The transaction hash of the payment made on Nilchain.
    * - `payloadHex`: The hex-encoded payload used in the payment transaction.
    * @returns Effect resolving to the validation response or failing with typed errors.
