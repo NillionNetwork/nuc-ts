@@ -14,11 +14,7 @@ export async function buildFixture(privateKey: string): Promise<TestFixture> {
     .keypair(keypair)
     .build();
 
-  const nilauthClient = await NilauthClient.from({
-    keypair,
-    payer,
-    baseUrl: Env.nilAuthUrl,
-  });
+  const nilauthClient = await NilauthClient.from(Env.nilAuthUrl, payer);
 
   return {
     nilauthClient,

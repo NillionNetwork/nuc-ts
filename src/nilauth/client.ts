@@ -56,7 +56,6 @@ export type BlindModule = "nilai" | "nildb";
  * Options required to construct a NilauthClient.
  */
 export type NilauthClientOptions = {
-  keypair: Keypair;
   payer: Payer;
   nilauth: {
     baseUrl: string;
@@ -76,20 +75,13 @@ export class NilauthClient {
   /**
    * Initialize a NilauthClient by automatically fetching the service's public key.
    *
-   * @param options - Configuration object containing `baseUrl`, `keypair`, and `payer`.
+   * @param baseUrl - The base URL of the Nilauth service.
+   * @param payer - The payer instance used for handling subscription payments.
    * @returns Promise resolving to a fully configured NilauthClient instance.
    */
-  static async from(options: {
-    baseUrl: string;
-    keypair: Keypair;
-    payer: Payer;
-  }): Promise<NilauthClient> {
-    const { baseUrl, keypair, payer } = options;
-
+  static async from(baseUrl: string, payer: Payer): Promise<NilauthClient> {
     const about = await NilauthClient.about(baseUrl);
-
     return new NilauthClient({
-      keypair,
       payer,
       nilauth: {
         baseUrl,
@@ -223,14 +215,6 @@ export class NilauthClient {
   }
 
   /**
-   * The client's keypair used for signing requests.
-   * Contains both the public and private keys.
-   */
-  get keypair(): Keypair {
-    return this.#options.keypair;
-  }
-
-  /**
    * The Nilauth service's public key.
    * Used for verification and authentication.
    */
@@ -317,7 +301,7 @@ export class NilauthClient {
    * Returns information about whether the client is subscribed and if so,
    * the subscription's expiration and renewal details.
    *
-   * @param publicKey - The public key of the client to check subscription status for.
+   * @param publicKey - The public key whose subscription status will be checked. This key does not need to belong to the payer.
    * @param blindModule - The module for which the subscription status is checked (e.g., "nilai" or "nildb").
    * @returns Promise resolving to the subscription status.
    */
@@ -334,7 +318,7 @@ export class NilauthClient {
    * Returns `{ subscribed: false, details: null }` if not subscribed, or
    * `{ subscribed: true, details: {...} }` with expiration details if subscribed.
    *
-   * @param publicKey - The public key of the client to check subscription status for.
+   * @param publicKey - The public key whose subscription status will be checked. This key does not need to belong to the payer.
    * @param blindModule - The module for which the subscription status is checked (e.g., "nilai" or "nildb").
    * @returns Effect resolving to the subscription status or failing with typed errors.
    */
@@ -390,13 +374,13 @@ export class NilauthClient {
    *
    * @returns Promise resolving when payment and validation succeed, or throws on failure.
    */
-  payAndValidate(blindModule: BlindModule): Promise<void> {
+  payAndValidate(publicKey: string, blindModule: BlindModule): Promise<void> {
     return unwrapEffect(
       pipe(
         this.subscriptionCostEffect(blindModule),
         E.flatMap((cost) => this.payEffect(cost, blindModule)),
         E.flatMap(({ txHash, payloadHex }) =>
-          this.validatePaymentEffect(txHash, payloadHex),
+          this.validatePaymentEffect({ publicKey, txHash, payloadHex }),
         ),
       ),
     );
@@ -444,17 +428,21 @@ export class NilauthClient {
    * the Nilauth service to activate the subscription. It automatically retries
    * if the transaction has not yet been committed to the blockchain.
    *
-   * @param txHash - The transaction hash from the Nilchain payment.
-   * @param payloadHex - The hex-encoded payment payload used in the transaction.
+   * @param config - Configuration object containing:
+   * - `publicKey`: The public key of the account for which to activate the subscription.
+   * - `txHash`: The transaction hash of the payment made on Nilchain.
+   * - `payloadHex`: The hex-encoded payload used in the payment transaction.
    * @returns Effect resolving to the validation response or failing with typed errors.
    */
-  validatePaymentEffect(
-    txHash: string,
-    payloadHex: Hex,
-  ): E.Effect<
+  validatePaymentEffect(config: {
+    publicKey: string;
+    txHash: string;
+    payloadHex: Hex;
+  }): E.Effect<
     ValidatePaymentResponse,
     ZodError | InvalidContentType | FetchError
   > {
+    const { publicKey, txHash, payloadHex } = config;
     const url = NilauthUrl.payments.validate(this.nilauthBaseUrl);
 
     const request: RequestOptions = {
@@ -464,7 +452,7 @@ export class NilauthClient {
       body: {
         tx_hash: txHash,
         payload: payloadHex,
-        public_key: this.keypair.publicKey("hex"),
+        public_key: publicKey,
       },
     };
 
@@ -518,11 +506,15 @@ export class NilauthClient {
    *
    * Requesting tokens can only be done if a subscription for the blind module is paid.
    *
+   * @param keypair - The keypair used to sign the request.
    * @param blindModule - The module for which the token is requested (e.g., "nilai" or "nildb").
    * @returns Promise resolving to the created token response.
    */
-  requestToken(blindModule: BlindModule): Promise<CreateTokenResponse> {
-    return pipe(this.requestTokenEffect(blindModule), unwrapEffect);
+  requestToken(
+    keypair: Keypair,
+    blindModule: BlindModule,
+  ): Promise<CreateTokenResponse> {
+    return pipe(this.requestTokenEffect(keypair, blindModule), unwrapEffect);
   }
 
   /**
@@ -531,10 +523,12 @@ export class NilauthClient {
    * Provides the same functionality as `requestToken()` but returns an
    * Effect that can be composed with other operations.
    *
+   * @param keypair - The keypair used to sign the request.
    * @param blindModule - The module for which the token is requested (e.g., "nilai" or "nildb").
    * @returns Effect resolving to the created token response or failing with typed errors.
    */
   requestTokenEffect(
+    keypair: Keypair,
     blindModule: BlindModule,
   ): E.Effect<CreateTokenResponse, ZodError | InvalidContentType | FetchError> {
     const url = NilauthUrl.nucs.create(this.nilauthBaseUrl);
@@ -547,7 +541,7 @@ export class NilauthClient {
         ),
         blind_module: blindModule,
       },
-      this.keypair,
+      keypair,
     );
     const request: RequestOptions = {
       url,
@@ -571,19 +565,23 @@ export class NilauthClient {
    * This invalidates the specified token by registering a revocation with the
    * Nilauth service. Any future verification of this token should fail.
    *
-   * @param authToken The token to be used as a base for authentication.
-   * @param tokenToRevoke - The token envelope to revoke.
+   * @param config - Configuration object containing:
+   * - `keypair`: The keypair used to sign the revocation request.
+   * - `authToken`: The NUC token envelope used for authentication.
+   * - `tokenToRevoke`: The NUC token envelope to be revoked.
    * @returns Promise resolving when revocation is successfully registered.
    */
-  revokeToken(
-    authToken: NucTokenEnvelope,
-    tokenToRevoke: NucTokenEnvelope,
-  ): Promise<void> {
+  revokeToken(config: {
+    keypair: Keypair;
+    authToken: NucTokenEnvelope;
+    tokenToRevoke: NucTokenEnvelope;
+  }): Promise<void> {
+    const { keypair, authToken, tokenToRevoke } = config;
     const revokeTokenInvocation = NucTokenBuilder.extending(authToken)
       .body(new InvocationBody({ token: tokenToRevoke.serialize() }))
       .command(REVOKE_COMMAND)
       .audience(Did.fromHex(this.nilauthPublicKey))
-      .build(this.keypair.privateKey());
+      .build(keypair.privateKey());
     return unwrapEffect(this.revokeTokenEffect(revokeTokenInvocation));
   }
 

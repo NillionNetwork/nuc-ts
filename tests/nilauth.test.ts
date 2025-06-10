@@ -2,12 +2,16 @@ import { bytesToHex } from "@noble/hashes/utils";
 import { Temporal } from "temporal-polyfill";
 import { describe } from "vitest";
 import type { NucTokenEnvelope } from "#/envelope";
-import { Command, Did } from "#/token";
+import { Keypair } from "#/keypair";
+import { Command } from "#/token";
 import { Env } from "./fixture/env";
 import { createTestFixtureExtension } from "./fixture/it";
 
 describe("nilauth client", () => {
-  const { it, beforeAll } = createTestFixtureExtension(Env.NilauthClient);
+  const keypair = Keypair.from(Env.NilauthClient);
+  const { it, beforeAll } = createTestFixtureExtension(
+    keypair.privateKey("hex"),
+  );
 
   beforeAll(async () => {});
 
@@ -38,36 +42,42 @@ describe("nilauth client", () => {
 
   it("is not subscribed", async ({ expect, nilauthClient }) => {
     const response = await nilauthClient.subscriptionStatus(
-      nilauthClient.keypair.publicKey("hex"),
+      keypair.publicKey("hex"),
       "nildb",
     );
     expect(response.subscribed).toBeFalsy();
   });
 
   it("pay and validate subscription", async ({ expect, nilauthClient }) => {
-    const result = await nilauthClient.payAndValidate("nildb");
+    const result = await nilauthClient.payAndValidate(
+      keypair.publicKey("hex"),
+      "nildb",
+    );
     expect(result).toBeUndefined();
   });
 
   it("is subscribed", async ({ expect, nilauthClient }) => {
     const response = await nilauthClient.subscriptionStatus(
-      nilauthClient.keypair.publicKey("hex"),
+      keypair.publicKey("hex"),
       "nildb",
     );
     expect(response.subscribed).toBeTruthy();
   });
 
   it("cannot renew subscription yet", async ({ expect, nilauthClient }) => {
-    const promise = nilauthClient.payAndValidate("nildb");
+    const promise = nilauthClient.payAndValidate(
+      keypair.publicKey("hex"),
+      "nildb",
+    );
     await expect(promise).rejects.toThrow("cannot renew subscription yet");
   });
 
   let envelope: NucTokenEnvelope;
   it("request token", async ({ expect, nilauthClient }) => {
-    const did = new Did(nilauthClient.keypair.publicKey());
+    const did = keypair.toDid();
     const now = Temporal.Now.instant().epochMilliseconds;
 
-    envelope = (await nilauthClient.requestToken("nildb")).token;
+    envelope = (await nilauthClient.requestToken(keypair, "nildb")).token;
 
     envelope.validateSignatures();
 
@@ -91,8 +101,12 @@ describe("nilauth client", () => {
   });
 
   it("revoke token", async ({ expect, nilauthClient }) => {
-    const authToken = await nilauthClient.requestToken("nildb");
-    await nilauthClient.revokeToken(authToken.token, envelope);
+    const authToken = await nilauthClient.requestToken(keypair, "nildb");
+    await nilauthClient.revokeToken({
+      keypair,
+      authToken: authToken.token,
+      tokenToRevoke: envelope,
+    });
 
     await new Promise((f) => setTimeout(f, 200));
     const computeHash = bytesToHex(envelope.token.computeHash());
