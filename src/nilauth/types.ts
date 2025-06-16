@@ -84,11 +84,11 @@ export type CreateTokenResponse = z.infer<typeof CreateTokenResponseSchema>;
 export const RevokedTokenSchema = z
   .object({
     token_hash: z.string(),
-    revoked_at: z.string(),
+    revoked_at: z.number(),
   })
   .transform(({ token_hash, revoked_at }) => ({
     tokenHash: token_hash,
-    revokedAt: revoked_at,
+    revokedAt: Temporal.Instant.fromEpochMilliseconds(revoked_at * 1000),
   }));
 export type RevokedToken = z.output<typeof RevokedTokenSchema>;
 
