@@ -14,6 +14,26 @@ export const HexSchema = z.string().regex(/^[a-fA-F0-9]+$/, "invalid hex");
 export type Hex = z.infer<typeof HexSchema>;
 
 /**
+ * Epoch timestamp in seconds.
+ **/
+const EpochSeconds = z.number().int().max(1e12);
+/**
+ * Parses a value as an epoch timestamp in seconds.
+ *
+ * Validates that the value is an integer and does not exceed 1 trillion.
+ * Throws a ZodError if validation fails.
+ *
+ * @param value - The value to parse as epoch seconds.
+ * @returns The parsed epoch seconds as a number.
+ * @throws ZodError if the value is not a valid epoch timestamp.
+ * @example
+ * parseEpochSeconds(1633036800) // Returns 1633036800
+ * parseEpochSeconds("invalid") // Throws ZodError
+ */
+export const parseEpochSeconds = (value: unknown): number =>
+  EpochSeconds.parse(value);
+
+/**
  * Converts a UTF-8 string to hexadecimal.
  *
  * The string is first encoded as UTF-8 bytes, then each byte is
