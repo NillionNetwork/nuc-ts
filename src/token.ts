@@ -3,7 +3,7 @@ import { dequal } from "dequal";
 import { Temporal } from "temporal-polyfill";
 import { z } from "zod";
 import { type Policy, PolicySchema } from "#/policy";
-import { type Hex, HexSchema } from "#/utils";
+import { EpochSeconds, type Hex, HexSchema } from "#/utils";
 
 const DID_EXPRESSION = /^did:nil:([a-zA-Z0-9]{66})$/;
 
@@ -123,8 +123,8 @@ export const NucTokenSchema = z
     iss: DidSchema,
     aud: DidSchema,
     sub: DidSchema,
-    nbf: z.number().optional(),
-    exp: z.number().optional(),
+    nbf: EpochSeconds.optional(),
+    exp: EpochSeconds.optional(),
     cmd: CommandSchema,
     args: InvocationBodySchema.optional(),
     pol: DelegationBodySchema.optional(),

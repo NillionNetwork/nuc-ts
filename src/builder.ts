@@ -108,7 +108,7 @@ export class NucTokenBuilder {
    * Set the token's `not before` instant.
    *
    * @param epoch The Unix timestamp (in seconds) at which the token becomes valid.
-   * @throws ZodError if the value is not a valid epoch timestamp.
+   * @throws Error if the value is not a valid epoch timestamp.
    */
   notBefore(epoch: number): NucTokenBuilder {
     const notBeforeInSeconds = parseEpochSeconds(epoch);
@@ -122,7 +122,7 @@ export class NucTokenBuilder {
    * Set the token's `expires at` instant.
    *
    * @param epoch The Unix timestamp (in seconds) at which the token expires.
-   * @throws ZodError if the value is not a valid epoch timestamp.
+   * @throws Error if the value is not a valid epoch timestamp.
    */
   expiresAt(epoch: number): NucTokenBuilder {
     const expiresAtInSeconds = parseEpochSeconds(epoch);
