@@ -11,7 +11,12 @@ import {
   NucToken,
   NucTokenDataSchema,
 } from "#/token";
-import { base64UrlEncode, type Hex, randomBytes } from "#/utils";
+import {
+  base64UrlEncode,
+  type Hex,
+  parseEpochSeconds,
+  randomBytes,
+} from "#/utils";
 
 const DEFAULT_NONCE_LENGTH = 16;
 
@@ -102,9 +107,11 @@ export class NucTokenBuilder {
   /**
    * Set the token's `not before` instant.
    *
-   * @param notBeforeInSeconds The Unix timestamp (in seconds) at which the token becomes valid.
+   * @param epoch The Unix timestamp (in seconds) at which the token becomes valid.
+   * @throws Error if the value is not a valid epoch timestamp.
    */
-  notBefore(notBeforeInSeconds: number): NucTokenBuilder {
+  notBefore(epoch: number): NucTokenBuilder {
+    const notBeforeInSeconds = parseEpochSeconds(epoch);
     this._notBefore = Temporal.Instant.fromEpochMilliseconds(
       notBeforeInSeconds * 1000,
     );
@@ -114,9 +121,11 @@ export class NucTokenBuilder {
   /**
    * Set the token's `expires at` instant.
    *
-   * @param expiresAtInSeconds The Unix timestamp (in seconds) at which the token expires.
+   * @param epoch The Unix timestamp (in seconds) at which the token expires.
+   * @throws Error if the value is not a valid epoch timestamp.
    */
-  expiresAt(expiresAtInSeconds: number): NucTokenBuilder {
+  expiresAt(epoch: number): NucTokenBuilder {
+    const expiresAtInSeconds = parseEpochSeconds(epoch);
     this._expiresAt = Temporal.Instant.fromEpochMilliseconds(
       expiresAtInSeconds * 1000,
     );

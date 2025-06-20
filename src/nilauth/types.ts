@@ -1,6 +1,7 @@
 import { Temporal } from "temporal-polyfill";
 import z from "zod";
 import { NucTokenEnvelopeSchema } from "#/envelope";
+import { EpochSeconds } from "#/utils";
 
 const PUBLIC_KEY_LENGTH = 66;
 
@@ -59,8 +60,8 @@ export type SubscriptionCostResponse = z.output<
 
 export const SubscriptionDetailsSchema = z
   .object({
-    expires_at: z.number(),
-    renewable_at: z.number(),
+    expires_at: EpochSeconds,
+    renewable_at: EpochSeconds,
   })
   .transform(({ expires_at, renewable_at }) => ({
     expiresAt: Temporal.Instant.fromEpochMilliseconds(expires_at * 1000),
@@ -84,7 +85,7 @@ export type CreateTokenResponse = z.infer<typeof CreateTokenResponseSchema>;
 export const RevokedTokenSchema = z
   .object({
     token_hash: z.string(),
-    revoked_at: z.number(),
+    revoked_at: EpochSeconds,
   })
   .transform(({ token_hash, revoked_at }) => ({
     tokenHash: token_hash,
