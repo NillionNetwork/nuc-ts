@@ -405,9 +405,12 @@ export class NilauthClient {
       blind_module: blindModule,
     });
     const payloadHex = toHex(payload);
+    const payloadDigest = sha256(payload);
+    log(
+      `Making payment with payload=${payloadHex}, digest=${bytesToHex(payloadDigest)}`,
+    );
 
     const request = {
-      payload: payloadHex,
       hash: sha256(payload),
       cost: amount,
     };
