@@ -20,7 +20,7 @@ This project is managed via [pnpm](https://pnpm.io/). To install dependencies ru
 ## Documentation
 The documentation can be generated automatically from the source files using [TypeDoc](https://typedoc.org/):
 
-    pnpm docs
+    pnpm run docs
 
 ## Testing and Conventions
 All unit tests are executed and their coverage is measured when using [vitest](https://vitest.dev/):
