@@ -1,6 +1,7 @@
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { Keypair } from "#/core/keypair";
+import { Signers } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
 import { decodeBase64Url, serializeBase64Url } from "#/nuc/codec";
 
@@ -9,19 +10,19 @@ describe("Codec Module", () => {
   const userKeypair = Keypair.generate();
 
   // Property-Based Test: Serialization and decoding should be inverses.
-  it("should serialize and decode any token without data loss", () => {
-    fc.assert(
-      fc.property(fc.boolean(), (isChained) => {
-        const rootEnvelope = Builder.delegation()
+  it("should serialize and decode any token without data loss", async () => {
+    await fc.assert(
+      fc.asyncProperty(fc.boolean(), async (isChained) => {
+        const rootEnvelope = await Builder.delegation()
           .audience(userKeypair.toDid())
           .subject(userKeypair.toDid())
           .command("/test")
-          .build(rootKeypair);
+          .build(Signers.fromKeypair(rootKeypair));
 
         const finalEnvelope = isChained
-          ? Builder.delegating(rootEnvelope)
+          ? await Builder.delegating(rootEnvelope)
               .audience(Keypair.generate().toDid())
-              .build(userKeypair)
+              .build(Signers.fromKeypair(userKeypair))
           : rootEnvelope;
 
         const serialized = serializeBase64Url(finalEnvelope);
@@ -44,18 +45,20 @@ describe("Codec Module", () => {
     });
 
     it("should throw for an invalid header", () => {
-      const invalidHeader = "eyJhbGciOiJub25lIn0.e30.e30";
+      // Create a header with invalid version format
+      const invalidHeader =
+        "eyJhbGciOiJFUzI1NksiLCJ2ZXIiOiJpbnZhbGlkIn0.e30.e30"; // {"alg":"ES256K","ver":"invalid"}
       expect(() => decodeBase64Url(invalidHeader)).toThrow(
         "invalid Nuc header",
       );
     });
 
-    it("should throw for empty tokens in a chain", () => {
-      const rootEnvelope = Builder.delegation()
+    it("should throw for empty tokens in a chain", async () => {
+      const rootEnvelope = await Builder.delegation()
         .audience(userKeypair.toDid())
         .subject(userKeypair.toDid())
         .command("/test")
-        .build(rootKeypair);
+        .build(Signers.fromKeypair(rootKeypair));
       const validSerialized = serializeBase64Url(rootEnvelope);
       const invalidChain = `${validSerialized}//${validSerialized}`;
       expect(() => decodeBase64Url(invalidChain)).toThrow("empty token");

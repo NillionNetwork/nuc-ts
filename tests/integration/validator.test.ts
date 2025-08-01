@@ -2,6 +2,7 @@ import { secp256k1 } from "@noble/curves/secp256k1";
 import { describe, it } from "vitest";
 import * as did from "#/core/did/did";
 import { Keypair } from "#/core/keypair";
+import { Signers } from "#/core/signer";
 import {
   Builder,
   type DelegationBuilder,
@@ -44,21 +45,23 @@ function invocation(privateKey: Uint8Array): InvocationBuilder {
 describe("Validator", () => {
   const rootKeypair = Keypair.fromBytes(ROOT_KEYS[0]);
 
-  it("unlinked chain", () => {
+  it("unlinked chain", async () => {
     const key = secp256k1.utils.randomSecretKey();
     const userKeypair = Keypair.fromBytes(key);
     const base = delegation(key).command("/nil");
 
-    let envelope = base.build(rootKeypair);
-    envelope = base.proof(envelope).build(userKeypair);
+    let envelope = await base.build(Signers.fromKeypair(rootKeypair));
+    envelope = await base
+      .proof(envelope)
+      .build(Signers.fromKeypair(userKeypair));
 
-    const unlinkedToken = base.build(rootKeypair);
+    const unlinkedToken = await base.build(Signers.fromKeypair(rootKeypair));
     envelope.proofs.push(unlinkedToken.nuc);
 
     new Asserter().assertFailure(envelope, UNCHAINED_PROOFS);
   });
 
-  it("chain too long", () => {
+  it("chain too long", async () => {
     const key = secp256k1.utils.randomSecretKey();
     const userKeypair = Keypair.fromBytes(key);
 
@@ -68,34 +71,38 @@ describe("Validator", () => {
       delegation(key).command("/nil"),
     ];
 
-    let envelope = Builder.delegation()
+    let envelope = await Builder.delegation()
       .audience(userKeypair.toDid())
       .subject(userKeypair.toDid())
       .command("/nil")
-      .build(rootKeypair);
+      .build(Signers.fromKeypair(rootKeypair));
 
     for (const builder of builders) {
-      envelope = builder.proof(envelope).build(userKeypair);
+      envelope = await builder
+        .proof(envelope)
+        .build(Signers.fromKeypair(userKeypair));
     }
 
     const parameters = { maxChainLength: 2 };
     new Asserter({ parameters }).assertFailure(envelope, CHAIN_TOO_LONG);
   });
 
-  it("command not attenuated", () => {
+  it("command not attenuated", async () => {
     const key = secp256k1.utils.randomSecretKey();
     const userKeypair = Keypair.fromBytes(key);
 
     const root = delegation(key).command("/nil").audience(userKeypair.toDid());
     const last = delegation(key).command("/bar");
 
-    let envelope = root.build(rootKeypair);
-    envelope = last.proof(envelope).build(userKeypair);
+    let envelope = await root.build(Signers.fromKeypair(rootKeypair));
+    envelope = await last
+      .proof(envelope)
+      .build(Signers.fromKeypair(userKeypair));
 
     new Asserter().assertFailure(envelope, COMMAND_NOT_ATTENUATED);
   });
 
-  it("different subjects", () => {
+  it("different subjects", async () => {
     const key1 = secp256k1.utils.randomSecretKey();
     const key2 = secp256k1.utils.randomSecretKey();
     const userKeypair2 = Keypair.fromBytes(key2);
@@ -105,13 +112,15 @@ describe("Validator", () => {
       .audience(userKeypair2.toDid());
     const last = delegation(key2).command("/nil");
 
-    let envelope = root.build(rootKeypair);
-    envelope = last.proof(envelope).build(userKeypair2);
+    let envelope = await root.build(Signers.fromKeypair(rootKeypair));
+    envelope = await last
+      .proof(envelope)
+      .build(Signers.fromKeypair(userKeypair2));
 
     new Asserter().assertFailure(envelope, DIFFERENT_SUBJECTS);
   });
 
-  it("audience mismatch", () => {
+  it("audience mismatch", async () => {
     const key = secp256k1.utils.randomSecretKey();
     const userKeypair = Keypair.fromBytes(key);
     const root = delegation(key)
@@ -119,13 +128,15 @@ describe("Validator", () => {
       .audience(did.fromPublicKey(new Uint8Array(Array(33).fill(0xaa))));
     const last = delegation(key).command("/nil");
 
-    let envelope = root.build(rootKeypair);
-    envelope = last.proof(envelope).build(userKeypair);
+    let envelope = await root.build(Signers.fromKeypair(rootKeypair));
+    envelope = await last
+      .proof(envelope)
+      .build(Signers.fromKeypair(userKeypair));
 
     new Asserter().assertFailure(envelope, ISSUER_AUDIENCE_MISMATCH);
   });
 
-  it("invalid audience invocation", () => {
+  it("invalid audience invocation", async () => {
     const key = secp256k1.utils.randomSecretKey();
     const userKeypair = Keypair.fromBytes(key);
 
@@ -139,8 +150,10 @@ describe("Validator", () => {
     const root = delegation(key).command("/nil").audience(userKeypair.toDid());
     const last = invocation(key).command("/nil").audience(actualAudience);
 
-    let envelope = root.build(rootKeypair);
-    envelope = last.proof(envelope).build(userKeypair);
+    let envelope = await root.build(Signers.fromKeypair(rootKeypair));
+    envelope = await last
+      .proof(envelope)
+      .build(Signers.fromKeypair(userKeypair));
 
     const parameters = {
       tokenRequirements: {
@@ -151,9 +164,11 @@ describe("Validator", () => {
     new Asserter({ parameters }).assertFailure(envelope, INVALID_AUDIENCE);
   });
 
-  it("invalid signature", () => {
+  it("invalid signature", async () => {
     const key = secp256k1.utils.randomSecretKey();
-    const envelope = delegation(key).command("/nil").build(rootKeypair);
+    const envelope = await delegation(key)
+      .command("/nil")
+      .build(Signers.fromKeypair(rootKeypair));
 
     // Tamper with the signature
     envelope.nuc.signature[0] ^= 1;
@@ -161,13 +176,15 @@ describe("Validator", () => {
     new Asserter().assertFailure(envelope, INVALID_SIGNATURES);
   });
 
-  it("missing proof", () => {
+  it("missing proof", async () => {
     const key = secp256k1.utils.randomSecretKey();
     const userKeypair = Keypair.fromBytes(key);
     const base = delegation(key).command("/nil").audience(userKeypair.toDid());
 
-    let envelope = base.build(rootKeypair);
-    envelope = base.proof(envelope).build(userKeypair);
+    let envelope = await base.build(Signers.fromKeypair(rootKeypair));
+    envelope = await base
+      .proof(envelope)
+      .build(Signers.fromKeypair(userKeypair));
 
     // Remove the proof from the envelope
     envelope.proofs = [];
@@ -175,7 +192,7 @@ describe("Validator", () => {
     new Asserter().assertFailure(envelope, MISSING_PROOF);
   });
 
-  it("policy not met", () => {
+  it("policy not met", async () => {
     const key = secp256k1.utils.randomSecretKey();
     const userKeypair = Keypair.fromBytes(key);
     const subject = userKeypair.toDid();
@@ -186,33 +203,35 @@ describe("Validator", () => {
       .command("/nil")
       .audience(userKeypair.toDid());
 
-    let envelope = root.build(rootKeypair);
+    let envelope = await root.build(Signers.fromKeypair(rootKeypair));
 
     // Using the new invoking method for cleaner API
-    envelope = Builder.invoking(envelope)
+    envelope = await Builder.invoking(envelope)
       .arguments({ bar: 1337 })
       .audience(Keypair.generate().toDid())
-      .build(userKeypair);
+      .build(Signers.fromKeypair(userKeypair));
 
     new Asserter().assertFailure(envelope, POLICY_NOT_MET);
   });
 
-  it("root key signature missing", () => {
+  it("root key signature missing", async () => {
     const key = secp256k1.utils.randomSecretKey();
     const userKeypair = Keypair.fromBytes(key);
 
     const root = delegation(key).command("/nil").audience(userKeypair.toDid());
     const last = delegation(key).command("/nil");
 
-    let envelope = root.build(userKeypair);
-    envelope = last.proof(envelope).build(userKeypair);
+    let envelope = await root.build(Signers.fromKeypair(userKeypair));
+    envelope = await last
+      .proof(envelope)
+      .build(Signers.fromKeypair(userKeypair));
     new Asserter({ rootDids: ROOT_DIDS }).assertFailure(
       envelope,
       ROOT_KEY_SIGNATURE_MISSING,
     );
   });
 
-  it("valid chain", () => {
+  it("valid chain", async () => {
     const subjectKey = secp256k1.utils.randomSecretKey();
     const subjectKeypair = Keypair.fromBytes(subjectKey);
     const subject = subjectKeypair.toDid();
@@ -240,9 +259,13 @@ describe("Validator", () => {
       .audience(rpcDid)
       .command("/nil/bar/foo");
 
-    let envelope = root.build(rootKeypair);
-    envelope = intermediate.proof(envelope).build(subjectKeypair);
-    envelope = last.proof(envelope).build(subjectKeypair);
+    let envelope = await root.build(Signers.fromKeypair(rootKeypair));
+    envelope = await intermediate
+      .proof(envelope)
+      .build(Signers.fromKeypair(subjectKeypair));
+    envelope = await last
+      .proof(envelope)
+      .build(Signers.fromKeypair(subjectKeypair));
 
     const parameters = {
       tokenRequirements: {
