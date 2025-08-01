@@ -1,5 +1,6 @@
 import { describe, it } from "vitest";
 import { Keypair } from "#/core/keypair";
+import { Signers } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
 import { validateSignature } from "#/nuc/envelope";
 import {
@@ -13,14 +14,14 @@ describe("Builder", () => {
   const aud = Keypair.generate().toDid();
   const sub = Keypair.generate().toDid();
 
-  it("builds a valid delegation token", ({ expect }) => {
-    const envelope = Builder.delegation()
+  it("builds a valid delegation token", async ({ expect }) => {
+    const envelope = await Builder.delegation()
       .policy([["==", ".command", "/db/read"]])
       .addPolicy(["!=", ".resource", "users"])
       .audience(aud)
       .subject(sub)
       .command(REVOKE_COMMAND)
-      .build(keypair);
+      .build(Signers.fromKeypair(keypair));
 
     validateSignature(envelope.nuc);
     const payload = envelope.nuc.payload;
@@ -31,14 +32,14 @@ describe("Builder", () => {
     expect(payload.pol).toHaveLength(2);
   });
 
-  it("builds a valid invocation token", ({ expect }) => {
-    const envelope = Builder.invocation()
+  it("builds a valid invocation token", async ({ expect }) => {
+    const envelope = await Builder.invocation()
       .arguments({ action: "read" })
       .addArgument("resourceId", 123)
       .audience(aud)
       .subject(sub)
       .command("/db/read")
-      .build(keypair);
+      .build(Signers.fromKeypair(keypair));
 
     validateSignature(envelope.nuc);
     const payload = envelope.nuc.payload;
@@ -49,20 +50,20 @@ describe("Builder", () => {
     expect(payload.args).toEqual({ action: "read", resourceId: 123 });
   });
 
-  it("builds a chained token using delegating()", ({ expect }) => {
+  it("builds a chained token using delegating()", async ({ expect }) => {
     const rootKeypair = Keypair.generate();
     const userKeypair = Keypair.generate();
 
-    const rootEnvelope = Builder.delegation()
+    const rootEnvelope = await Builder.delegation()
       .policy([["==", ".command", "/db/read"]])
       .audience(userKeypair.toDid())
       .subject(userKeypair.toDid())
       .command("/db/read")
-      .build(rootKeypair);
+      .build(Signers.fromKeypair(rootKeypair));
 
-    const chainedEnvelope = Builder.delegating(rootEnvelope)
+    const chainedEnvelope = await Builder.delegating(rootEnvelope)
       .audience(aud) // new audience
-      .build(userKeypair); // signed by user
+      .build(Signers.fromKeypair(userKeypair)); // signed by user
 
     expect(chainedEnvelope.proofs).toHaveLength(1);
     expect(chainedEnvelope.nuc.payload.prf).toHaveLength(1);
@@ -73,26 +74,26 @@ describe("Builder", () => {
     expect(payload.cmd).toBe("/db/read"); // Inherited
   });
 
-  it("builds an invocation token from a delegation using invoking()", ({
+  it("builds an invocation token from a delegation using invoking()", async ({
     expect,
   }) => {
     const rootKeypair = Keypair.generate();
     const userKeypair = Keypair.generate();
 
     // Create a parent delegation
-    const delegationEnvelope = Builder.delegation()
+    const delegationEnvelope = await Builder.delegation()
       .policy([["==", ".command", "/db/read"]])
       .audience(userKeypair.toDid())
       .subject(userKeypair.toDid())
       .command("/db/read")
-      .build(rootKeypair);
+      .build(Signers.fromKeypair(rootKeypair));
 
     // Create an invocation from the delegation
-    const invocationEnvelope = Builder.invoking(delegationEnvelope)
+    const invocationEnvelope = await Builder.invoking(delegationEnvelope)
       .audience(aud) // new audience
       .addArgument("action", "read")
       .addArgument("resourceId", 456)
-      .build(userKeypair); // signed by user
+      .build(Signers.fromKeypair(userKeypair)); // signed by user
 
     expect(invocationEnvelope.proofs).toHaveLength(1);
     expect(invocationEnvelope.nuc.payload.prf).toHaveLength(1);

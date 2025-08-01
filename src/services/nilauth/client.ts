@@ -14,6 +14,7 @@ import {
 } from "#/core/errors";
 import type { Keypair } from "#/core/keypair";
 import { Log } from "#/core/logger";
+import { Signers } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
 import { serializeBase64Url } from "#/nuc/codec";
 import type { Envelope } from "#/nuc/envelope";
@@ -395,7 +396,7 @@ export class NilauthClient {
   }): Promise<void> {
     const { keypair, authToken, tokenToRevoke } = config;
 
-    const revokeTokenEnvelope = Builder.invocation()
+    const revokeTokenEnvelope = await Builder.invocation()
       .arguments({
         token: serializeBase64Url(tokenToRevoke),
       })
@@ -404,7 +405,7 @@ export class NilauthClient {
       .issuer(keypair.toDid("nil"))
       .subject(authToken.nuc.payload.sub)
       .proof(authToken)
-      .build(keypair);
+      .build(Signers.fromLegacyKeypair(keypair));
 
     const revokeTokenString = serializeBase64Url(revokeTokenEnvelope);
     const url = NilauthUrl.nucs.revoke(this.nilauthBaseUrl);

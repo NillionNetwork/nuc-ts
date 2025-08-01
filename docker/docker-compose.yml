@@ -13,7 +13,7 @@ services:
     restart: unless-stopped
     shm_size: 128mb
     ports:
-      - "26648:26648" # JSON RPC
+      - "30648:26648" # JSON RPC
 
   nilauth:
     image: public.ecr.aws/k5d9x2g2/nilauth:a76ec51c4db044a0838d1aa5b15f4143009bd37e

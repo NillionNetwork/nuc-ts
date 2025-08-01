@@ -1,6 +1,7 @@
 export * as Did from "#/core/did/did";
 export * as Errors from "#/core/errors";
 export { Keypair } from "#/core/keypair";
+export * as Signer from "#/core/signer";
 export * as Builder from "#/nuc/builder";
 export * as Codec from "#/nuc/codec";
 export * as Envelope from "#/nuc/envelope";

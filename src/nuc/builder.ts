@@ -2,7 +2,7 @@ import { bytesToHex, randomBytes } from "@noble/hashes/utils";
 import { DEFAULT_NONCE_LENGTH } from "#/constants";
 import type { Did } from "#/core/did/types";
 import { base64UrlEncode } from "#/core/encoding";
-import type { Keypair } from "#/core/keypair";
+import type { Signer } from "#/core/signer";
 import { computeHash, type Envelope, type Nuc } from "#/nuc/envelope";
 import {
   type Command,
@@ -121,27 +121,34 @@ abstract class AbstractBuilder {
   }
 
   /**
-   * Builds and signs the token with the provided keypair.
-   * @param keypair - The keypair to sign the token with
+   * Builds and signs the token with the provided signer.
+   * @param signer - The signer to sign the token with
    * @returns The signed token envelope
    * @throws {Error} If required fields (audience, subject, command) are missing
    */
-  public build(keypair: Keypair): Envelope {
-    const issuer = this._issuer ?? keypair.toDid();
+  public async build(signer: Signer): Promise<Envelope> {
+    // The issuer is now authoritatively derived from the signer.
+    const issuer = this._issuer ?? (await signer.getDid());
     const payloadData = this._getPayloadData(issuer);
+
+    const header = signer.header;
+    const rawHeader = base64UrlEncode(
+      new TextEncoder().encode(JSON.stringify(header)),
+    );
 
     const rawPayload = base64UrlEncode(
       new TextEncoder().encode(JSON.stringify(payloadData)),
     );
-    const rawHeader = base64UrlEncode(
-      new TextEncoder().encode('{"alg":"ES256K"}'),
+
+    const messageToSign = new TextEncoder().encode(
+      `${rawHeader}.${rawPayload}`,
     );
-    const tokenAsBytes = new TextEncoder().encode(`${rawHeader}.${rawPayload}`);
+    const signature = await signer.sign(messageToSign);
 
     const nuc: Nuc = {
       rawHeader,
       rawPayload,
-      signature: new Uint8Array(keypair.signBytes(tokenAsBytes)),
+      signature: new Uint8Array(signature),
       payload: payloadData,
     };
 
@@ -254,9 +261,11 @@ export class InvocationBuilder extends AbstractBuilder {
  * @example
  * ```typescript
  * import { Builder } from "#/nuc/builder";
+ * import { Signers } from "#/core/signer";
  * import { Keypair } from "#/core/keypair";
  *
  * const keypair = Keypair.generate();
+ * const signer = Signers.fromKeypair(keypair);
  *
  * // Create a delegation token
  * const delegation = Builder.delegation()
@@ -270,7 +279,7 @@ export class InvocationBuilder extends AbstractBuilder {
  * const invocation = Builder.invoking(delegation)
  *   .audience(audienceDid)
  *   .arguments({ table: "users", id: 123 })
- *   .build(userKeypair);
+ *   .build(await Signers.fromKeypair(userKeypair));
  * ```
  */
 export const Builder = {
@@ -284,7 +293,7 @@ export const Builder = {
    *   .subject(subjectDid)
    *   .command("/db/read")
    *   .policy([["==", ".command", "/db/read"]])
-   *   .build(keypair);
+   *   .build(signer);
    * ```
    */
   delegation(): DelegationBuilder {
@@ -301,7 +310,7 @@ export const Builder = {
    *   .subject(subjectDid)
    *   .command("/db/execute")
    *   .arguments({ query: "SELECT * FROM users" })
-   *   .build(keypair);
+   *   .build(signer);
    * ```
    */
   invocation(): InvocationBuilder {
@@ -321,11 +330,11 @@ export const Builder = {
    *   .subject(userDid)
    *   .command("/db/read")
    *   .policy([["==", ".command", "/db/read"]])
-   *   .build(rootKeypair);
+   *   .build(await Signers.fromKeypair(rootKeypair));
    *
    * const chainedToken = Builder.delegating(rootToken)
    *   .audience(newAudience) // Override the audience
-   *   .build(userKeypair);
+   *   .build(await Signers.fromKeypair(userKeypair));
    * ```
    */
   delegating(proof: Envelope): DelegationBuilder {
@@ -356,12 +365,12 @@ export const Builder = {
    *   .subject(userDid)
    *   .command("/db/read")
    *   .policy([["==", ".command", "/db/read"]])
-   *   .build(rootKeypair);
+   *   .build(await Signers.fromKeypair(rootKeypair));
    *
    * const invocationToken = Builder.invoking(delegationToken)
    *   .audience(serviceDid)
    *   .arguments({ table: "users" })
-   *   .build(userKeypair);
+   *   .build(await Signers.fromKeypair(userKeypair));
    * ```
    */
   invoking(proof: Envelope): InvocationBuilder {
