@@ -109,7 +109,7 @@ function createSignedRequest(
  * Options required to construct a NilauthClient.
  */
 export type NilauthClientOptions = {
-  payer: Payer;
+  payer?: Payer;
   nilauth: {
     baseUrl: string;
     publicKey: string;
@@ -123,13 +123,16 @@ export type NilauthClientOptions = {
 export class NilauthClient {
   /**
    * Creates a NilauthClient instance by automatically fetching the service's public key.
-   * @param baseUrl - The base URL of the Nilauth service
-   * @param payer - The Payer instance for handling payments
+   * @param options - An object containing the Nilauth's baseUrl and an optional payer
    * @returns A configured NilauthClient instance
    * @throws {NilauthUnreachable} If the service cannot be reached
    * @throws {z.ZodError} If the service response is invalid
    */
-  static async create(baseUrl: string, payer: Payer): Promise<NilauthClient> {
+  static async create(options: {
+    baseUrl: string;
+    payer?: Payer;
+  }): Promise<NilauthClient> {
+    const { baseUrl, payer } = options;
     const url = NilauthUrl.about(baseUrl);
     const about = await performRequest(url, NilauthAboutResponseSchema);
     return new NilauthClient({
@@ -201,7 +204,7 @@ export class NilauthClient {
     this.#options = options;
   }
 
-  get payer(): Payer {
+  get payer(): Payer | undefined {
     return this.#options.payer;
   }
 
@@ -282,6 +285,11 @@ export class NilauthClient {
     amount: number,
     blindModule: BlindModule,
   ): Promise<{ txHash: string; payloadHex: string }> {
+    if (!this.payer) {
+      throw new Error(
+        "A Payer instance is required for this operation. Please provide it during NilauthClient creation.",
+      );
+    }
     const payload = JSON.stringify({
       nonce: bytesToHex(randomBytes(DEFAULT_NONCE_LENGTH)),
       service_public_key: this.nilauthPublicKey,

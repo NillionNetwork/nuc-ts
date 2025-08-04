@@ -2,6 +2,8 @@ import { bytesToHex } from "@noble/hashes/utils";
 import { beforeAll, describe, expect, it } from "vitest";
 import * as did from "#/core/did/did";
 import { Keypair } from "#/core/keypair";
+import { Signers } from "#/core/signer";
+import { Builder } from "#/nuc/builder";
 import type { Envelope } from "#/nuc/envelope";
 import { computeHash } from "#/nuc/envelope";
 import { NilauthClient } from "#/services/nilauth/client";
@@ -21,7 +23,10 @@ describe("nilauth client", () => {
     const payer = await PayerBuilder.fromKeypair(keypair)
       .chainUrl(Env.nilChainUrl)
       .build();
-    nilauthClient = await NilauthClient.create(Env.nilAuthUrl, payer);
+    nilauthClient = await NilauthClient.create({
+      baseUrl: Env.nilAuthUrl,
+      payer,
+    });
   });
 
   it("fetch subscription cost", async () => {
@@ -89,5 +94,40 @@ describe("nilauth client", () => {
       await nilauthClient.findRevocationsInProofChain(envelope);
     const wasRevoked = revoked.some((t) => t.tokenHash === tokenHash);
     expect(wasRevoked).toBeTruthy();
+  });
+});
+
+describe("NilauthClient without a Payer", () => {
+  let clientWithoutPayer: NilauthClient;
+
+  beforeAll(async () => {
+    clientWithoutPayer = await NilauthClient.create({
+      baseUrl: Env.nilAuthUrl,
+    });
+  });
+
+  it("should successfully perform read-only operations", async () => {
+    // Create a dummy token to check for revocation
+    const testKeypair = Keypair.generate();
+    const tokenToRevoke = await Builder.delegation()
+      .audience(testKeypair.toDid())
+      .subject(testKeypair.toDid())
+      .command("/test")
+      .build(Signers.fromKeypair(Keypair.generate()));
+
+    // This should succeed as it doesn't require a payer
+    const promise =
+      clientWithoutPayer.findRevocationsInProofChain(tokenToRevoke);
+    await expect(promise).resolves.not.toThrow();
+  });
+
+  it("should throw when performing a write operation", async () => {
+    const promise = clientWithoutPayer.payAndValidate(
+      "some-public-key",
+      "nildb",
+    );
+    await expect(promise).rejects.toThrow(
+      "A Payer instance is required for this operation.",
+    );
   });
 });
