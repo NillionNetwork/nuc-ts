@@ -37,6 +37,7 @@
     "@noble/hashes": "^1.8.0",
     "@scure/base": "^1.2.6",
     "es-toolkit": "^1.39.8",
+    "ethers": "^6.15.0",
     "http-status-codes": "^2.3.0",
     "ky": "^1.8.2",
     "multiformats": "^13.3.7",

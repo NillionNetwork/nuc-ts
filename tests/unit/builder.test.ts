@@ -2,12 +2,12 @@ import { describe, it } from "vitest";
 import { Keypair } from "#/core/keypair";
 import { Signers } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
-import { validateSignature } from "#/nuc/envelope";
 import {
   isDelegationPayload,
   isInvocationPayload,
   REVOKE_COMMAND,
 } from "#/nuc/payload";
+import { validateSignature } from "#/validator/signatures";
 
 describe("Builder", () => {
   const keypair = Keypair.generate();

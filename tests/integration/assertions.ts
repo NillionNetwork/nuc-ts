@@ -10,7 +10,7 @@ import {
   type TokenRequirement,
   type ValidationParameters,
   validate,
-} from "#/nuc/validate/index";
+} from "#/validator/index";
 
 export const ROOT_KEYS = [secp256k1.utils.randomSecretKey()];
 export const ROOT_DIDS: string[] = ROOT_KEYS.map((privKey) =>

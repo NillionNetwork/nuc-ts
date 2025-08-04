@@ -1,5 +1,10 @@
+import { hexToBytes } from "@noble/hashes/utils";
+import type { TypedDataDomain } from "ethers";
 import { z } from "zod";
+import * as did from "#/core/did/did";
+import * as ethr from "#/core/did/ethr";
 import type { Did } from "#/core/did/types";
+import { base64UrlDecode } from "#/core/encoding";
 import type { Keypair } from "#/core/keypair";
 
 /**
@@ -65,6 +70,18 @@ export class SigningError extends Error {
 }
 
 /**
+ * Interface for EIP-712 signers.
+ */
+export interface Eip712Signer {
+  readonly getAddress: () => Promise<string>;
+  readonly signTypedData: (
+    domain: TypedDataDomain,
+    types: Record<string, Array<{ name: string; type: string }>>,
+    value: Record<string, unknown>,
+  ) => Promise<string>;
+}
+
+/**
  * Predefined header configurations.
  */
 export const NucHeaders = {
@@ -72,6 +89,29 @@ export const NucHeaders = {
   v1: { typ: "nuc", alg: "ES256K", ver: "1.0.0" },
   /** The legacy header format for backward compatibility. */
   legacy: { alg: "ES256K" },
+  /** The EIP-712 header format factory for Ethereum wallet signing. */
+  v1_eip712: (domain: TypedDataDomain) => ({
+    typ: "nuc+eip712",
+    alg: "ES256K",
+    ver: "1.0.0",
+    meta: {
+      domain,
+      primaryType: "NucPayload",
+      types: {
+        NucPayload: [
+          { name: "iss", type: "string" },
+          { name: "aud", type: "string" },
+          { name: "sub", type: "string" },
+          { name: "cmd", type: "string" },
+          { name: "pol", type: "string" }, // JSON stringified
+          { name: "nbf", type: "uint256" },
+          { name: "exp", type: "uint256" },
+          { name: "nonce", type: "string" },
+          { name: "prf", type: "string[]" },
+        ],
+      },
+    },
+  }),
 } as const;
 
 /**
@@ -101,6 +141,59 @@ export const Signers = {
       header: NucHeaders.legacy,
       getDid: async () => keypair.toDid("nil"),
       sign: async (data) => keypair.signBytes(data),
+    };
+  },
+
+  /**
+   * Creates an EIP-712 Signer for Ethereum wallet signing.
+   * @param signer The EIP-712 compatible signer (e.g., ethers Wallet)
+   * @param domain The EIP-712 domain parameters
+   * @returns A Signer instance that uses EIP-712 signing
+   */
+  fromEip712(signer: Eip712Signer, domain: TypedDataDomain): Signer {
+    const eip712Header = NucHeaders.v1_eip712(domain);
+    return {
+      header: eip712Header,
+      getDid: async () => ethr.fromAddress(await signer.getAddress()),
+      sign: async (data: Uint8Array): Promise<Uint8Array> => {
+        const payloadString = new TextDecoder().decode(data).split(".")[1];
+        const decodedPayload = JSON.parse(base64UrlDecode(payloadString));
+
+        const valueToSign = {
+          iss:
+            typeof decodedPayload.iss === "string"
+              ? decodedPayload.iss
+              : did.serialize(decodedPayload.iss),
+          aud:
+            typeof decodedPayload.aud === "string"
+              ? decodedPayload.aud
+              : did.serialize(decodedPayload.aud),
+          sub:
+            typeof decodedPayload.sub === "string"
+              ? decodedPayload.sub
+              : did.serialize(decodedPayload.sub),
+          cmd: decodedPayload.cmd || "",
+          pol: JSON.stringify(
+            decodedPayload.pol !== undefined ? decodedPayload.pol : [],
+          ),
+          nbf: decodedPayload.nbf || 0,
+          exp: decodedPayload.exp || 0,
+          nonce: decodedPayload.nonce || "",
+          prf: decodedPayload.prf || [],
+        };
+
+        const { types, primaryType } = eip712Header.meta;
+        const signatureHex = await signer.signTypedData(
+          domain,
+          { [primaryType]: types.NucPayload },
+          valueToSign,
+        );
+        // Remove 0x prefix if present and convert to bytes
+        const hexString = signatureHex.startsWith("0x")
+          ? signatureHex.slice(2)
+          : signatureHex;
+        return hexToBytes(hexString);
+      },
     };
   },
 };

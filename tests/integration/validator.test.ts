@@ -19,7 +19,7 @@ import {
   POLICY_NOT_MET,
   ROOT_KEY_SIGNATURE_MISSING,
   UNCHAINED_PROOFS,
-} from "#/nuc/validate/index";
+} from "#/validator/index";
 import { Asserter, ROOT_DIDS, ROOT_KEYS } from "./assertions";
 
 function delegation(privateKey: Uint8Array): DelegationBuilder {
