@@ -2,6 +2,7 @@ import { describe, it } from "vitest";
 import { Keypair } from "#/core/keypair";
 import { Signers } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
+import { decodeBase64Url } from "#/nuc/codec";
 import {
   isDelegationPayload,
   isInvocationPayload,
@@ -106,5 +107,77 @@ describe("Builder", () => {
     // Verify invocation-specific properties
     expect(payload.iss.didString).toEqual(userKeypair.toDid().didString);
     expect(payload.args).toEqual({ action: "read", resourceId: 456 });
+  });
+});
+
+describe("Builder Ergonomics", () => {
+  const rootKeypair = Keypair.generate();
+  const rootSigner = Signers.fromKeypair(rootKeypair);
+  const userKeypair = Keypair.generate();
+  const userSigner = Signers.fromKeypair(userKeypair);
+  const serviceDid = Keypair.generate().toDid();
+
+  it("should sign and serialize a delegation in one step", async ({
+    expect,
+  }) => {
+    const serializedToken = await Builder.delegation()
+      .audience(userKeypair.toDid())
+      .subject(userKeypair.toDid())
+      .command("/test")
+      .signAndSerialize(rootSigner);
+
+    expect(typeof serializedToken).toBe("string");
+    const decoded = decodeBase64Url(serializedToken);
+    expect(decoded.nuc.payload.aud.didString).toBe(
+      userKeypair.toDid().didString,
+    );
+  });
+
+  it("should create a chained delegation from a string", async ({ expect }) => {
+    const rootDelegationString = await Builder.delegation()
+      .audience(userKeypair.toDid())
+      .subject(userKeypair.toDid())
+      .command("/test/delegate")
+      .signAndSerialize(rootSigner);
+
+    const chainedDelegationString = await Builder.delegatingFromString(
+      rootDelegationString,
+    )
+      .audience(serviceDid)
+      .signAndSerialize(userSigner);
+
+    const decoded = decodeBase64Url(chainedDelegationString);
+    expect(decoded.proofs).toHaveLength(1);
+    expect(decoded.nuc.payload.iss.didString).toBe(
+      userKeypair.toDid().didString,
+    );
+    expect(decoded.proofs[0].payload.iss.didString).toBe(
+      rootKeypair.toDid().didString,
+    );
+  });
+
+  it("should create an invocation from a string", async ({ expect }) => {
+    const rootDelegationString = await Builder.delegation()
+      .audience(userKeypair.toDid())
+      .subject(userKeypair.toDid())
+      .command("/test/invoke")
+      .signAndSerialize(rootSigner);
+
+    const invocationString = await Builder.invokingFromString(
+      rootDelegationString,
+    )
+      .audience(serviceDid)
+      .arguments({ foo: "bar" })
+      .signAndSerialize(userSigner);
+
+    const decoded = decodeBase64Url(invocationString);
+    expect(decoded.proofs).toHaveLength(1);
+    expect(decoded.nuc.payload.iss.didString).toBe(
+      userKeypair.toDid().didString,
+    );
+    expect(isInvocationPayload(decoded.nuc.payload)).toBe(true);
+    if (isInvocationPayload(decoded.nuc.payload)) {
+      expect(decoded.nuc.payload.args).toEqual({ foo: "bar" });
+    }
   });
 });

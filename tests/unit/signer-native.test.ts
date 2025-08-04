@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { base64UrlDecode } from "#/core/encoding";
 import { Keypair } from "#/core/keypair";
 import { Signers } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
-import { base64UrlDecode } from "#/core/encoding";
 import { validateSignature } from "#/validator/signatures";
 
 describe("Native Signer (`did:key`)", () => {

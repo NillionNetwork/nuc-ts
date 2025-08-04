@@ -3,6 +3,7 @@ import { DEFAULT_NONCE_LENGTH } from "#/constants";
 import type { Did } from "#/core/did/types";
 import { base64UrlEncode } from "#/core/encoding";
 import type { Signer } from "#/core/signer";
+import { decodeBase64Url, serializeBase64Url } from "#/nuc/codec";
 import { computeHash, type Envelope, type Nuc } from "#/nuc/envelope";
 import {
   type Command,
@@ -156,6 +157,17 @@ abstract class AbstractBuilder {
       nuc: nuc,
       proofs: this._proof ? [this._proof.nuc, ...this._proof.proofs] : [],
     };
+  }
+
+  /**
+   * Builds, signs, and serializes the token into a base64url string.
+   * This is a convenience method that combines `build` and `serializeBase64Url`.
+   * @param signer - The signer to sign the token with
+   * @returns The signed and serialized token string
+   */
+  public async signAndSerialize(signer: Signer): Promise<string> {
+    const envelope = await this.build(signer);
+    return serializeBase64Url(envelope);
   }
 }
 
@@ -387,5 +399,25 @@ export const Builder = {
     builder.proof(proof);
 
     return builder;
+  },
+
+  /**
+   * Creates a DelegationBuilder pre-configured from an existing serialized delegation token string.
+   * @param proofString - The base64url encoded string of the delegation to extend
+   * @returns A pre-configured DelegationBuilder
+   */
+  delegatingFromString(proofString: string): DelegationBuilder {
+    const proof = decodeBase64Url(proofString);
+    return this.delegating(proof);
+  },
+
+  /**
+   * Creates an InvocationBuilder pre-configured from a serialized delegation token string.
+   * @param proofString - The base64url encoded string of the delegation to invoke
+   * @returns A pre-configured InvocationBuilder
+   */
+  invokingFromString(proofString: string): InvocationBuilder {
+    const proof = decodeBase64Url(proofString);
+    return this.invoking(proof);
   },
 } as const;
