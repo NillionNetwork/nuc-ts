@@ -1,13 +1,9 @@
 import { describe, it } from "vitest";
 import { Keypair } from "#/core/keypair";
-import { Signers } from "#/core/signer";
+import { Signer } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
-import { decodeBase64Url } from "#/nuc/codec";
-import {
-  isDelegationPayload,
-  isInvocationPayload,
-  REVOKE_COMMAND,
-} from "#/nuc/payload";
+import { Codec } from "#/nuc/codec";
+import { Payload, REVOKE_COMMAND } from "#/nuc/payload";
 
 describe("Builder", () => {
   const keypair = Keypair.generate();
@@ -21,12 +17,12 @@ describe("Builder", () => {
       .audience(aud)
       .subject(sub)
       .command(REVOKE_COMMAND)
-      .build(Signers.fromKeypair(keypair));
+      .build(Signer.fromKeypair(keypair));
 
     const payload = envelope.nuc.payload;
 
-    expect(isDelegationPayload(payload)).toBe(true);
-    if (!isDelegationPayload(payload)) return;
+    expect(Payload.isDelegationPayload(payload)).toBe(true);
+    if (!Payload.isDelegationPayload(payload)) return;
 
     expect(payload.pol).toHaveLength(2);
   });
@@ -38,12 +34,12 @@ describe("Builder", () => {
       .audience(aud)
       .subject(sub)
       .command("/db/read")
-      .build(Signers.fromKeypair(keypair));
+      .build(Signer.fromKeypair(keypair));
 
     const payload = envelope.nuc.payload;
 
-    expect(isInvocationPayload(payload)).toBe(true);
-    if (!isInvocationPayload(payload)) return;
+    expect(Payload.isInvocationPayload(payload)).toBe(true);
+    if (!Payload.isInvocationPayload(payload)) return;
 
     expect(payload.args).toEqual({ action: "read", resourceId: 123 });
   });
@@ -57,11 +53,11 @@ describe("Builder", () => {
       .audience(userKeypair.toDid())
       .subject(userKeypair.toDid())
       .command("/db/read")
-      .build(Signers.fromKeypair(rootKeypair));
+      .build(Signer.fromKeypair(rootKeypair));
 
     const chainedEnvelope = await Builder.delegating(rootEnvelope)
       .audience(aud) // new audience
-      .build(Signers.fromKeypair(userKeypair)); // signed by user
+      .build(Signer.fromKeypair(userKeypair)); // signed by user
 
     expect(chainedEnvelope.proofs).toHaveLength(1);
     expect(chainedEnvelope.nuc.payload.prf).toHaveLength(1);
@@ -84,21 +80,21 @@ describe("Builder", () => {
       .audience(userKeypair.toDid())
       .subject(userKeypair.toDid())
       .command("/db/read")
-      .build(Signers.fromKeypair(rootKeypair));
+      .build(Signer.fromKeypair(rootKeypair));
 
     // Create an invocation from the delegation
     const invocationEnvelope = await Builder.invoking(delegationEnvelope)
       .audience(aud) // new audience
       .addArgument("action", "read")
       .addArgument("resourceId", 456)
-      .build(Signers.fromKeypair(userKeypair)); // signed by user
+      .build(Signer.fromKeypair(userKeypair)); // signed by user
 
     expect(invocationEnvelope.proofs).toHaveLength(1);
     expect(invocationEnvelope.nuc.payload.prf).toHaveLength(1);
 
     const payload = invocationEnvelope.nuc.payload;
-    expect(isInvocationPayload(payload)).toBe(true);
-    if (!isInvocationPayload(payload)) return;
+    expect(Payload.isInvocationPayload(payload)).toBe(true);
+    if (!Payload.isInvocationPayload(payload)) return;
 
     // Verify inherited properties
     expect(payload.sub.didString).toEqual(userKeypair.toDid().didString); // Inherited from delegation
@@ -112,9 +108,9 @@ describe("Builder", () => {
 
 describe("Builder Ergonomics", () => {
   const rootKeypair = Keypair.generate();
-  const rootSigner = Signers.fromKeypair(rootKeypair);
+  const rootSigner = Signer.fromKeypair(rootKeypair);
   const userKeypair = Keypair.generate();
-  const userSigner = Signers.fromKeypair(userKeypair);
+  const userSigner = Signer.fromKeypair(userKeypair);
   const serviceDid = Keypair.generate().toDid();
 
   it("should sign and serialize a delegation in one step", async ({
@@ -127,7 +123,7 @@ describe("Builder Ergonomics", () => {
       .signAndSerialize(rootSigner);
 
     expect(typeof serializedToken).toBe("string");
-    const decoded = decodeBase64Url(serializedToken);
+    const decoded = Codec.decodeBase64Url(serializedToken);
     expect(decoded.nuc.payload.aud.didString).toBe(
       userKeypair.toDid().didString,
     );
@@ -146,7 +142,7 @@ describe("Builder Ergonomics", () => {
       .audience(serviceDid)
       .signAndSerialize(userSigner);
 
-    const decoded = decodeBase64Url(chainedDelegationString);
+    const decoded = Codec.decodeBase64Url(chainedDelegationString);
     expect(decoded.proofs).toHaveLength(1);
     expect(decoded.nuc.payload.iss.didString).toBe(
       userKeypair.toDid().didString,
@@ -170,13 +166,13 @@ describe("Builder Ergonomics", () => {
       .arguments({ foo: "bar" })
       .signAndSerialize(userSigner);
 
-    const decoded = decodeBase64Url(invocationString);
+    const decoded = Codec.decodeBase64Url(invocationString);
     expect(decoded.proofs).toHaveLength(1);
     expect(decoded.nuc.payload.iss.didString).toBe(
       userKeypair.toDid().didString,
     );
-    expect(isInvocationPayload(decoded.nuc.payload)).toBe(true);
-    if (isInvocationPayload(decoded.nuc.payload)) {
+    expect(Payload.isInvocationPayload(decoded.nuc.payload)).toBe(true);
+    if (Payload.isInvocationPayload(decoded.nuc.payload)) {
       expect(decoded.nuc.payload.args).toEqual({ foo: "bar" });
     }
   });

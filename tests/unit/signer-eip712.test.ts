@@ -1,7 +1,7 @@
 import { Wallet } from "ethers";
 import { describe, expect, it } from "vitest";
 import * as ethr from "#/core/did/ethr";
-import { type Eip712Signer, Signers } from "#/core/signer";
+import { type Eip712Signer, Signer } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
 import { validateSignature } from "#/validator/signatures";
 
@@ -18,7 +18,7 @@ describe("EIP-712 Signer (`did:ethr`)", () => {
   };
 
   it("should build and successfully validate an EIP-712 signed delegation", async () => {
-    const signer = Signers.fromEip712(eip712Signer, domain);
+    const signer = Signer.fromEip712(eip712Signer, domain);
     const envelope = await Builder.delegation()
       .audience(audience)
       .subject(audience)
@@ -29,7 +29,7 @@ describe("EIP-712 Signer (`did:ethr`)", () => {
   });
 
   it("should build and successfully validate an EIP-712 signed invocation", async () => {
-    const signer = Signers.fromEip712(eip712Signer, domain);
+    const signer = Signer.fromEip712(eip712Signer, domain);
     const envelope = await Builder.invocation()
       .audience(audience)
       .subject(audience)

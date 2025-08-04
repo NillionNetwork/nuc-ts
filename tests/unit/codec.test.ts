@@ -1,9 +1,9 @@
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { Keypair } from "#/core/keypair";
-import { Signers } from "#/core/signer";
+import { Signer } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
-import { decodeBase64Url, serializeBase64Url } from "#/nuc/codec";
+import { Codec } from "#/nuc/codec";
 
 describe("Codec Module", () => {
   const rootKeypair = Keypair.generate();
@@ -17,19 +17,19 @@ describe("Codec Module", () => {
           .audience(userKeypair.toDid())
           .subject(userKeypair.toDid())
           .command("/test")
-          .build(Signers.fromKeypair(rootKeypair));
+          .build(Signer.fromKeypair(rootKeypair));
 
         const finalEnvelope = isChained
           ? await Builder.delegating(rootEnvelope)
               .audience(Keypair.generate().toDid())
-              .build(Signers.fromKeypair(userKeypair))
+              .build(Signer.fromKeypair(userKeypair))
           : rootEnvelope;
 
-        const serialized = serializeBase64Url(finalEnvelope);
-        const decoded = decodeBase64Url(serialized);
+        const serialized = Codec.serializeBase64Url(finalEnvelope);
+        const decoded = Codec.decodeBase64Url(serialized);
 
         // Compare the serialized forms to ensure they produce the same output
-        const reserialized = serializeBase64Url(decoded);
+        const reserialized = Codec.serializeBase64Url(decoded);
         expect(reserialized).toBe(serialized);
       }),
     );
@@ -39,7 +39,7 @@ describe("Codec Module", () => {
   describe("error paths", () => {
     it("should throw for an invalid Nuc structure", () => {
       const invalidToken = "a.b";
-      expect(() => decodeBase64Url(invalidToken)).toThrow(
+      expect(() => Codec.decodeBase64Url(invalidToken)).toThrow(
         "invalid Nuc structure",
       );
     });
@@ -48,7 +48,7 @@ describe("Codec Module", () => {
       // Create a header with invalid version format
       const invalidHeader =
         "eyJhbGciOiJFUzI1NksiLCJ2ZXIiOiJpbnZhbGlkIn0.e30.e30"; // {"alg":"ES256K","ver":"invalid"}
-      expect(() => decodeBase64Url(invalidHeader)).toThrow(
+      expect(() => Codec.decodeBase64Url(invalidHeader)).toThrow(
         "invalid Nuc header",
       );
     });
@@ -58,14 +58,14 @@ describe("Codec Module", () => {
         .audience(userKeypair.toDid())
         .subject(userKeypair.toDid())
         .command("/test")
-        .build(Signers.fromKeypair(rootKeypair));
-      const validSerialized = serializeBase64Url(rootEnvelope);
+        .build(Signer.fromKeypair(rootKeypair));
+      const validSerialized = Codec.serializeBase64Url(rootEnvelope);
       const invalidChain = `${validSerialized}//${validSerialized}`;
-      expect(() => decodeBase64Url(invalidChain)).toThrow("empty token");
+      expect(() => Codec.decodeBase64Url(invalidChain)).toThrow("empty token");
     });
 
     it("should throw for an empty input string", () => {
-      expect(() => decodeBase64Url("")).toThrow("empty token");
+      expect(() => Codec.decodeBase64Url("")).toThrow("empty token");
     });
   });
 });

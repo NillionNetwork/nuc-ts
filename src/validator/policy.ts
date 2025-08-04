@@ -1,5 +1,5 @@
 import { Log } from "#/core/logger";
-import { getPolicyTreeProperties, type Policy } from "#/nuc/policy";
+import { Policy } from "#/nuc/policy";
 import type { ValidationParameters } from "./types";
 
 export const POLICY_TOO_DEEP = "policy is too deep";
@@ -20,7 +20,7 @@ export function validatePolicyProperties(
     throw new Error(POLICY_TOO_WIDE);
   }
 
-  const properties = getPolicyTreeProperties(policy);
+  const properties = Policy.getPolicyTreeProperties(policy);
   if (properties.maxWidth > config.maxPolicyWidth) {
     Log.debug(
       { maxWidth: properties.maxWidth, maxPolicyWidth: config.maxPolicyWidth },
@@ -36,5 +36,3 @@ export function validatePolicyProperties(
     throw new Error(POLICY_TOO_DEEP);
   }
 }
-
-export { getPolicyTreeProperties };

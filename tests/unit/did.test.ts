@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import * as did from "#/core/did/did";
+import { Did } from "#/core/did/did";
 import type { DidKey, DidNil } from "#/core/did/types";
 import { Keypair } from "#/core/keypair";
 
@@ -10,55 +10,55 @@ describe("Dids", () => {
   const keyDid = keypair.toDid("key") as DidKey;
 
   it("parses and stringifies did:nil correctly", () => {
-    const parsed = did.parse(nilDid.didString) as DidNil;
+    const parsed = Did.parse(nilDid.didString) as DidNil;
     expect(parsed.didString).toEqual(nilDid.didString);
     expect(parsed.method).toEqual(nilDid.method);
     expect(parsed.publicKeyBytes).toEqual(nilDid.publicKeyBytes);
-    const stringified = did.serialize(parsed);
+    const stringified = Did.serialize(parsed);
     expect(stringified).toEqual(nilDid.didString);
   });
 
   it("parses and stringifies did:key correctly", () => {
     expect(keyDid.didString.startsWith("did:key:z")).toBe(true);
-    const parsed = did.parse(keyDid.didString) as DidKey;
+    const parsed = Did.parse(keyDid.didString) as DidKey;
     expect(parsed.didString).toEqual(keyDid.didString);
     expect(parsed.method).toEqual(keyDid.method);
     expect(parsed.publicKeyBytes).toEqual(keyDid.publicKeyBytes);
     if (parsed.method === "key" && keyDid.method === "key") {
       expect(parsed.multicodec).toEqual(keyDid.multicodec);
     }
-    const stringified = did.serialize(parsed);
+    const stringified = Did.serialize(parsed);
     expect(stringified).toEqual(keyDid.didString);
   });
 
   it("throws on unsupported method", () => {
-    expect(() => did.parse("did:unsupported:123")).toThrow(
+    expect(() => Did.parse("did:unsupported:123")).toThrow(
       "Unsupported Did method",
     );
   });
 
   it("correctly compares DIDs for equality", () => {
-    const parsedKey1 = did.parse(keyDid.didString);
-    const parsedKey2 = did.parse(keyDid.didString);
-    const parsedNil = did.parse(nilDid.didString);
+    const parsedKey1 = Did.parse(keyDid.didString);
+    const parsedKey2 = Did.parse(keyDid.didString);
+    const parsedNil = Did.parse(nilDid.didString);
 
-    expect(did.areEqual(parsedKey1, parsedKey2)).toBe(true);
+    expect(Did.areEqual(parsedKey1, parsedKey2)).toBe(true);
     // key and nil are comparable
-    expect(did.areEqual(parsedKey1, parsedNil)).toBe(true);
+    expect(Did.areEqual(parsedKey1, parsedNil)).toBe(true);
 
     const other = Keypair.generate().toDid();
-    expect(did.areEqual(other, parsedKey1)).toBe(false);
+    expect(Did.areEqual(other, parsedKey1)).toBe(false);
   });
 
   describe("DidSchema", () => {
     it("should parse a valid did:key", () => {
-      const didString = did.serialize(Keypair.generate().toDid());
-      expect(did.DidSchema.safeParse(didString).success).toBe(true);
+      const didString = Did.serialize(Keypair.generate().toDid());
+      expect(Did.Schema.safeParse(didString).success).toBe(true);
     });
 
     it("should fail to parse an invalid DID", () => {
       const didString = "invalid-did";
-      expect(did.DidSchema.safeParse(didString).success).toBe(false);
+      expect(Did.Schema.safeParse(didString).success).toBe(false);
     });
   });
 });

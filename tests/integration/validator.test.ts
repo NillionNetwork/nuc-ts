@@ -1,8 +1,8 @@
 import { secp256k1 } from "@noble/curves/secp256k1";
 import { describe, it } from "vitest";
-import * as did from "#/core/did/did";
+import { Did } from "#/core/did/did";
 import { Keypair } from "#/core/keypair";
-import { Signers } from "#/core/signer";
+import { Signer } from "#/core/signer";
 import {
   Builder,
   type DelegationBuilder,
@@ -23,20 +23,20 @@ import { Asserter, ROOT_DIDS, ROOT_KEYS } from "./assertions";
 
 function delegation(privateKey: Uint8Array): DelegationBuilder {
   // Create DID objects using the new factory function
-  const defaultAudience = did.fromPublicKey(
+  const defaultAudience = Did.fromPublicKey(
     new Uint8Array(Array(33).fill(0xde)),
   );
-  const publicDid = did.fromPublicKey(secp256k1.getPublicKey(privateKey));
+  const publicDid = Did.fromPublicKey(secp256k1.getPublicKey(privateKey));
 
   return Builder.delegation().audience(defaultAudience).subject(publicDid);
 }
 
 function invocation(privateKey: Uint8Array): InvocationBuilder {
   // Create DID objects using the new factory function
-  const defaultAudience = did.fromPublicKey(
+  const defaultAudience = Did.fromPublicKey(
     new Uint8Array(Array(33).fill(0xde)),
   );
-  const publicDid = did.fromPublicKey(secp256k1.getPublicKey(privateKey));
+  const publicDid = Did.fromPublicKey(secp256k1.getPublicKey(privateKey));
 
   return Builder.invocation().audience(defaultAudience).subject(publicDid);
 }
@@ -49,12 +49,12 @@ describe("Validator", () => {
     const userKeypair = Keypair.fromBytes(key);
     const base = delegation(key).command("/nil");
 
-    let envelope = await base.build(Signers.fromKeypair(rootKeypair));
+    let envelope = await base.build(Signer.fromKeypair(rootKeypair));
     envelope = await base
       .proof(envelope)
-      .build(Signers.fromKeypair(userKeypair));
+      .build(Signer.fromKeypair(userKeypair));
 
-    const unlinkedToken = await base.build(Signers.fromKeypair(rootKeypair));
+    const unlinkedToken = await base.build(Signer.fromKeypair(rootKeypair));
     envelope.proofs.push(unlinkedToken.nuc);
 
     new Asserter().assertFailure(envelope, UNCHAINED_PROOFS);
@@ -74,12 +74,12 @@ describe("Validator", () => {
       .audience(userKeypair.toDid())
       .subject(userKeypair.toDid())
       .command("/nil")
-      .build(Signers.fromKeypair(rootKeypair));
+      .build(Signer.fromKeypair(rootKeypair));
 
     for (const builder of builders) {
       envelope = await builder
         .proof(envelope)
-        .build(Signers.fromKeypair(userKeypair));
+        .build(Signer.fromKeypair(userKeypair));
     }
 
     const parameters = { maxChainLength: 2 };
@@ -93,10 +93,10 @@ describe("Validator", () => {
     const root = delegation(key).command("/nil").audience(userKeypair.toDid());
     const last = delegation(key).command("/bar");
 
-    let envelope = await root.build(Signers.fromKeypair(rootKeypair));
+    let envelope = await root.build(Signer.fromKeypair(rootKeypair));
     envelope = await last
       .proof(envelope)
-      .build(Signers.fromKeypair(userKeypair));
+      .build(Signer.fromKeypair(userKeypair));
 
     new Asserter().assertFailure(envelope, COMMAND_NOT_ATTENUATED);
   });
@@ -111,10 +111,10 @@ describe("Validator", () => {
       .audience(userKeypair2.toDid());
     const last = delegation(key2).command("/nil");
 
-    let envelope = await root.build(Signers.fromKeypair(rootKeypair));
+    let envelope = await root.build(Signer.fromKeypair(rootKeypair));
     envelope = await last
       .proof(envelope)
-      .build(Signers.fromKeypair(userKeypair2));
+      .build(Signer.fromKeypair(userKeypair2));
 
     new Asserter().assertFailure(envelope, DIFFERENT_SUBJECTS);
   });
@@ -124,13 +124,13 @@ describe("Validator", () => {
     const userKeypair = Keypair.fromBytes(key);
     const root = delegation(key)
       .command("/nil")
-      .audience(did.fromPublicKey(new Uint8Array(Array(33).fill(0xaa))));
+      .audience(Did.fromPublicKey(new Uint8Array(Array(33).fill(0xaa))));
     const last = delegation(key).command("/nil");
 
-    let envelope = await root.build(Signers.fromKeypair(rootKeypair));
+    let envelope = await root.build(Signer.fromKeypair(rootKeypair));
     envelope = await last
       .proof(envelope)
-      .build(Signers.fromKeypair(userKeypair));
+      .build(Signer.fromKeypair(userKeypair));
 
     new Asserter().assertFailure(envelope, ISSUER_AUDIENCE_MISMATCH);
   });
@@ -139,20 +139,20 @@ describe("Validator", () => {
     const key = secp256k1.utils.randomSecretKey();
     const userKeypair = Keypair.fromBytes(key);
 
-    const expectedAudience = did.serialize(
-      did.fromPublicKey(new Uint8Array(Array(33).fill(0xaa))),
+    const expectedAudience = Did.serialize(
+      Did.fromPublicKey(new Uint8Array(Array(33).fill(0xaa))),
     );
-    const actualAudience = did.fromPublicKey(
+    const actualAudience = Did.fromPublicKey(
       new Uint8Array(Array(33).fill(0xbb)),
     );
 
     const root = delegation(key).command("/nil").audience(userKeypair.toDid());
     const last = invocation(key).command("/nil").audience(actualAudience);
 
-    let envelope = await root.build(Signers.fromKeypair(rootKeypair));
+    let envelope = await root.build(Signer.fromKeypair(rootKeypair));
     envelope = await last
       .proof(envelope)
-      .build(Signers.fromKeypair(userKeypair));
+      .build(Signer.fromKeypair(userKeypair));
 
     const parameters = {
       tokenRequirements: {
@@ -168,10 +168,10 @@ describe("Validator", () => {
     const userKeypair = Keypair.fromBytes(key);
     const base = delegation(key).command("/nil").audience(userKeypair.toDid());
 
-    let envelope = await base.build(Signers.fromKeypair(rootKeypair));
+    let envelope = await base.build(Signer.fromKeypair(rootKeypair));
     envelope = await base
       .proof(envelope)
-      .build(Signers.fromKeypair(userKeypair));
+      .build(Signer.fromKeypair(userKeypair));
 
     // Remove the proof from the envelope
     envelope.proofs = [];
@@ -190,13 +190,13 @@ describe("Validator", () => {
       .command("/nil")
       .audience(userKeypair.toDid());
 
-    let envelope = await root.build(Signers.fromKeypair(rootKeypair));
+    let envelope = await root.build(Signer.fromKeypair(rootKeypair));
 
     // Using the new invoking method for cleaner API
     envelope = await Builder.invoking(envelope)
       .arguments({ bar: 1337 })
       .audience(Keypair.generate().toDid())
-      .build(Signers.fromKeypair(userKeypair));
+      .build(Signer.fromKeypair(userKeypair));
 
     new Asserter().assertFailure(envelope, POLICY_NOT_MET);
   });
@@ -208,10 +208,10 @@ describe("Validator", () => {
     const root = delegation(key).command("/nil").audience(userKeypair.toDid());
     const last = delegation(key).command("/nil");
 
-    let envelope = await root.build(Signers.fromKeypair(userKeypair));
+    let envelope = await root.build(Signer.fromKeypair(userKeypair));
     envelope = await last
       .proof(envelope)
-      .build(Signers.fromKeypair(userKeypair));
+      .build(Signer.fromKeypair(userKeypair));
     new Asserter({ rootDids: ROOT_DIDS }).assertFailure(
       envelope,
       ROOT_KEY_SIGNATURE_MISSING,
@@ -223,7 +223,7 @@ describe("Validator", () => {
     const subjectKeypair = Keypair.fromBytes(subjectKey);
     const subject = subjectKeypair.toDid();
 
-    const rpcDid = did.fromPublicKey(new Uint8Array(Array(33).fill(33)));
+    const rpcDid = Did.fromPublicKey(new Uint8Array(Array(33).fill(33)));
 
     const root = Builder.delegation()
       .policy([
@@ -246,18 +246,18 @@ describe("Validator", () => {
       .audience(rpcDid)
       .command("/nil/bar/foo");
 
-    let envelope = await root.build(Signers.fromKeypair(rootKeypair));
+    let envelope = await root.build(Signer.fromKeypair(rootKeypair));
     envelope = await intermediate
       .proof(envelope)
-      .build(Signers.fromKeypair(subjectKeypair));
+      .build(Signer.fromKeypair(subjectKeypair));
     envelope = await last
       .proof(envelope)
-      .build(Signers.fromKeypair(subjectKeypair));
+      .build(Signer.fromKeypair(subjectKeypair));
 
     const parameters = {
       tokenRequirements: {
         type: "invocation",
-        audience: did.serialize(rpcDid),
+        audience: Did.serialize(rpcDid),
       } as const,
     };
     const context = { req: { bar: 1337 } };

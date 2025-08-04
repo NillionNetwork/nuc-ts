@@ -4,12 +4,12 @@ import { secp256k1 } from "@noble/curves/secp256k1";
 import { hexToBytes } from "@noble/hashes/utils";
 import { z } from "zod";
 import * as didNil from "#/core/did/nil";
-import { decodeBase64Url } from "#/nuc/codec";
+import { Codec } from "#/nuc/codec";
 import type { Envelope } from "#/nuc/envelope";
 import {
   type TokenRequirement,
   type ValidationParameters,
-  validate,
+  Validator,
 } from "#/validator";
 
 export const ROOT_KEYS = [secp256k1.utils.randomSecretKey()];
@@ -51,7 +51,7 @@ const ValidationParametersSchema = z
 
 const AssertionInputSchema = z
   .object({
-    token: z.string().transform(decodeBase64Url),
+    token: z.string().transform(Codec.decodeBase64Url),
     root_keys: z.array(z.string()),
     current_time: z.number(),
     context: z.record(z.string(), z.unknown()),
@@ -107,7 +107,7 @@ export class Asserter {
         ? () => this.config.currentTime!
         : undefined;
     try {
-      validate(envelope, {
+      Validator.validate(envelope, {
         rootIssuers: this.config.rootDids!,
         params: this.config.parameters,
         context: this.config.context,
@@ -133,7 +133,7 @@ export class Asserter {
       this.config.currentTime !== undefined
         ? () => this.config.currentTime!
         : undefined;
-    validate(envelope, {
+    Validator.validate(envelope, {
       rootIssuers: this.config.rootDids!,
       params: this.config.parameters,
       context: this.config.context,

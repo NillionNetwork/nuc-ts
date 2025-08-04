@@ -3,14 +3,9 @@ import { DEFAULT_NONCE_LENGTH } from "#/constants";
 import type { Did } from "#/core/did/types";
 import { base64UrlEncode } from "#/core/encoding";
 import type { Signer } from "#/core/signer";
-import { decodeBase64Url, serializeBase64Url } from "#/nuc/codec";
-import { computeHash, type Envelope, type Nuc } from "#/nuc/envelope";
-import {
-  type Command,
-  type DelegationPayload,
-  isDelegationPayload,
-  type Payload,
-} from "#/nuc/payload";
+import { Codec } from "#/nuc/codec";
+import { Envelope, type Nuc } from "#/nuc/envelope";
+import { type Command, type DelegationPayload, Payload } from "#/nuc/payload";
 import type { Policy, PolicyRule } from "#/nuc/policy";
 
 /**
@@ -167,7 +162,7 @@ abstract class AbstractBuilder {
    */
   public async signAndSerialize(signer: Signer): Promise<string> {
     const envelope = await this.build(signer);
-    return serializeBase64Url(envelope);
+    return Codec.serializeBase64Url(envelope);
   }
 }
 
@@ -213,7 +208,9 @@ export class DelegationBuilder extends AbstractBuilder {
       exp: this._expiresAt,
       meta: this._meta,
       nonce: this._nonce || bytesToHex(randomBytes(DEFAULT_NONCE_LENGTH)),
-      prf: this._proof ? [bytesToHex(computeHash(this._proof.nuc))] : [],
+      prf: this._proof
+        ? [bytesToHex(Envelope.computeHash(this._proof.nuc))]
+        : [],
     };
   }
 }
@@ -261,7 +258,9 @@ export class InvocationBuilder extends AbstractBuilder {
       exp: this._expiresAt,
       meta: this._meta,
       nonce: this._nonce || bytesToHex(randomBytes(DEFAULT_NONCE_LENGTH)),
-      prf: this._proof ? [bytesToHex(computeHash(this._proof.nuc))] : [],
+      prf: this._proof
+        ? [bytesToHex(Envelope.computeHash(this._proof.nuc))]
+        : [],
     };
   }
 }
@@ -351,7 +350,7 @@ export const Builder = {
    */
   delegating(proof: Envelope): DelegationBuilder {
     const proofPayload = proof.nuc.payload;
-    if (!isDelegationPayload(proofPayload)) {
+    if (!Payload.isDelegationPayload(proofPayload)) {
       throw new Error("Cannot extend a token that is not a delegation.");
     }
 
@@ -387,7 +386,7 @@ export const Builder = {
    */
   invoking(proof: Envelope): InvocationBuilder {
     const proofPayload = proof.nuc.payload;
-    if (!isDelegationPayload(proofPayload)) {
+    if (!Payload.isDelegationPayload(proofPayload)) {
       throw new Error(
         "Cannot invoke a capability from a token that is not a delegation.",
       );
@@ -407,7 +406,7 @@ export const Builder = {
    * @returns A pre-configured DelegationBuilder
    */
   delegatingFromString(proofString: string): DelegationBuilder {
-    const proof = decodeBase64Url(proofString);
+    const proof = Codec.decodeBase64Url(proofString);
     return this.delegating(proof);
   },
 
@@ -417,7 +416,7 @@ export const Builder = {
    * @returns A pre-configured InvocationBuilder
    */
   invokingFromString(proofString: string): InvocationBuilder {
-    const proof = decodeBase64Url(proofString);
+    const proof = Codec.decodeBase64Url(proofString);
     return this.invoking(proof);
   },
 } as const;

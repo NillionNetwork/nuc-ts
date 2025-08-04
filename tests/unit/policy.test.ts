@@ -1,9 +1,5 @@
 import { describe, expect, test } from "vitest";
-import {
-  evaluatePolicy,
-  getPolicyTreeProperties,
-  PolicySchema,
-} from "#/nuc/policy";
+import { Policy } from "#/nuc/policy";
 
 describe("Policy", () => {
   test.each([
@@ -124,7 +120,7 @@ describe("Policy", () => {
       expected: [],
     },
   ])("valid policy $case", ({ input, expected }) => {
-    const result = PolicySchema.parse(input);
+    const result = Policy.Schema.parse(input);
     expect(result).toEqual(expected);
   });
 
@@ -146,35 +142,35 @@ describe("Policy", () => {
     { case: "not an array", input: "not a policy" },
     { case: "nested non-array", input: ["==", ".foo", 42] },
   ])("invalid policy $case", ({ input }) => {
-    expect(() => PolicySchema.parse(input)).toThrowError();
+    expect(() => Policy.Schema.parse(input)).toThrowError();
   });
 
   test.each([
     {
       case: "eq value",
-      policy: PolicySchema.parse([["==", ".name.first", "bob"]]),
+      policy: Policy.Schema.parse([["==", ".name.first", "bob"]]),
     },
     {
       case: "ne",
-      policy: PolicySchema.parse([["!=", ".name.first", "john"]]),
+      policy: Policy.Schema.parse([["!=", ".name.first", "john"]]),
     },
     {
       case: "eq object",
-      policy: PolicySchema.parse([
+      policy: Policy.Schema.parse([
         ["==", ".name", { first: "bob", last: "smith" }],
       ]),
     },
     {
       case: "eq value context",
-      policy: PolicySchema.parse([["==", "$.req.foo", 42]]),
+      policy: Policy.Schema.parse([["==", "$.req.foo", 42]]),
     },
     {
       case: "ne context",
-      policy: PolicySchema.parse([["!=", "$.other", 1335]]),
+      policy: Policy.Schema.parse([["!=", "$.other", 1335]]),
     },
     {
       case: "eq root",
-      policy: PolicySchema.parse([
+      policy: Policy.Schema.parse([
         [
           "==",
           ".",
@@ -187,15 +183,15 @@ describe("Policy", () => {
     },
     {
       case: "notEq",
-      policy: PolicySchema.parse([["!=", ".age", 150]]),
+      policy: Policy.Schema.parse([["!=", ".age", 150]]),
     },
     {
       case: "anyOf",
-      policy: PolicySchema.parse([["anyOf", ".name.first", ["john", "bob"]]]),
+      policy: Policy.Schema.parse([["anyOf", ".name.first", ["john", "bob"]]]),
     },
     {
       case: "and",
-      policy: PolicySchema.parse([
+      policy: Policy.Schema.parse([
         [
           "and",
           [
@@ -207,7 +203,7 @@ describe("Policy", () => {
     },
     {
       case: "or short circuit",
-      policy: PolicySchema.parse([
+      policy: Policy.Schema.parse([
         [
           "or",
           [
@@ -219,7 +215,7 @@ describe("Policy", () => {
     },
     {
       case: "or long circuit",
-      policy: PolicySchema.parse([
+      policy: Policy.Schema.parse([
         [
           "or",
           [
@@ -231,7 +227,7 @@ describe("Policy", () => {
     },
     {
       case: "implicit and with multiple rules",
-      policy: PolicySchema.parse([
+      policy: Policy.Schema.parse([
         ["==", ".age", 42],
         ["==", ".name.first", "bob"],
       ]),
@@ -245,36 +241,36 @@ describe("Policy", () => {
       age: 42,
     };
     const context = { req: { foo: 42, bar: "zar" }, other: 1337 };
-    const result = evaluatePolicy(policy, value, context);
+    const result = Policy.evaluatePolicy(policy, value, context);
     expect(result).toBe(true);
   });
 
   test.each([
     {
       case: "eq value",
-      policy: PolicySchema.parse([["==", ".name.first", "john"]]),
+      policy: Policy.Schema.parse([["==", ".name.first", "john"]]),
     },
     {
       case: "ne",
-      policy: PolicySchema.parse([["!=", ".name.first", "bob"]]),
+      policy: Policy.Schema.parse([["!=", ".name.first", "bob"]]),
     },
     {
       case: "eq object",
-      policy: PolicySchema.parse([
+      policy: Policy.Schema.parse([
         ["==", ".name", { first: "john", last: "smith" }],
       ]),
     },
     {
       case: "eq value context",
-      policy: PolicySchema.parse([["==", "$.req.foo", 43]]),
+      policy: Policy.Schema.parse([["==", "$.req.foo", 43]]),
     },
     {
       case: "ne context",
-      policy: PolicySchema.parse([["!=", "$.other", 1337]]),
+      policy: Policy.Schema.parse([["!=", "$.other", 1337]]),
     },
     {
       case: "eq root",
-      policy: PolicySchema.parse([
+      policy: Policy.Schema.parse([
         [
           "==",
           ".",
@@ -287,15 +283,15 @@ describe("Policy", () => {
     },
     {
       case: "notEq",
-      policy: PolicySchema.parse([["!=", ".age", 42]]),
+      policy: Policy.Schema.parse([["!=", ".age", 42]]),
     },
     {
       case: "anyOf",
-      policy: PolicySchema.parse([["anyOf", ".name.first", ["john", "jack"]]]),
+      policy: Policy.Schema.parse([["anyOf", ".name.first", ["john", "jack"]]]),
     },
     {
       case: "and1",
-      policy: PolicySchema.parse([
+      policy: Policy.Schema.parse([
         [
           "and",
           [
@@ -307,7 +303,7 @@ describe("Policy", () => {
     },
     {
       case: "and2",
-      policy: PolicySchema.parse([
+      policy: Policy.Schema.parse([
         [
           "and",
           [
@@ -319,7 +315,7 @@ describe("Policy", () => {
     },
     {
       case: "or",
-      policy: PolicySchema.parse([
+      policy: Policy.Schema.parse([
         [
           "or",
           [
@@ -338,19 +334,19 @@ describe("Policy", () => {
       age: 42,
     };
     const context = { req: { foo: 42, bar: "zar" }, other: 1337 };
-    const result = evaluatePolicy(policy, value, context);
+    const result = Policy.evaluatePolicy(policy, value, context);
     expect(result).toBe(false);
   });
 
   test.each([
     {
       case: "simple operator",
-      policy: PolicySchema.parse([["==", ".status", "active"]]),
+      policy: Policy.Schema.parse([["==", ".status", "active"]]),
       expected: { maxDepth: 1, maxWidth: 1 },
     },
     {
       case: "and connector",
-      policy: PolicySchema.parse([
+      policy: Policy.Schema.parse([
         [
           "and",
           [
@@ -363,7 +359,7 @@ describe("Policy", () => {
     },
     {
       case: "nested policy",
-      policy: PolicySchema.parse([
+      policy: Policy.Schema.parse([
         [
           "and",
           [
@@ -382,12 +378,12 @@ describe("Policy", () => {
     },
     {
       case: "not connector",
-      policy: PolicySchema.parse([["not", ["==", ".status", "blocked"]]]),
+      policy: Policy.Schema.parse([["not", ["==", ".status", "blocked"]]]),
       expected: { maxDepth: 2, maxWidth: 1 },
     },
     {
       case: "implicit and",
-      policy: PolicySchema.parse([
+      policy: Policy.Schema.parse([
         ["==", ".status", "active"],
         ["!=", ".deleted", true],
       ]),
@@ -395,7 +391,7 @@ describe("Policy", () => {
     },
     {
       case: "deeply nested policies",
-      policy: PolicySchema.parse([
+      policy: Policy.Schema.parse([
         [
           "or",
           [
@@ -419,7 +415,7 @@ describe("Policy", () => {
       expected: { maxDepth: 5, maxWidth: 2 },
     },
   ])("getPolicyTreeProperties $case", ({ policy, expected }) => {
-    const result = getPolicyTreeProperties(policy);
+    const result = Policy.getPolicyTreeProperties(policy);
     expect(result).toEqual(expected);
   });
 });

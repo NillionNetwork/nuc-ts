@@ -3,7 +3,7 @@ import { bytesToHex, randomBytes } from "@noble/hashes/utils";
 import ky, { HTTPError, type Options } from "ky";
 import { z } from "zod";
 import { DEFAULT_NONCE_LENGTH } from "#/constants";
-import * as did from "#/core/did/did";
+import { Did } from "#/core/did/did";
 import { textToHex } from "#/core/encoding";
 import {
   NilauthErrorCodeSchema,
@@ -14,11 +14,10 @@ import {
 } from "#/core/errors";
 import type { Keypair } from "#/core/keypair";
 import { Log } from "#/core/logger";
-import { Signers } from "#/core/signer";
+import { Signer } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
-import { serializeBase64Url } from "#/nuc/codec";
-import type { Envelope } from "#/nuc/envelope";
-import { computeHash } from "#/nuc/envelope";
+import { Codec } from "#/nuc/codec";
+import { Envelope } from "#/nuc/envelope";
 import { REVOKE_COMMAND } from "#/nuc/payload";
 import {
   type CreateTokenResponse,
@@ -189,7 +188,7 @@ export class NilauthClient {
     const url = NilauthUrl.nucs.findRevocations(this.nilauthBaseUrl);
     const json = {
       hashes: [token.nuc, ...token.proofs].map((t) =>
-        bytesToHex(computeHash(t)),
+        bytesToHex(Envelope.computeHash(t)),
       ),
     };
     return performRequest(url, LookupRevokedTokenResponseSchema, {
@@ -406,16 +405,16 @@ export class NilauthClient {
 
     const revokeTokenEnvelope = await Builder.invocation()
       .arguments({
-        token: serializeBase64Url(tokenToRevoke),
+        token: Codec.serializeBase64Url(tokenToRevoke),
       })
       .command(REVOKE_COMMAND)
-      .audience(did.parse(`did:nil:${this.nilauthPublicKey}`))
+      .audience(Did.parse(`did:nil:${this.nilauthPublicKey}`))
       .issuer(keypair.toDid("nil"))
       .subject(authToken.nuc.payload.sub)
       .proof(authToken)
-      .build(Signers.fromLegacyKeypair(keypair));
+      .build(Signer.fromLegacyKeypair(keypair));
 
-    const revokeTokenString = serializeBase64Url(revokeTokenEnvelope);
+    const revokeTokenString = Codec.serializeBase64Url(revokeTokenEnvelope);
     const url = NilauthUrl.nucs.revoke(this.nilauthBaseUrl);
 
     await performRequest(url, z.unknown(), {
@@ -425,7 +424,7 @@ export class NilauthClient {
 
     Log.info(
       {
-        revokedTokenHash: bytesToHex(computeHash(tokenToRevoke.nuc)),
+        revokedTokenHash: bytesToHex(Envelope.computeHash(tokenToRevoke.nuc)),
       },
       "Token successfully revoked",
     );

@@ -1,16 +1,9 @@
 import { bytesToHex } from "@noble/hashes/utils";
-import * as did from "#/core/did/did";
+import { Did } from "#/core/did/did";
 import { Log } from "#/core/logger";
 import type { Nuc } from "#/nuc/envelope";
-import { computeHash } from "#/nuc/envelope";
-import {
-  getProofBytes,
-  isCommandAttenuationOf,
-  isDelegationPayload,
-  isInvocationPayload,
-  type Payload,
-  REVOKE_COMMAND,
-} from "#/nuc/payload";
+import { Envelope } from "#/nuc/envelope";
+import { Payload, REVOKE_COMMAND } from "#/nuc/payload";
 import { validatePolicyProperties } from "./policy";
 import { validateTemporalProperties } from "./temporal";
 import type { ValidationParameters } from "./types";
@@ -39,7 +32,7 @@ export function validateProofs(
   if (rootIssuers.length > 0) {
     const root = proofs.length > 0 ? proofs[proofs.length - 1] : payload;
     if (
-      !rootIssuers.some((issuer) => did.areEqual(did.parse(issuer), root.iss))
+      !rootIssuers.some((issuer) => Did.areEqual(Did.parse(issuer), root.iss))
     ) {
       Log.debug(
         { rootIssuer: root.iss, expectedIssuers: rootIssuers },
@@ -50,7 +43,7 @@ export function validateProofs(
   }
 
   for (const proof of proofs) {
-    if (isInvocationPayload(proof)) {
+    if (Payload.isInvocationPayload(proof)) {
       Log.debug({ proof }, PROOFS_MUST_BE_DELEGATIONS);
       throw new Error(PROOFS_MUST_BE_DELEGATIONS);
     }
@@ -75,14 +68,14 @@ export function validatePayloadChain(
 
   for (const payload of payloads) {
     validateTemporalProperties(payload, now);
-    if (isDelegationPayload(payload)) {
+    if (Payload.isDelegationPayload(payload)) {
       validatePolicyProperties(payload.pol, config);
     }
   }
 
   if (payloads.length >= 2) {
     const payload = payloads[1];
-    if (!did.areEqual(payload.iss, payload.sub)) {
+    if (!Did.areEqual(payload.iss, payload.sub)) {
       Log.debug(
         { issuer: payload.iss, subject: payload.sub },
         SUBJECT_NOT_IN_CHAIN,
@@ -99,7 +92,7 @@ export function validateRelationshipProperties(
   previous: Payload,
   current: Payload,
 ): void {
-  if (!did.areEqual(previous.aud, current.iss)) {
+  if (!Did.areEqual(previous.aud, current.iss)) {
     Log.debug(
       { expected: previous.aud, actual: current.iss },
       ISSUER_AUDIENCE_MISMATCH,
@@ -107,7 +100,7 @@ export function validateRelationshipProperties(
     throw new Error(ISSUER_AUDIENCE_MISMATCH);
   }
 
-  if (!did.areEqual(previous.sub, current.sub)) {
+  if (!Did.areEqual(previous.sub, current.sub)) {
     Log.debug(
       { previousSubject: previous.sub, currentSubject: current.sub },
       DIFFERENT_SUBJECTS,
@@ -116,7 +109,7 @@ export function validateRelationshipProperties(
   }
 
   if (
-    !isCommandAttenuationOf(current.cmd, previous.cmd) &&
+    !Payload.isCommandAttenuationOf(current.cmd, previous.cmd) &&
     current.cmd !== REVOKE_COMMAND
   ) {
     Log.debug(
@@ -158,7 +151,7 @@ export function validateRelationshipProperties(
  */
 export function sortProofs(hash: Uint8Array, proofs: Nuc[]): Payload[] {
   const indexedProofs: Array<[string, Payload]> = proofs.map((proof) => [
-    bytesToHex(computeHash(proof)),
+    bytesToHex(Envelope.computeHash(proof)),
     proof.payload,
   ]);
 
@@ -178,7 +171,7 @@ export function sortProofs(hash: Uint8Array, proofs: Nuc[]): Payload[] {
     const nextProof = indexedProofs.splice(nextProofIndex, 1)[0][1];
     sortedProofs.push(nextProof);
 
-    const nextProofBytes = getProofBytes(nextProof);
+    const nextProofBytes = Payload.getProofBytes(nextProof);
     if (nextProofBytes.length > 1) {
       Log.debug({ proofCount: nextProofBytes.length }, TOO_MANY_PROOFS);
       throw new Error(TOO_MANY_PROOFS);

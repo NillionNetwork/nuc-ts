@@ -1,11 +1,10 @@
 import { bytesToHex } from "@noble/hashes/utils";
 import { beforeAll, describe, expect, it } from "vitest";
-import * as did from "#/core/did/did";
+import { Did } from "#/core/did/did";
 import { Keypair } from "#/core/keypair";
-import { Signers } from "#/core/signer";
+import { Signer } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
-import type { Envelope } from "#/nuc/envelope";
-import { computeHash } from "#/nuc/envelope";
+import { Envelope } from "#/nuc/envelope";
 import { NilauthClient } from "#/services/nilauth/client";
 import { PayerBuilder } from "#/services/payer/builder";
 
@@ -63,12 +62,12 @@ describe("nilauth client", () => {
     const response = await nilauthClient.requestToken(keypair, "nildb");
     envelope = response.token;
 
-    expect(did.areEqual(envelope.nuc.payload.sub, parsedDid)).toBeTruthy();
-    expect(did.areEqual(envelope.nuc.payload.aud, parsedDid)).toBeTruthy();
+    expect(Did.areEqual(envelope.nuc.payload.sub, parsedDid)).toBeTruthy();
+    expect(Did.areEqual(envelope.nuc.payload.aud, parsedDid)).toBeTruthy();
     expect(envelope.nuc.payload.cmd).toStrictEqual("/nil/db");
     expect(envelope.nuc.payload.exp).toBeGreaterThan(nowInSeconds);
 
-    const tokenHash = bytesToHex(computeHash(envelope.nuc));
+    const tokenHash = bytesToHex(Envelope.computeHash(envelope.nuc));
     const { revoked } =
       await nilauthClient.findRevocationsInProofChain(envelope);
     const wasRevoked = revoked.some((t) => t.tokenHash === tokenHash);
@@ -89,7 +88,7 @@ describe("nilauth client", () => {
 
     await new Promise((f) => setTimeout(f, 200));
 
-    const tokenHash = bytesToHex(computeHash(envelope.nuc));
+    const tokenHash = bytesToHex(Envelope.computeHash(envelope.nuc));
     const { revoked } =
       await nilauthClient.findRevocationsInProofChain(envelope);
     const wasRevoked = revoked.some((t) => t.tokenHash === tokenHash);
@@ -113,7 +112,7 @@ describe("NilauthClient without a Payer", () => {
       .audience(testKeypair.toDid())
       .subject(testKeypair.toDid())
       .command("/test")
-      .build(Signers.fromKeypair(Keypair.generate()));
+      .build(Signer.fromKeypair(Keypair.generate()));
 
     // This should succeed as it doesn't require a payer
     const promise =
