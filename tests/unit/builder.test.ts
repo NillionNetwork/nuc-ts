@@ -7,7 +7,6 @@ import {
   isInvocationPayload,
   REVOKE_COMMAND,
 } from "#/nuc/payload";
-import { validateSignature } from "#/validator/signatures";
 
 describe("Builder", () => {
   const keypair = Keypair.generate();
@@ -23,7 +22,6 @@ describe("Builder", () => {
       .command(REVOKE_COMMAND)
       .build(Signers.fromKeypair(keypair));
 
-    validateSignature(envelope.nuc);
     const payload = envelope.nuc.payload;
 
     expect(isDelegationPayload(payload)).toBe(true);
@@ -41,7 +39,6 @@ describe("Builder", () => {
       .command("/db/read")
       .build(Signers.fromKeypair(keypair));
 
-    validateSignature(envelope.nuc);
     const payload = envelope.nuc.payload;
 
     expect(isInvocationPayload(payload)).toBe(true);

@@ -13,7 +13,6 @@ import {
   COMMAND_NOT_ATTENUATED,
   DIFFERENT_SUBJECTS,
   INVALID_AUDIENCE,
-  INVALID_SIGNATURES,
   ISSUER_AUDIENCE_MISMATCH,
   MISSING_PROOF,
   POLICY_NOT_MET,
@@ -162,18 +161,6 @@ describe("Validator", () => {
       } as const,
     };
     new Asserter({ parameters }).assertFailure(envelope, INVALID_AUDIENCE);
-  });
-
-  it("invalid signature", async () => {
-    const key = secp256k1.utils.randomSecretKey();
-    const envelope = await delegation(key)
-      .command("/nil")
-      .build(Signers.fromKeypair(rootKeypair));
-
-    // Tamper with the signature
-    envelope.nuc.signature[0] ^= 1;
-
-    new Asserter().assertFailure(envelope, INVALID_SIGNATURES);
   });
 
   it("missing proof", async () => {

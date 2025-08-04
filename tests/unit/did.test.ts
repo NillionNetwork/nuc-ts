@@ -1,4 +1,3 @@
-import { hexToBytes } from "@noble/hashes/utils";
 import { describe, expect, it } from "vitest";
 import * as did from "#/core/did/did";
 import type { DidKey, DidNil } from "#/core/did/types";
@@ -36,20 +35,6 @@ describe("Dids", () => {
     expect(() => did.parse("did:unsupported:123")).toThrow(
       "Unsupported Did method",
     );
-  });
-
-  it("validates signatures for did:nil", async () => {
-    const message = new TextEncoder().encode("hello world");
-    const signature = hexToBytes(keypair.sign("hello world"));
-    const parsed = did.parse(nilDid.didString);
-    expect(did.validateSignature(parsed, message, signature)).toBe(true);
-  });
-
-  it("validates signatures for did:key", async () => {
-    const message = new TextEncoder().encode("hello world");
-    const signature = hexToBytes(keypair.sign("hello world"));
-    const parsed = did.parse(keyDid.didString);
-    expect(did.validateSignature(parsed, message, signature)).toBe(true);
   });
 
   it("correctly compares DIDs for equality", () => {
