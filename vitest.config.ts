@@ -6,7 +6,7 @@ export default defineConfig(({ mode }) => ({
   plugins: [tsconfigPaths()],
   test: {
     testTimeout: 0,
-    globalSetup: "./tests/fixture/global-setup.ts",
+    globalSetup: "./vitest.global-setup.ts",
     env: loadEnv(mode, process.cwd(), ""),
     coverage: {
       reporter: ["text", "json-summary", "json"],

@@ -1,6 +1,6 @@
 version: v2
 modules:
-  - path: proto/nillion/meta
+  - path: src/services/payer/proto
 lint:
   use:
     - STANDARD
