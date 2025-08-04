@@ -18,16 +18,13 @@ jobs:
       version: ${{ steps.check-version.outputs.local_version }}
     steps:
       - uses: actions/checkout@v4
-      - name: Install uv
-        uses: astral-sh/setup-uv@v3
+      - uses: actions/setup-node@v4
         with:
-          version: "0.4.24"
-      - name: Set up Python
-        run: uv python install
-      - name: Check version
-        id: check-version
-        run: >-
-          cd scripts/version_checker && uv run ./version_checker.py ../../
+          node-version: "24"
+      - uses: pnpm/action-setup@v4
+      - run: pnpm install
+      - id: check-version
+        run: pnpm exec tsx bin/check-version.ts
 
   publish:
     needs: check-version
