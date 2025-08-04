@@ -1,14 +1,15 @@
 export * as Did from "#/core/did/did";
 export * as Errors from "#/core/errors";
 export { Keypair } from "#/core/keypair";
+export * as Signer from "#/core/signer";
 export * as Builder from "#/nuc/builder";
 export * as Codec from "#/nuc/codec";
 export * as Envelope from "#/nuc/envelope";
 export * as Payload from "#/nuc/payload";
 export * as Policy from "#/nuc/policy";
-export * as Validator from "#/nuc/validate/index";
 export { NilauthClient } from "#/services/nilauth/client";
 export * as NilauthTypes from "#/services/nilauth/types";
 export * as PayerBuilder from "#/services/payer/builder";
 export { Payer } from "#/services/payer/client";
 export * as PayerTypes from "#/services/payer/types";
+export * as Validator from "#/validator/index";

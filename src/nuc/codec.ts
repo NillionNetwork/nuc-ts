@@ -4,6 +4,7 @@ import {
   base64UrlDecodeToBytes,
   base64UrlEncode,
 } from "#/core/encoding";
+import { NucHeaderSchema } from "#/core/signer";
 import type { Envelope, Nuc } from "#/nuc/envelope";
 import { EnvelopeSchema } from "#/nuc/envelope";
 
@@ -22,9 +23,10 @@ function parseToken(tokenString: string) {
 
   const [rawHeader, rawPayload, rawSignature] = parts;
 
-  const header = JSON.parse(base64UrlDecode(rawHeader));
-  if (header.alg !== "ES256K") {
-    throw new Error(INVALID_NUC_HEADER);
+  const headerJson = JSON.parse(base64UrlDecode(rawHeader));
+  const parseResult = NucHeaderSchema.safeParse(headerJson);
+  if (!parseResult.success) {
+    throw new Error(INVALID_NUC_HEADER, { cause: parseResult.error });
   }
 
   const token = JSON.parse(base64UrlDecode(rawPayload));
