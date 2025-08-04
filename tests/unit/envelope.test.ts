@@ -3,11 +3,11 @@ import { Keypair } from "#/core/keypair";
 import { Signers } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
 import type { Envelope } from "#/nuc/envelope";
+import { computeHash } from "#/nuc/envelope";
 import {
-  computeHash,
   validateEnvelopeSignatures,
   validateSignature,
-} from "#/nuc/envelope";
+} from "#/validator/signatures";
 
 describe("Envelope Module", () => {
   const rootKeypair = Keypair.generate();

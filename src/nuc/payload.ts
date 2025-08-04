@@ -44,7 +44,6 @@ export interface InvocationPayload extends CommonPayload {
 
 export type Payload = DelegationPayload | InvocationPayload;
 
-// --- Zod Schema for Parsing ---
 const CommonPayloadSchema = z.object({
   iss: DidSchema,
   aud: DidSchema,
