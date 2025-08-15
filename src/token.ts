@@ -140,7 +140,9 @@ export const NucTokenSchema = z
       command: token.cmd,
       body: tokenBody(token.args, token.pol),
       nonce: token.nonce,
-      proofs: token.prf.map((prf) => hexToBytes(prf)),
+      proofs: token.prf.map(
+        (prf) => hexToBytes(prf) as Uint8Array<ArrayBuffer>,
+      ),
       notBefore: token.nbf
         ? Temporal.Instant.fromEpochMilliseconds(token.nbf * 1000)
         : undefined,
