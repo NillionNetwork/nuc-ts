@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import * as ethr from "#/core/did/ethr";
 import { type Eip712Signer, Signer } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
-import { validateSignature } from "#/validator/signatures";
+import { validateNucSignature } from "#/validator/signatures";
 
 describe("EIP-712 Signer (`did:ethr`)", () => {
   const domain = { name: "NUC", version: "1", chainId: 1 };
@@ -25,7 +25,7 @@ describe("EIP-712 Signer (`did:ethr`)", () => {
       .command("/test/delegate")
       .build(signer);
 
-    expect(() => validateSignature(envelope.nuc)).not.toThrow();
+    expect(() => validateNucSignature(envelope.nuc)).not.toThrow();
   });
 
   it("should build and successfully validate an EIP-712 signed invocation", async () => {
@@ -37,6 +37,6 @@ describe("EIP-712 Signer (`did:ethr`)", () => {
       .arguments({ test: true })
       .build(signer);
 
-    expect(() => validateSignature(envelope.nuc)).not.toThrow();
+    expect(() => validateNucSignature(envelope.nuc)).not.toThrow();
   });
 });

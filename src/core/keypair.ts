@@ -164,10 +164,9 @@ export class Keypair {
    * @returns The signature as a Uint8Array
    */
   signBytes(bytes: Uint8Array): Uint8Array {
-    const signature = secp256k1.sign(bytes, this.#privateKey, {
+    return secp256k1.sign(bytes, this.#privateKey, {
       prehash: true,
     });
-    return signature.toBytes("compact");
   }
 
   /**

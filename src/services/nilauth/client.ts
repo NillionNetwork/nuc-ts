@@ -295,7 +295,7 @@ export class NilauthClient {
       blind_module: blindModule,
     });
     const payloadHex = textToHex(payload);
-    const payloadDigest = sha256(payload);
+    const payloadDigest = sha256(new TextEncoder().encode(payload));
     Log.debug(
       `Making payment with payload=${payloadHex}, digest=${bytesToHex(
         payloadDigest,
@@ -303,7 +303,10 @@ export class NilauthClient {
     );
 
     try {
-      const txHash = await this.payer.pay(sha256(payload), amount);
+      const txHash = await this.payer.pay(
+        sha256(new TextEncoder().encode(payload)),
+        amount,
+      );
       return { txHash, payloadHex };
     } catch (cause) {
       throw new PaymentTxFailed(cause);

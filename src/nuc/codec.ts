@@ -5,7 +5,7 @@ import {
   base64UrlEncode,
 } from "#/core/encoding";
 import { Envelope, type Nuc } from "#/nuc/envelope";
-import { HeaderSchema } from "./header";
+import { NucHeaderSchema } from "./header";
 
 const INVALID_NUC_STRUCTURE = "invalid Nuc structure";
 const INVALID_NUC_HEADER = "invalid Nuc header";
@@ -23,7 +23,7 @@ function parseToken(tokenString: string) {
   const [rawHeader, rawPayload, rawSignature] = parts;
 
   const headerJson = JSON.parse(base64UrlDecode(rawHeader));
-  const parseResult = HeaderSchema.safeParse(headerJson);
+  const parseResult = NucHeaderSchema.safeParse(headerJson);
   if (!parseResult.success) {
     throw new Error(INVALID_NUC_HEADER, { cause: parseResult.error });
   }

@@ -10,7 +10,7 @@ import type { Keypair } from "./keypair";
 export const Headers = {
   legacy: { alg: "ES256K" },
   v1: { typ: NucHeaderType.NATIVE, alg: "ES256K", ver: "1.0.0" },
-  v1_eip712: (domain: TypedDataDomain) => ({
+  v1_eip712: (_domain: TypedDataDomain) => ({
     typ: NucHeaderType.EIP712,
     // ...
   }),

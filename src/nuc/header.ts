@@ -62,8 +62,6 @@ export const NucHeaderSchema = z
 
 export type NucHeader = z.infer<typeof NucHeaderSchema>;
 
-export const HeaderSchema = NucHeaderSchema;
-
 /**
  * Predefined header configurations.
  */

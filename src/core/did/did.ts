@@ -50,41 +50,10 @@ export namespace Did {
   }
 
   /**
-   * Validates a signature against a DID's public key.
-   *
-   * @param did - The DID whose public key will verify the signature
-   * @param message - The message that was signed
-   * @param signature - The signature to verify
-   * @returns True if the signature is valid for the given message and DID
-   *
-   * @example
-   * ```typescript
-   * const message = new TextEncoder().encode("Hello world");
-   * const signature = keypair.signBytes(message);
-   * const did = keypair.toDid();
-   *
-   * const isValid = Did.validateSignature(did, message, signature);
-   * console.log(isValid); // true
-   * ```
-   */
-  export function validateSignature(
-    did: Did,
-    message: Uint8Array,
-    signature: Uint8Array,
-  ): boolean {
-    switch (did.method) {
-      case "key":
-        return key.validateSignature(did, message, signature);
-      case "ethr":
-        return ethr.validateSignature(did, message, signature);
-      case "nil":
-        return nil.validateSignature(did, message, signature);
-    }
-  }
-
-  /**
-   * Performs a semantic equality check on two DID objects. If public keys are available then compares the public key
-   * values otherwise falls back to a simple string comparison.
+   * Performs a semantic equality check on two structured DID objects.
+   * For DIDs with public keys (key, nil), this function compares the underlying
+   * public keys, allowing for cross-method comparison. For other types,
+   * it falls back to a structural equality check.
    *
    * @param a - The first DID to compare
    * @param b - The second DID to compare
@@ -95,17 +64,7 @@ export namespace Did {
    * const keypair = Keypair.generate();
    * const didKey = keypair.toDid("key");
    * const didNil = keypair.toDid("nil");
-   *
-   * // Returns true - same underlying public key
    * console.log(Did.areEqual(didKey, didNil)); // true
-   *
-   * // Different formats, same identity
-   * const didKeyString = "did:key:zDnae...";
-   * const didNilString = "did:nil:03a1b2c3...";
-   * console.log(Did.areEqual(
-   *   Did.parse(didKeyString),
-   *   Did.parse(didNilString)
-   * )); // true if same public key
    * ```
    */
   export function areEqual(a: Did, b: Did): boolean {

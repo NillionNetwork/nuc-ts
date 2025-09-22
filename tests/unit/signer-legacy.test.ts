@@ -3,7 +3,7 @@ import { base64UrlDecode } from "#/core/encoding";
 import { Keypair } from "#/core/keypair";
 import { Signer } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
-import { validateSignature } from "#/validator/signatures";
+import { validateNucSignature } from "#/validator/signatures";
 
 describe("Legacy Signer (`did:nil`)", () => {
   it("should build and successfully validate a legacy signed Nuc", async () => {
@@ -17,7 +17,7 @@ describe("Legacy Signer (`did:nil`)", () => {
       .command("/test")
       .build(signer);
 
-    expect(() => validateSignature(envelope.nuc)).not.toThrow();
+    expect(() => validateNucSignature(envelope.nuc)).not.toThrow();
 
     const header = JSON.parse(base64UrlDecode(envelope.nuc.rawHeader));
     expect(header.typ).toBeUndefined();

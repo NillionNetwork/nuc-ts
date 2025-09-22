@@ -13,7 +13,7 @@ import {
   POLICY_NOT_MET,
   ROOT_KEY_SIGNATURE_MISSING,
   UNCHAINED_PROOFS,
-} from "#/validator";
+} from "#/validator/validator";
 import { Asserter, ROOT_DIDS, ROOT_KEYS } from "./assertions";
 
 describe("Validator", () => {

@@ -42,9 +42,9 @@ export * as NilauthTypes from "#/services/nilauth/types";
 export { PayerBuilder } from "#/services/payer/builder";
 export { Payer } from "#/services/payer/client";
 export * as PayerTypes from "#/services/payer/types";
-export { Validator } from "#/validator";
 export type {
   TokenRequirement,
   ValidationOptions,
   ValidationParameters,
 } from "#/validator/types";
+export { Validator } from "#/validator/validator";

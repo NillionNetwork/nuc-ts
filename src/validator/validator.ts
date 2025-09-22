@@ -11,7 +11,7 @@ import {
   validatePayloadChain,
   validateProofs,
 } from "./chain";
-import { INVALID_SIGNATURES, validateEnvelopeSignatures } from "./signatures";
+import { INVALID_SIGNATURES, validateEnvelopeSignature } from "./signatures";
 import type {
   TokenRequirement,
   ValidationOptions,
@@ -168,7 +168,7 @@ export namespace Validator {
     validatePayload(payload, proofs, context, config.tokenRequirements);
 
     try {
-      validateEnvelopeSignatures(envelope);
+      validateEnvelopeSignature(envelope);
     } catch (error) {
       Log.debug({ error }, INVALID_SIGNATURES);
       throw new Error(INVALID_SIGNATURES);

@@ -21,11 +21,12 @@ export namespace Envelope {
   export const Schema = EnvelopeSchema;
 
   /**
-   * Compute the hash for a decoded Nuc.
+   * Compute a decoded Nuc's sha256 hash.
    */
   export function computeHash(nuc: Nuc): Uint8Array {
     const signature = base64UrlEncode(nuc.signature);
     const serialized = `${nuc.rawHeader}.${nuc.rawPayload}.${signature}`;
-    return sha256(serialized);
+    const asBytes = new TextEncoder().encode(serialized);
+    return sha256(asBytes);
   }
 }
