@@ -25,6 +25,14 @@ export function fromPublicKeyBytes(publicKeyBytes: Uint8Array): string {
   return `${NIL_PREFIX}${bytesToHex(publicKeyBytes)}`;
 }
 
+/**
+ * Validates a did:nil signature.
+ *
+ * @param did The did:ethr DID
+ * @param message The message that was signed
+ * @param signature The signature to validate
+ * @returns True if the message was signed by the provided did.
+ */
 export function validateSignature(
   did: DidNil,
   message: Uint8Array,

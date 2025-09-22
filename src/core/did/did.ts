@@ -83,18 +83,12 @@ export namespace Did {
   }
 
   /**
-   * Performs a semantic equality check on two structured DID objects.
-   * Compares by public key when available, allowing cross-method comparison.
+   * Performs a semantic equality check on two DID objects. If public keys are available then compares the public key
+   * values otherwise falls back to a simple string comparison.
    *
    * @param a - The first DID to compare
    * @param b - The second DID to compare
    * @returns True if the DIDs represent the same identity
-   *
-   * @remarks This function provides a powerful capability that may not be immediately obvious:
-   * it enables semantic comparison between different DID methods (such as `did:key` and `did:nil`)
-   * by comparing their underlying public keys rather than just their string representations.
-   * This means that two DIDs with different formats but the same public key will be considered equal,
-   * which is essential for interoperability between systems using different DID methods.
    *
    * @example
    * ```typescript

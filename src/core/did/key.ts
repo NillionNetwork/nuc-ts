@@ -41,6 +41,14 @@ export function fromPublicKeyBytes(publicKeyBytes: Uint8Array): string {
   return `${KEY_PREFIX}${base58btc.encode(prefixedKey)}`;
 }
 
+/**
+ * Validates a did:key signature.
+ *
+ * @param did The did:key DID
+ * @param message The message that was signed
+ * @param signature The signature to validate
+ * @returns True if the message was signed by the provided did.
+ */
 export function validateSignature(
   did: DidKey,
   message: Uint8Array,

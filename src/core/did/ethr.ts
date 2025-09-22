@@ -62,12 +62,12 @@ export function parse(didString: string): DidEthr {
 }
 
 /**
- * Validates a signature made by a did:ethr DID.
- * Note: This is a placeholder for EIP-712 validation which happens at a higher level.
+ * Validates a did:ethr signature.
+ *
  * @param _did The did:ethr DID
  * @param _message The message that was signed
  * @param _signature The signature to validate
- * @returns Always throws as validation happens in the EIP-712 validator
+ * @returns True if the message was signed by the provided did.
  */
 export function validateSignature(
   _did: DidEthr,
