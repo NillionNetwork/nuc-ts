@@ -1,3 +1,4 @@
+import { hexToBytes } from "@noble/hashes/utils";
 import _ from "es-toolkit/compat";
 import { z } from "zod";
 import * as ethr from "./ethr";
@@ -127,27 +128,28 @@ export namespace Did {
   }
 
   /**
-   * Creates a DID from raw public key bytes.
+   * Creates a DID from a public key hex string.
    *
-   * @param publicKeyBytes - The public key as a Uint8Array
+   * @param publicKey - The public key as a hex string
    * @param method - The DID method to use: "key" (default) or "nil"
    * @returns A structured DID object
    *
    * @example
    * ```typescript
-   * const publicKeyBytes = new Uint8Array([3, 161, 178, 195, ...]);
+   * const publicKey = "03a1b2c3...";
    *
    * // Create a did:key (modern format)
-   * const modernDid = Did.fromPublicKey(publicKeyBytes);
+   * const modernDid = Did.fromPublicKey(publicKey);
    *
    * // Create a did:nil (legacy format)
-   * const legacyDid = Did.fromPublicKey(publicKeyBytes, "nil");
+   * const legacyDid = Did.fromPublicKey(publicKey, "nil");
    * ```
    */
   export function fromPublicKey(
-    publicKeyBytes: Uint8Array,
+    publicKey: string,
     method: "key" | "nil" = "key",
   ): Did {
+    const publicKeyBytes = hexToBytes(publicKey);
     if (method === "key") {
       return parse(key.fromPublicKeyBytes(publicKeyBytes));
     }
