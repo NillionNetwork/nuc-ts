@@ -1,4 +1,4 @@
-import { getAddress } from "ethers";
+import { getAddress, hashMessage, hexlify, recoverAddress } from "ethers";
 import type { DidEthr } from "#/core/did/types";
 
 /**
@@ -64,17 +64,17 @@ export function parse(didString: string): DidEthr {
 /**
  * Validates a did:ethr signature.
  *
- * @param _did The did:ethr DID
- * @param _message The message that was signed
- * @param _signature The signature to validate
+ * @param did The did:ethr DID
+ * @param message The message that was signed
+ * @param signature The signature to validate
  * @returns True if the message was signed by the provided did.
  */
 export function validateSignature(
-  _did: DidEthr,
-  _message: Uint8Array,
-  _signature: Uint8Array,
+  did: DidEthr,
+  message: Uint8Array,
+  signature: Uint8Array,
 ): boolean {
-  throw new Error(
-    "did:ethr signature validation happens in the EIP-712 validator",
-  );
+  const messageHash = hashMessage(message);
+  const recoveredAddress = recoverAddress(messageHash, hexlify(signature));
+  return getAddress(recoveredAddress) === did.address;
 }
