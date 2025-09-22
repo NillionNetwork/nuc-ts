@@ -1,11 +1,20 @@
 import { hexToBytes } from "@noble/hashes/utils";
 import type { TypedDataDomain } from "ethers";
-import { z } from "zod";
-import { Did } from "#/core/did/did";
-import * as ethr from "#/core/did/ethr";
-import { base64UrlDecode } from "#/core/encoding";
-import type { Keypair } from "#/core/keypair";
+import { type NucHeader, NucHeaders, NucHeaderType } from "#/nuc/header";
 import { Payload } from "#/nuc/payload";
+import { Did } from "./did/did";
+import * as ethr from "./did/ethr";
+import { base64UrlDecode } from "./encoding";
+import type { Keypair } from "./keypair";
+
+export const Headers = {
+  legacy: { alg: "ES256K" },
+  v1: { typ: NucHeaderType.NATIVE, alg: "ES256K", ver: "1.0.0" },
+  v1_eip712: (domain: TypedDataDomain) => ({
+    typ: NucHeaderType.EIP712,
+    // ...
+  }),
+} as const;
 
 /**
  * An abstract signer that can be used to sign Nucs.
@@ -29,45 +38,6 @@ export interface Eip712Signer {
 }
 
 /**
- * The header for a Nuc, derived from the Zod schema.
- */
-export type NucHeader = z.infer<typeof NucHeaderSchema>;
-
-/**
- * Zod schema for validating the NucHeader structure. This is the single source of truth.
- * The NucHeader specifies the token type, algorithm, and payload version, inspired by JWT.
- */
-const NucHeaderSchema = z
-  .object({
-    typ: z
-      .string()
-      .optional()
-      .describe(
-        'The token type and signing protocol (e.g., "nuc", "nuc+eip712"). This field dictates the validation strategy. For legacy tokens, it may be absent.',
-      ),
-    alg: z
-      .string()
-      .min(1)
-      .describe(
-        '**Required.** The cryptographic algorithm used for the signature (e.g., "ES256K").',
-      ),
-    ver: z
-      .string()
-      .regex(/^\d+\.\d+\.\d+$/, "Version must be in semver format")
-      .optional()
-      .describe(
-        "**Optional.** The semantic version of the Nuc payload specification.",
-      ),
-    meta: z
-      .record(z.string(), z.unknown())
-      .optional()
-      .describe(
-        "**Optional.** A container for metadata required by specific `typ` values.",
-      ),
-  })
-  .strict();
-
-/**
  * A custom error for signing-related failures.
  */
 export class SigningError extends Error {
@@ -82,42 +52,6 @@ export class SigningError extends Error {
 }
 
 export namespace Signer {
-  export const HeaderSchema = NucHeaderSchema;
-
-  /**
-   * Predefined header configurations.
-   */
-  export const Headers = {
-    /** The legacy header format for backward compatibility. */
-    legacy: { alg: "ES256K" },
-    /** The modern, preferred header format for v1 Nuc payloads. */
-    v1: { typ: "nuc", alg: "ES256K", ver: "1.0.0" },
-    /** The EIP-712 header format factory for Ethereum wallet signing. */
-    v1_eip712: (domain: TypedDataDomain) => ({
-      typ: "nuc+eip712",
-      alg: "ES256K",
-      ver: "1.0.0",
-      meta: {
-        domain,
-        primaryType: "NucPayload",
-        types: {
-          NucPayload: [
-            { name: "iss", type: "string" },
-            { name: "aud", type: "string" },
-            { name: "sub", type: "string" },
-            { name: "cmd", type: "string" },
-            { name: "pol", type: "string" },
-            { name: "args", type: "string" },
-            { name: "nbf", type: "uint256" },
-            { name: "exp", type: "uint256" },
-            { name: "nonce", type: "string" },
-            { name: "prf", type: "string[]" },
-          ],
-        },
-      },
-    }),
-  } as const;
-
   /**
    * Creates a modern Signer from a nuc-ts Keypair.
    * @param keypair The Keypair to use for signing.
@@ -125,7 +59,7 @@ export namespace Signer {
    */
   export function fromKeypair(keypair: Keypair): Signer {
     return {
-      header: Headers.v1,
+      header: NucHeaders.v1,
       getDid: async () => keypair.toDid("key"),
       sign: async (data) => keypair.signBytes(data),
     };
@@ -138,7 +72,7 @@ export namespace Signer {
    */
   export function fromLegacyKeypair(keypair: Keypair): Signer {
     return {
-      header: Headers.legacy,
+      header: NucHeaders.legacy,
       getDid: async () => keypair.toDid("nil"),
       sign: async (data) => keypair.signBytes(data),
     };
@@ -154,7 +88,7 @@ export namespace Signer {
     signer: Eip712Signer,
     domain: TypedDataDomain,
   ): Signer {
-    const eip712Header = Headers.v1_eip712(domain);
+    const eip712Header = NucHeaders.v1_eip712(domain);
     return {
       header: eip712Header,
       getDid: async () => ethr.fromAddress(await signer.getAddress()),
