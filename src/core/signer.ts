@@ -69,8 +69,13 @@ export namespace Signer {
    * Creates a legacy Signer from a nuc-ts Keypair for nilauth compatibility.
    * @param keypair The Keypair to use for signing.
    * @returns A Signer instance that uses the legacy header and did:nil format.
+   * @deprecated This will be removed in version 0.3.0. Use `fromKeypair` instead.
    */
   export function fromLegacyKeypair(keypair: Keypair): Signer {
+    console.warn(
+      "DEPRECATION WARNING: `Signer.fromLegacyKeypair` is deprecated and will be removed in version 0.3.0. Use `Signer.fromKeypair` instead.",
+    );
+
     return {
       header: NucHeaders.legacy,
       getDid: async () => keypair.toDid("nil"),

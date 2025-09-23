@@ -28,6 +28,7 @@ export type DidEthr = {
 
 /**
  * Represents a parsed `did:nil` object.
+ * @deprecated This will be removed in version 0.3.0. Use `DidKey` instead.
  */
 export type DidNil = {
   readonly didString: string;

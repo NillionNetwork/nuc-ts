@@ -102,6 +102,7 @@ export class Keypair {
   /**
    * Creates a Did (Decentralized Identifier) from this keypair's public key.
    * @param format - The Did format to use: "key" (modern) or "nil" (legacy). Defaults to "key"
+   * @deprecated The "nil" option will be removed in version 0.3.0.
    * @returns A structured Did object that can be serialized
    * @example
    * ```typescript
@@ -117,6 +118,12 @@ export class Keypair {
    * ```
    */
   toDid(format: "key" | "nil" = "key"): Did {
+    if (format === "nil") {
+      console.warn(
+        'DEPRECATION WARNING: The "nil" Did format is deprecated and will be removed in version 0.3.0. Please use the "key" format instead.',
+      );
+    }
+
     switch (format) {
       case "key": {
         const didString = `did:key:${base58btc.encode(
