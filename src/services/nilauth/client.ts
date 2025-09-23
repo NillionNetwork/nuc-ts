@@ -274,11 +274,21 @@ export class NilauthClient {
   }
 
   /**
-   * Makes a payment for a subscription.
-   * @param amount - The amount to pay
-   * @param blindModule - The module being subscribed to
-   * @returns The transaction hash and signed payload
-   * @throws {PaymentTxFailed} If the payment transaction fails
+   * Initiates a payment for blind module subscription.
+   *
+   * Creates and executes a blockchain payment transaction for
+   * subscribing to the specified module. Requires a Payer instance.
+   *
+   * @param amount - The payment amount in the blockchain's native currency
+   * @param blindModule - The module to subscribe to ("nilai" or "nildb")
+   * @returns Transaction hash and signed payload for validation
+   * @throws {Error} "A Payer instance is required" - Payer not configured
+   * @throws {PaymentTxFailed} Payment transaction fails on blockchain
+   * @example
+   * ```typescript
+   * const { txHash, payloadHex } = await client.pay(100, "nildb");
+   * console.log(`Payment sent: ${txHash}`);
+   * ```
    */
   async pay(
     amount: number,

@@ -58,13 +58,14 @@ export { NOT_BEFORE_NOT_MET, TOKEN_EXPIRED } from "./temporal";
 
 export namespace Validator {
   /**
-   * Validates a NUC token envelope against a set of requirements and policies.
-   * Performs comprehensive validation including signature verification, chain validation,
-   * temporal checks, and policy evaluation.
+   * Validates a NUC token envelope against requirements and policies.
+   *
+   * Performs comprehensive validation including signature verification,
+   * chain validation, temporal checks, and policy evaluation.
    *
    * @param envelope - The token envelope to validate
    * @param options - Validation configuration
-   * @param options.rootIssuers - Array of DIDs that are trusted root issuers
+   * @param options.rootIssuers Array of trusted root issuer `Did` strings.
    * @param options.params - Optional validation parameters
    * @param options.params.maxChainLength - Maximum allowed chain length (default: 5)
    * @param options.params.maxPolicyWidth - Maximum policy width (default: 10)
@@ -72,57 +73,50 @@ export namespace Validator {
    * @param options.params.tokenRequirements - Optional token type and audience requirements
    * @param options.context - Optional context object for policy evaluation
    * @param options.timeProvider - Optional function returning current time in milliseconds (default: Date.now)
-   *
-   * @throws Validation errors are grouped by their origin:
-   *
-   * **Chain validation errors (from `./chain`):**
-   * - `CHAIN_TOO_LONG` - If the token chain exceeds maxChainLength
-   * - `TOO_MANY_PROOFS` - If a token references multiple proofs
-   * - `PROOFS_MUST_BE_DELEGATIONS` - If a proof token is not a delegation
-   * - `COMMAND_NOT_ATTENUATED` - If command is not properly attenuated in chain
-   * - `DIFFERENT_SUBJECTS` - If subjects differ across the chain
-   * - `ISSUER_AUDIENCE_MISMATCH` - If issuer/audience don't match in chain
-   * - `MISSING_PROOF` - If a required proof is missing
-   * - `NOT_BEFORE_BACKWARDS` - If notBefore times go backwards in chain
-   * - `ROOT_KEY_SIGNATURE_MISSING` - If root signature is missing
-   * - `SUBJECT_NOT_IN_CHAIN` - If subject is not found in chain
-   * - `UNCHAINED_PROOFS` - If proofs are not properly chained
-   *
-   * **Signature validation errors (from `./signatures`):**
-   * - `INVALID_SIGNATURES` - If any signature in the chain is invalid
-   *
-   * **Policy validation errors (from `./policy`):**
-   * - `POLICY_NOT_MET` - If policy evaluation fails
-   * - `POLICY_TOO_DEEP` - If policy depth exceeds maxPolicyDepth
-   * - `POLICY_TOO_WIDE` - If policy width exceeds maxPolicyWidth
-   *
-   * **Temporal validation errors (from `./temporal`):**
-   * - `TOKEN_EXPIRED` - If the token has expired
-   * - `NOT_BEFORE_NOT_MET` - If the token is not yet valid
-   *
-   * **Token requirement errors (from this module):**
-   * - `INVALID_AUDIENCE` - If the audience doesn't match requirements
-   * - `NEED_DELEGATION` - If an invocation token is provided when delegation is required
-   * - `NEED_INVOCATION` - If a delegation token is provided when invocation is required
-   *
+   * @returns void - Validation succeeds silently
+   * @throws {Error} CHAIN_TOO_LONG - Token chain exceeds maxChainLength
+   * @throws {Error} TOO_MANY_PROOFS - Token references multiple proofs
+   * @throws {Error} PROOFS_MUST_BE_DELEGATIONS - Proof token is not a delegation
+   * @throws {Error} COMMAND_NOT_ATTENUATED - Command is not properly attenuated in chain
+   * @throws {Error} DIFFERENT_SUBJECTS - Subjects differ across the chain
+   * @throws {Error} ISSUER_AUDIENCE_MISMATCH - Issuer/audience don't match in chain
+   * @throws {Error} MISSING_PROOF - Required proof is missing
+   * @throws {Error} NOT_BEFORE_BACKWARDS - notBefore times go backwards in chain
+   * @throws {Error} ROOT_KEY_SIGNATURE_MISSING - Root signature is missing
+   * @throws {Error} SUBJECT_NOT_IN_CHAIN - Subject is not found in chain
+   * @throws {Error} UNCHAINED_PROOFS - Proofs are not properly chained
+   * @throws {Error} INVALID_SIGNATURES - Any signature in the chain is invalid
+   * @throws {Error} POLICY_NOT_MET - Policy evaluation fails
+   * @throws {Error} POLICY_TOO_DEEP - Policy depth exceeds maxPolicyDepth
+   * @throws {Error} POLICY_TOO_WIDE - Policy width exceeds maxPolicyWidth
+   * @throws {Error} TOKEN_EXPIRED - Token has expired
+   * @throws {Error} NOT_BEFORE_NOT_MET - Token is not yet valid
+   * @throws {Error} INVALID_AUDIENCE - Audience doesn't match requirements
+   * @throws {Error} NEED_DELEGATION - Invocation provided when delegation required
+   * @throws {Error} NEED_INVOCATION - Delegation provided when invocation required
    * @example
    * ```typescript
-   * import { Validator } from "#/validator";
-   * import { Codec } from "#/nuc/codec";
+   * import { Validator, Codec } from "@nillion/nuc";
    *
    * const envelope = Codec.decodeBase64Url(tokenString);
    *
-   * Validator.validate(envelope, {
-   *   rootIssuers: ["did:key:zDnae..."],
-   *   params: {
-   *     maxChainLength: 10,
-   *     tokenRequirements: {
-   *       type: "invocation",
-   *       audience: "did:key:zDnae..."
-   *     }
-   *   },
-   *   context: { resource: "users", action: "read" }
-   * });
+   * try {
+   *   Validator.validate(envelope, {
+   *     rootIssuers: ["did:key:zDnae..."],
+   *     params: {
+   *       maxChainLength: 10,
+   *       tokenRequirements: {
+   *         type: "invocation",
+   *         audience: "did:key:zDnae..."
+   *       }
+   *     },
+   *     context: { resource: "users", action: "read" }
+   *   });
+   * } catch (error) {
+   *   if (error.message === Validator.TOKEN_EXPIRED) {
+   *     console.error("Token has expired");
+   *   }
+   * }
    * ```
    */
   export function validate(

@@ -37,9 +37,41 @@ export type PolicyRule = Operator | Connector;
  */
 export type Policy = PolicyRule[];
 
+/**
+ * Provides utilities for working with NUC token policies.
+ *
+ * Policies define constraints that must be satisfied when tokens are used.
+ * They support logical operators (and, or, not) and comparison operators
+ * (==, !=, anyOf) with JSON path selectors.
+ *
+ * @example
+ * ```typescript
+ * import { Policy } from "@nillion/nuc";
+ *
+ * const policy: Policy = [
+ *   ["==", ".command", "/db/read"],
+ *   ["!=", ".args.table", "secrets"],
+ *   ["anyOf", ".args.action", ["read", "list"]]
+ * ];
+ *
+ * const isValid = Policy.evaluatePolicy(policy, payload, context);
+ * ```
+ */
 export namespace Policy {
   /**
-   * Runtime validation for a single policy rule.
+   * Validates that a value is a valid policy rule.
+   *
+   * Checks the structure and arguments of operators and connectors,
+   * recursively validating nested rules.
+   *
+   * @param rule - The value to validate as a policy rule
+   * @throws {Error} If the rule structure is invalid
+   * @example
+   * ```typescript
+   * Policy.validateRule(["==", ".status", "active"]); // Valid
+   * Policy.validateRule(["and", [["==", ".a", 1], ["!=", ".b", 2]]]); // Valid
+   * Policy.validateRule(["invalid"]); // Throws error
+   * ```
    */
   export function validateRule(rule: unknown): asserts rule is PolicyRule {
     if (!Array.isArray(rule) || rule.length < 2) {
@@ -84,7 +116,19 @@ export namespace Policy {
   }
 
   /**
-   * Runtime validation for policy structure.
+   * Validates that a value is a valid policy array.
+   *
+   * Ensures the value is an array of valid policy rules.
+   * Empty policies are allowed (no restrictions).
+   *
+   * @param policy - The value to validate as a policy
+   * @throws {Error} If the policy structure is invalid
+   * @example
+   * ```typescript
+   * Policy.validate([["==", ".cmd", "/read"]]); // Valid
+   * Policy.validate([]); // Valid (no restrictions)
+   * Policy.validate("not an array"); // Throws error
+   * ```
    */
   export function validate(policy: unknown): asserts policy is Policy {
     if (!Array.isArray(policy)) {
@@ -101,7 +145,25 @@ export namespace Policy {
   }
 
   /**
-   * Simple schema that uses our validation function
+   * Zod schema for parsing and validating policies.
+   *
+   * Uses the runtime validation function to ensure policy structure
+   * is correct, including all nested rules and operators.
+   *
+   * @example
+   * ```typescript
+   * import { Policy } from "@nillion/nuc";
+   * import { z } from "zod";
+   *
+   * const TokenSchema = z.object({
+   *   policies: Policy.Schema,
+   *   // other fields...
+   * });
+   *
+   * const policy = Policy.Schema.parse([
+   *   ["==", ".command", "/db/read"]
+   * ]);
+   * ```
    */
   export const Schema = z.custom<Policy>(
     (val): val is Policy => {
@@ -116,8 +178,15 @@ export namespace Policy {
   );
 
   /**
-   * Evaluates a policy against a record and context
+   * Evaluates a policy against a record and context.
    *
+   * Policies are arrays of rules with implicit AND logic.
+   * All rules must pass for the policy to evaluate to true.
+   *
+   * @param policy - The policy to evaluate
+   * @param record - The record to evaluate against (typically a payload)
+   * @param context - Additional context for evaluation
+   * @returns True if all policy rules are satisfied
    * @example
    * ```typescript
    * const policy: Policy = [
@@ -127,7 +196,9 @@ export namespace Policy {
    * const record = { status: "active", role: "user" };
    * const context = { environment: "production" };
    *
-   * Policy.evaluatePolicy(policy, record, context); // true
+   * if (Policy.evaluatePolicy(policy, record, context)) {
+   *   console.log("Policy satisfied");
+   * }
    * ```
    */
   export function evaluatePolicy(
@@ -222,7 +293,8 @@ export namespace Policy {
 }
 
 /**
- * Evaluates a single policy rule against a record and context
+ * Evaluates a single policy rule against a record and context.
+ * @internal
  */
 function evaluatePolicyRule(
   rule: PolicyRule,

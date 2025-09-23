@@ -6,7 +6,8 @@ export const POLICY_TOO_DEEP = "policy is too deep";
 export const POLICY_TOO_WIDE = "policy is too wide";
 
 /**
- * Validate policies properties
+ * Validates policy complexity against configured limits.
+ * @internal
  */
 export function validatePolicyProperties(
   policy: Policy,

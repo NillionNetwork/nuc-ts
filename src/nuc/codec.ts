@@ -49,28 +49,50 @@ function serializeToken(nuc: Nuc): string {
   return `${nuc.rawHeader}.${nuc.rawPayload}.${signature}`;
 }
 
+/**
+ * Provides encoding and decoding utilities for NUC tokens.
+ *
+ * The Codec namespace handles the serialization and deserialization of
+ * NUC token envelopes to and from base64url-encoded strings suitable
+ * for network transmission.
+ *
+ * @example
+ * ```typescript
+ * import { Codec, Builder, Keypair } from "@nillion/nuc";
+ *
+ * // Create and serialize a token
+ * const envelope = await Builder.delegation()
+ *   .audience(audienceDid)
+ *   .subject(subjectDid)
+ *   .command("/nil/db")
+ *   .build(keypair);
+ *
+ * const tokenString = Codec.serializeBase64Url(envelope);
+ *
+ * // Later, decode it back
+ * const decoded = Codec.decodeBase64Url(tokenString);
+ * ```
+ */
 export namespace Codec {
   /**
-   * Decodes a base64url-encoded NUC token string into an Envelope structure.
+   * Decodes a base64url-encoded token string into an Envelope.
+   *
    * Supports both single tokens and chained tokens (separated by '/').
+   * Validates the token structure and header format during decoding.
    *
-   * @param nucString - The base64url-encoded token string, potentially containing multiple tokens separated by '/'
-   * @returns The decoded and validated Envelope containing the token and any proof tokens
-   *
-   * @throws {z.ZodError} If the token string is empty or contains empty segments
-   * @throws {Error} INVALID_NUC_STRUCTURE - If a token doesn't have the expected three-part structure (header.payload.signature)
-   * @throws {Error} INVALID_NUC_HEADER - If the header algorithm is not "ES256K"
-   * @throws {z.ZodError} If the decoded structure doesn't match the EnvelopeSchema
-   *
+   * @param nucString - The base64url-encoded token string
+   * @returns The decoded and validated Envelope
+   * @throws {z.ZodError} Token string is empty or contains empty segments
+   * @throws {Error} INVALID_NUC_STRUCTURE - Token lacks three-part structure (header.payload.signature)
+   * @throws {Error} INVALID_NUC_HEADER - Header algorithm is not "ES256K"
+   * @throws {z.ZodError} Decoded structure doesn't match EnvelopeSchema
    * @example
    * ```typescript
-   * import { Codec } from "#/nuc/codec";
-   *
    * // Decode a single token
-   * const envelope = Codec.decodeBase64Url("eyJhbGc...")
+   * const envelope = Codec.decodeBase64Url("eyJhbGc...");
    *
    * // Decode a chained token
-   * const chainedEnvelope = Codec.decodeBase64Url("eyJhbGc.../eyJhbGc...")
+   * const chainedEnvelope = Codec.decodeBase64Url("eyJhbGc.../eyJhbGc...");
    * ```
    */
   export function decodeBase64Url(nucString: string): Envelope {
@@ -108,18 +130,16 @@ export namespace Codec {
   }
 
   /**
-   * Serializes an Envelope back into a base64url-encoded token string.
-   * If the envelope contains proofs, they will be chained using '/' separators.
+   * Serializes an Envelope into a base64url-encoded token string.
+   *
+   * Converts the envelope structure back to a transmittable string format.
+   * Multiple tokens in the proof chain are joined with '/' separators.
    *
    * @param envelope - The Envelope to serialize
-   * @returns The base64url-encoded token string, with proofs chained using '/'
-   *
+   * @returns The base64url-encoded token string
    * @example
    * ```typescript
-   * import { Codec } from "#/nuc/codec";
-   * import { Builder } from "#/nuc/builder";
-   *
-   * const envelope = Builder.invocation()
+   * const envelope = await Builder.invocation()
    *   .audience(audienceDid)
    *   .subject(subjectDid)
    *   .command("/db/read")

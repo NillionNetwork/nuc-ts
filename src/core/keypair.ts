@@ -100,9 +100,9 @@ export class Keypair {
   }
 
   /**
-   * Creates a DID (Decentralized Identifier) from this keypair's public key.
-   * @param format - The DID format to use: "key" (modern) or "nil" (legacy). Defaults to "key"
-   * @returns A structured DID object that can be serialized
+   * Creates a Did (Decentralized Identifier) from this keypair's public key.
+   * @param format - The Did format to use: "key" (modern) or "nil" (legacy). Defaults to "key"
+   * @returns A structured Did object that can be serialized
    * @example
    * ```typescript
    * const keypair = Keypair.generate();

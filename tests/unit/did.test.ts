@@ -37,7 +37,7 @@ describe("Dids", () => {
     );
   });
 
-  it("correctly compares DIDs for equality", () => {
+  it("correctly compares Dids for equality", () => {
     const parsedKey1 = Did.parse(keyDid.didString);
     const parsedKey2 = Did.parse(keyDid.didString);
     const parsedNil = Did.parse(nilDid.didString);
@@ -56,7 +56,7 @@ describe("Dids", () => {
       expect(Did.Schema.safeParse(didString).success).toBe(true);
     });
 
-    it("should fail to parse an invalid DID", () => {
+    it("should fail to parse an invalid Did", () => {
       const didString = "invalid-did";
       expect(Did.Schema.safeParse(didString).success).toBe(false);
     });

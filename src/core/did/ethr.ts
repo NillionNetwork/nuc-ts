@@ -2,9 +2,9 @@ import { getAddress, hashMessage, hexlify, recoverAddress } from "ethers";
 import type { DidEthr } from "#/core/did/types";
 
 /**
- * Creates a did:ethr DID from an Ethereum address.
+ * Creates a did:ethr Did from an Ethereum address.
  * @param address The Ethereum address (will be checksummed)
- * @returns A did:ethr DID
+ * @returns A did:ethr Did
  * @example
  * ```typescript
  * const did = fromAddress("0x742d35Cc6634C0532925a3b844Bc9e7095Ed4e40");
@@ -23,9 +23,9 @@ export function fromAddress(address: string): DidEthr {
 }
 
 /**
- * Serializes a did:ethr DID to its string representation.
- * @param did The did:ethr DID to serialize
- * @returns The DID string
+ * Serializes a did:ethr Did to its string representation.
+ * @param did The did:ethr Did to serialize
+ * @returns The Did string
  * @example
  * ```typescript
  * const didString = serialize({ method: "ethr", address: "0x742d35..." });
@@ -38,9 +38,9 @@ export function serialize(did: DidEthr): string {
 
 /**
  * Parses a did:ethr string into a DidEthr object.
- * @param didString The DID string to parse
+ * @param didString The Did string to parse
  * @returns The parsed DidEthr object
- * @throws If the DID is not a valid did:ethr
+ * @throws If the Did is not a valid did:ethr
  * @example
  * ```typescript
  * const did = parse("did:ethr:0x742d35Cc6634C0532925a3b844Bc9e7095Ed4e40");
@@ -64,7 +64,7 @@ export function parse(didString: string): DidEthr {
 /**
  * Validates a did:ethr signature.
  *
- * @param did The did:ethr DID
+ * @param did The did:ethr Did
  * @param message The message that was signed
  * @param signature The signature to validate
  * @returns True if the message was signed by the provided did.

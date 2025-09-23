@@ -10,12 +10,12 @@ export type Did = DidType;
 
 export namespace Did {
   /**
-   * Parses a DID string into its structured object representation.
+   * Parses a Did string into its structured object representation.
    * Supports did:key, did:ethr, and did:nil methods.
    *
-   * @param didString - The DID string to parse (e.g., "did:key:zDnae..." or "did:nil:03a1b2c3...")
-   * @returns A structured DID object containing method, public key, and other metadata
-   * @throws {Error} If the DID method is not supported
+   * @param didString - The Did string to parse (e.g., "did:key:zDnae..." or "did:nil:03a1b2c3...")
+   * @returns A structured Did object containing method, public key, and other metadata
+   * @throws {Error} If the Did method is not supported
    *
    * @example
    * ```typescript
@@ -34,10 +34,10 @@ export namespace Did {
   }
 
   /**
-   * Serializes a structured DID object back into its string form.
+   * Serializes a structured Did object back into its string form.
    *
-   * @param did - The structured DID object to serialize
-   * @returns The DID as a string
+   * @param did - The structured Did object to serialize
+   * @returns The Did as a string
    *
    * @example
    * ```typescript
@@ -50,14 +50,14 @@ export namespace Did {
   }
 
   /**
-   * Performs a semantic equality check on two structured DID objects.
-   * For DIDs with public keys (key, nil), this function compares the underlying
+   * Performs a semantic equality check on two structured Did objects.
+   * For Dids with public keys (key, nil), this function compares the underlying
    * public keys, allowing for cross-method comparison. For other types,
    * it falls back to a structural equality check.
    *
-   * @param a - The first DID to compare
-   * @param b - The second DID to compare
-   * @returns True if the DIDs represent the same identity
+   * @param a - The first Did to compare
+   * @param b - The second Did to compare
+   * @returns True if the Dids represent the same identity
    *
    * @example
    * ```typescript
@@ -76,16 +76,16 @@ export namespace Did {
       return _.isEqual(pkA, pkB);
     }
 
-    // Otherwise, fall back to a structural equality for other DID types (e.g., ethr).
+    // Otherwise, fall back to a structural equality for other Did types (e.g., ethr).
     return _.isEqual(a, b);
   }
 
   /**
-   * Creates a DID from a public key hex string.
+   * Creates a Did from a public key hex string.
    *
    * @param publicKey - The public key as a hex string
-   * @param method - The DID method to use: "key" (default) or "nil"
-   * @returns A structured DID object
+   * @param method - The Did method to use: "key" (default) or "nil"
+   * @returns A structured Did object
    *
    * @example
    * ```typescript
@@ -110,9 +110,30 @@ export namespace Did {
   }
 
   const DID_EXPRESSION = /^did:.+:.+$/;
+
+  /**
+   * Zod schema for parsing and validating Did strings.
+   *
+   * Validates that a string matches the Did format (did:method:identifier)
+   * and automatically transforms it into a structured Did object.
+   *
+   * @example
+   * ```typescript
+   * import { Did } from "@nillion/nuc";
+   *
+   * // Use in Zod schemas
+   * const MySchema = z.object({
+   *   issuer: Did.Schema,
+   *   audience: Did.Schema
+   * });
+   *
+   * // Parse and validate a Did string
+   * const did = Did.Schema.parse("did:key:zDnae...");
+   * ```
+   */
   export const Schema = z
     .string()
-    .regex(DID_EXPRESSION, "invalid DID")
+    .regex(DID_EXPRESSION, "invalid Did")
     .transform(parse);
 }
 

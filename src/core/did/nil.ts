@@ -28,7 +28,7 @@ export function fromPublicKeyBytes(publicKeyBytes: Uint8Array): string {
 /**
  * Validates a did:nil signature.
  *
- * @param did The did:ethr DID
+ * @param did The did:nil Did
  * @param message The message that was signed
  * @param signature The signature to validate
  * @returns True if the message was signed by the provided did.
