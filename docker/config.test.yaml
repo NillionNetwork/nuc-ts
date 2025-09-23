@@ -11,8 +11,8 @@ payments:
   nilchain_url: http://nilchain:26648
 
   subscriptions:
-    renewal_threshold_seconds: 60
-    length_seconds: 120
+    renewal_threshold_seconds: 5
+    length_seconds: 10
     dollar_cost:
       nildb: 1
       nilai: 1

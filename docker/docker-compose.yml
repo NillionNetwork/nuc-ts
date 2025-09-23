@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5432:5432"
+      - "30432:5432"
 
   nilchain:
     image: ghcr.io/nillionnetwork/nilchain-devnet:v0.1.0
