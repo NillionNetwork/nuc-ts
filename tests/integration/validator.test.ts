@@ -1,8 +1,8 @@
 import { describe, it } from "vitest";
-import { Did } from "#/core/did/did";
 import { Keypair } from "#/core/keypair";
 import { Signer } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
+import { REVOKE_COMMAND } from "#/nuc/payload";
 import {
   CHAIN_TOO_LONG,
   COMMAND_NOT_ATTENUATED,
@@ -14,7 +14,12 @@ import {
   ROOT_KEY_SIGNATURE_MISSING,
   UNCHAINED_PROOFS,
 } from "#/validator/validator";
-import { Asserter, ROOT_DIDS, ROOT_KEYS } from "./assertions";
+import {
+  assertFailure,
+  assertSuccess,
+  ROOT_DIDS,
+  ROOT_KEYS,
+} from "#tests/helpers/assertions";
 
 describe("Validator", () => {
   // Use a consistent root keypair for all tests, derived from the test seed
@@ -46,7 +51,7 @@ describe("Validator", () => {
 
     envelope.proofs.push(unlinkedToken.nuc);
 
-    new Asserter().assertFailure(envelope, UNCHAINED_PROOFS);
+    assertFailure(envelope, UNCHAINED_PROOFS);
   });
 
   it("should fail validation if the chain is too long", async () => {
@@ -72,8 +77,9 @@ describe("Validator", () => {
       .build(userSigner);
 
     // Set max chain length to 2 (the chain has 4 tokens)
-    const parameters = { maxChainLength: 2 };
-    new Asserter({ parameters }).assertFailure(envelope, CHAIN_TOO_LONG);
+    assertFailure(envelope, CHAIN_TOO_LONG, {
+      parameters: { maxChainLength: 2 },
+    });
   });
 
   it("should fail if a command is not a valid attenuation", async () => {
@@ -91,7 +97,7 @@ describe("Validator", () => {
       .audience(userKeypair.toDid()) // A new audience is still required
       .build(userSigner);
 
-    new Asserter().assertFailure(chainedEnvelope, COMMAND_NOT_ATTENUATED);
+    assertFailure(chainedEnvelope, COMMAND_NOT_ATTENUATED);
   });
 
   it("should fail if subjects differ across the chain", async () => {
@@ -110,7 +116,7 @@ describe("Validator", () => {
       .audience(Keypair.generate().toDid())
       .build(userSigner2);
 
-    new Asserter().assertFailure(chainedEnvelope, DIFFERENT_SUBJECTS);
+    assertFailure(chainedEnvelope, DIFFERENT_SUBJECTS);
   });
 
   it("should fail if the issuer does not match the previous audience", async () => {
@@ -128,7 +134,7 @@ describe("Validator", () => {
       .audience(Keypair.generate().toDid())
       .build(anotherSigner); // Invalid: signed by a party that was not the audience
 
-    new Asserter().assertFailure(chainedEnvelope, ISSUER_AUDIENCE_MISMATCH);
+    assertFailure(chainedEnvelope, ISSUER_AUDIENCE_MISMATCH);
   });
 
   it("should fail if an invocation has an invalid audience", async () => {
@@ -148,16 +154,14 @@ describe("Validator", () => {
       .audience(actualAudienceDid)
       .build(userSigner);
 
-    const parameters = {
-      tokenRequirements: {
-        type: "invocation",
-        audience: Did.serialize(expectedAudienceDid),
-      } as const,
-    };
-    new Asserter({ parameters }).assertFailure(
-      invocationEnvelope,
-      INVALID_AUDIENCE,
-    );
+    assertFailure(invocationEnvelope, INVALID_AUDIENCE, {
+      parameters: {
+        tokenRequirements: {
+          type: "invocation",
+          audience: expectedAudienceDid.didString,
+        } as const,
+      },
+    });
   });
 
   it("should fail if a required proof is missing from the envelope", async () => {
@@ -175,8 +179,7 @@ describe("Validator", () => {
       .build(userSigner);
 
     chainedEnvelope.proofs = []; // Manually remove the proof
-
-    new Asserter().assertFailure(chainedEnvelope, MISSING_PROOF);
+    assertFailure(chainedEnvelope, MISSING_PROOF);
   });
 
   it("should fail if the policy of a parent delegation is not met", async () => {
@@ -194,8 +197,7 @@ describe("Validator", () => {
       .arguments({ bar: 1337 }) // Does not satisfy the policy
       .audience(Keypair.generate().toDid())
       .build(userSigner);
-
-    new Asserter().assertFailure(invocationEnvelope, POLICY_NOT_MET);
+    assertFailure(invocationEnvelope, POLICY_NOT_MET);
   });
 
   it("should fail if the root NUC is not signed by a trusted root key", async () => {
@@ -213,10 +215,9 @@ describe("Validator", () => {
       .audience(userKeypair.toDid())
       .build(Signer.fromKeypair(userKeypair));
 
-    new Asserter({ rootDids: ROOT_DIDS }).assertFailure(
-      chainedEnvelope,
-      ROOT_KEY_SIGNATURE_MISSING,
-    );
+    assertFailure(chainedEnvelope, ROOT_KEY_SIGNATURE_MISSING, {
+      rootDids: ROOT_DIDS,
+    });
   });
 
   it("should pass validation for a valid, multi-step chain", async () => {
@@ -249,16 +250,44 @@ describe("Validator", () => {
       .command("/nil/bar/foo")
       .build(userSigner);
 
-    const parameters = {
-      tokenRequirements: {
-        type: "invocation",
-        audience: Did.serialize(serviceDid),
-      } as const,
-    };
-    const context = { req: { bar: 1337 } };
+    assertSuccess(invocation, {
+      parameters: {
+        tokenRequirements: {
+          type: "invocation",
+          audience: serviceDid.didString,
+        },
+      },
+      context: { req: { bar: 1337 } },
+      rootDids: ROOT_DIDS,
+    });
+  });
 
-    new Asserter({ parameters, context, rootDids: ROOT_DIDS }).assertSuccess(
-      invocation,
-    );
+  it("should permit a namespace jump to the REVOKE_COMMAND", async () => {
+    const rootKeypair = Keypair.generate();
+    const rootSigner = Signer.fromKeypair(rootKeypair);
+    const userKeypair = Keypair.generate();
+    const userSigner = Signer.fromKeypair(userKeypair);
+
+    // 1. Root grants a normal, non-revoke capability.
+    const rootDelegation = await Builder.delegation()
+      .audience(userKeypair.toDid())
+      .subject(userKeypair.toDid())
+      .command("/nil/db/data")
+      .build(rootSigner);
+
+    // 2. User creates an invocation that "jumps" from the /db/data/read
+    //    namespace to the /nuc/revoke namespace.
+    const revocationInvocation = await Builder.invoking(rootDelegation)
+      .command(REVOKE_COMMAND)
+      .audience(Keypair.generate().toDid()) // Fake revocation service
+      .arguments({ token_hash: "any_hash_will_do_for_this_test" })
+      .build(userSigner);
+
+    // 3. Assert that this envelope passes validation.
+    //    This proves the validator's core logic correctly handles the exception
+    //    for REVOKE_COMMAND, even when the builder creates the namespace jump.
+    assertSuccess(revocationInvocation, {
+      rootDids: [rootKeypair.toDid().didString],
+    });
   });
 });

@@ -1,4 +1,4 @@
-import { z } from "zod";
+import z from "zod";
 import {
   base64UrlDecode,
   base64UrlDecodeToBytes,
@@ -79,7 +79,7 @@ export namespace Codec {
     if (!parts.every(Boolean)) {
       throw new z.ZodError([
         {
-          code: z.ZodIssueCode.custom,
+          code: "custom",
           path: [],
           message: "empty token",
           input: nucString,
@@ -92,7 +92,7 @@ export namespace Codec {
     if (tokens.length === 0) {
       throw new z.ZodError([
         {
-          code: z.ZodIssueCode.custom,
+          code: "custom",
           path: [],
           message: "no tokens in envelope",
           input: nucString,
