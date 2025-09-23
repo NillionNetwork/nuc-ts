@@ -27,7 +27,8 @@ export type DidEthr = {
 };
 
 /**
- * Represents our legacy parsed did:nil object.
+ * Represents a parsed `did:nil` object.
+ * @deprecated This will be removed in version 0.3.0. Use `DidKey` instead.
  */
 export type DidNil = {
   readonly didString: string;
@@ -37,6 +38,6 @@ export type DidNil = {
 };
 
 /**
- * A union of all supported DID types.
+ * A union of all supported Did types.
  */
 export type Did = DidKey | DidEthr | DidNil;

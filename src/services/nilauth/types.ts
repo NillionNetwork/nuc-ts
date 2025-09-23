@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { decodeBase64Url } from "#/nuc/codec";
+import { Codec } from "#/nuc/codec";
 
 export type SignedRequest = {
   public_key: string;
@@ -67,7 +67,7 @@ export type SubscriptionStatusResponse = z.infer<
 >;
 
 export const CreateTokenResponseSchema = z.object({
-  token: z.string().transform(decodeBase64Url),
+  token: z.string().transform(Codec.decodeBase64Url),
 });
 export type CreateTokenResponse = z.infer<typeof CreateTokenResponseSchema>;
 

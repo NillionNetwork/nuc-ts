@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { serialize } from "#/core/did/did";
+import { Did } from "#/core/did/did";
 import { Keypair } from "#/core/keypair";
-import { CommandSchema, PayloadSchema } from "#/nuc/payload";
+import { CommandSchema, Payload } from "#/nuc/payload";
 
 const keypair = Keypair.generate();
-const validDid = serialize(keypair.toDid());
+const validDid = Did.serialize(keypair.toDid());
 
 describe("Token Module", () => {
   describe("CommandSchema", () => {
@@ -19,7 +19,7 @@ describe("Token Module", () => {
     });
   });
 
-  describe("PayloadSchema", () => {
+  describe("Payload.Schema", () => {
     const basePayload = {
       iss: validDid,
       aud: validDid,
@@ -30,13 +30,13 @@ describe("Token Module", () => {
 
     it("should parse a valid delegation payload", () => {
       const payload = { ...basePayload, pol: [["==", ".foo", "bar"]] };
-      const result = PayloadSchema.safeParse(payload);
+      const result = Payload.Schema.safeParse(payload);
       expect(result.success).toBe(true);
     });
 
     it("should parse a valid invocation payload", () => {
       const payload = { ...basePayload, args: { foo: "bar" } };
-      const result = PayloadSchema.safeParse(payload);
+      const result = Payload.Schema.safeParse(payload);
       expect(result.success).toBe(true);
     });
 
@@ -46,13 +46,13 @@ describe("Token Module", () => {
         pol: [["==", ".foo", "bar"]],
         args: {},
       };
-      const result = PayloadSchema.safeParse(payload);
+      const result = Payload.Schema.safeParse(payload);
       expect(result.success).toBe(false);
     });
 
     it("should fail if neither 'pol' nor 'args' are present", () => {
       const payload = { ...basePayload };
-      const result = PayloadSchema.safeParse(payload);
+      const result = Payload.Schema.safeParse(payload);
       expect(result.success).toBe(false);
     });
   });

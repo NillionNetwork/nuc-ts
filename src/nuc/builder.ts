@@ -2,19 +2,14 @@ import { bytesToHex, randomBytes } from "@noble/hashes/utils";
 import { DEFAULT_NONCE_LENGTH } from "#/constants";
 import type { Did } from "#/core/did/types";
 import { base64UrlEncode } from "#/core/encoding";
-import type { Keypair } from "#/core/keypair";
-import { computeHash, type Envelope, type Nuc } from "#/nuc/envelope";
-import {
-  type Command,
-  type DelegationPayload,
-  isDelegationPayload,
-  type Payload,
-} from "#/nuc/payload";
+import type { Signer } from "#/core/signer";
+import { Codec } from "#/nuc/codec";
+import { Envelope, type Nuc } from "#/nuc/envelope";
+import { type Command, type DelegationPayload, Payload } from "#/nuc/payload";
 import type { Policy, PolicyRule } from "#/nuc/policy";
 
 /**
- * Abstract base class for building NUC tokens.
- * Provides common functionality for both delegation and invocation tokens.
+ * `Nuc` token builder base class.
  * @internal
  */
 abstract class AbstractBuilder {
@@ -31,9 +26,9 @@ abstract class AbstractBuilder {
   protected abstract _getPayloadData(issuer: Did): Payload;
 
   /**
-   * Sets the intended recipient of the token.
-   * @param aud - The DID of the intended audience
-   * @returns This builder instance for method chaining
+   * Specifies the token's intended recipient.
+   * @param aud The recipient's Did.
+   * @returns This builder for method chaining.
    */
   public audience(aud: Did): this {
     this._audience = aud;
@@ -41,9 +36,9 @@ abstract class AbstractBuilder {
   }
 
   /**
-   * Sets the subject of the token.
-   * @param sub - The DID of the subject
-   * @returns This builder instance for method chaining
+   * Specifies the subject the token represents.
+   * @param sub The subject's Did.
+   * @returns This builder for method chaining.
    */
   public subject(sub: Did): this {
     this._subject = sub;
@@ -51,9 +46,9 @@ abstract class AbstractBuilder {
   }
 
   /**
-   * Sets the command that this token grants access to.
-   * @param cmd - The command string (must start with "/")
-   * @returns This builder instance for method chaining
+   * Specifies the command this token authorizes.
+   * @param cmd The command string.
+   * @returns This builder for method chaining.
    */
   public command(cmd: Command): this {
     this._command = cmd;
@@ -61,9 +56,17 @@ abstract class AbstractBuilder {
   }
 
   /**
-   * Sets the expiration time for the token.
+   * Specifies when the token expires.
+   *
+   * After this time, the token will be rejected during validation.
+   * Use epoch milliseconds for the expiration timestamp.
+   *
    * @param date - Expiration time in epoch milliseconds
    * @returns This builder instance for method chaining
+   * @example
+   * ```typescript
+   * builder.expiresAt(Date.now() + 3600 * 1000); // Expires in 1 hour
+   * ```
    */
   public expiresAt(date: number): this {
     this._expiresAt = date;
@@ -71,9 +74,17 @@ abstract class AbstractBuilder {
   }
 
   /**
-   * Sets the "not before" time for the token.
-   * @param date - The earliest time the token is valid, in epoch milliseconds
+   * Specifies the earliest time the token becomes valid.
+   *
+   * The token will be rejected if used before this time.
+   * Useful for scheduling future access.
+   *
+   * @param date - The earliest validity time in epoch milliseconds
    * @returns This builder instance for method chaining
+   * @example
+   * ```typescript
+   * builder.notBefore(Date.now() + 60 * 1000); // Valid after 1 minute
+   * ```
    */
   public notBefore(date: number): this {
     this._notBefore = date;
@@ -81,9 +92,21 @@ abstract class AbstractBuilder {
   }
 
   /**
-   * Sets arbitrary metadata for the token.
+   * Attaches arbitrary metadata to the token.
+   *
+   * Metadata is not validated and can contain any JSON-serializable
+   * data for application-specific purposes.
+   *
    * @param meta - A record of key-value pairs
    * @returns This builder instance for method chaining
+   * @example
+   * ```typescript
+   * builder.meta({
+   *   requestId: "abc123",
+   *   environment: "production",
+   *   version: "1.0.0"
+   * });
+   * ```
    */
   public meta(meta: Record<string, unknown>): this {
     this._meta = meta;
@@ -91,9 +114,17 @@ abstract class AbstractBuilder {
   }
 
   /**
-   * Sets a custom nonce for the token.
-   * @param nonce - The nonce string (auto-generated if not provided)
+   * Specifies a custom nonce for the token.
+   *
+   * Nonces provide uniqueness and prevent replay attacks.
+   * If not specified, a cryptographically secure random nonce is generated.
+   *
+   * @param nonce - The nonce string
    * @returns This builder instance for method chaining
+   * @example
+   * ```typescript
+   * builder.nonce("unique-nonce-123");
+   * ```
    */
   public nonce(nonce: string): this {
     this._nonce = nonce;
@@ -101,9 +132,17 @@ abstract class AbstractBuilder {
   }
 
   /**
-   * Sets the proof envelope for creating a chained token.
+   * Links this token to a previous token in a delegation chain.
+   *
+   * The proof establishes the authority for this token based on
+   * a previously issued delegation.
+   *
    * @param proof - The previous token envelope to chain from
    * @returns This builder instance for method chaining
+   * @example
+   * ```typescript
+   * builder.proof(previousDelegationEnvelope);
+   * ```
    */
   public proof(proof: Envelope): this {
     this._proof = proof;
@@ -111,9 +150,17 @@ abstract class AbstractBuilder {
   }
 
   /**
-   * Sets the issuer of the token.
-   * @param iss - The DID of the issuer (defaults to the signing keypair's DID)
+   * Overrides the token issuer.
+   *
+   * By default, the issuer is derived from the signer's Did.
+   * Use this method only when the issuer differs from the signer.
+   *
+   * @param iss - The Did of the issuer
    * @returns This builder instance for method chaining
+   * @example
+   * ```typescript
+   * builder.issuer(customIssuerDid);
+   * ```
    */
   public issuer(iss: Did): this {
     this._issuer = iss;
@@ -121,27 +168,46 @@ abstract class AbstractBuilder {
   }
 
   /**
-   * Builds and signs the token with the provided keypair.
-   * @param keypair - The keypair to sign the token with
+   * Builds and signs the token with the provided signer.
+   *
+   * Validates that all required fields are present, generates the token
+   * payload, and produces a signed envelope ready for transmission.
+   *
+   * @param signer - The signer to sign the token with
    * @returns The signed token envelope
-   * @throws {Error} If required fields (audience, subject, command) are missing
+   * @throws {Error} "Audience, subject, and command are required fields" - If any required field is missing
+   * @example
+   * ```typescript
+   * const envelope = await builder
+   *   .audience(audienceDid)
+   *   .subject(subjectDid)
+   *   .command("/db/read")
+   *   .build(signer);
+   * ```
    */
-  public build(keypair: Keypair): Envelope {
-    const issuer = this._issuer ?? keypair.toDid();
+  public async build(signer: Signer): Promise<Envelope> {
+    // The issuer is now authoritatively derived from the signer.
+    const issuer = this._issuer ?? (await signer.getDid());
     const payloadData = this._getPayloadData(issuer);
+
+    const header = signer.header;
+    const rawHeader = base64UrlEncode(
+      new TextEncoder().encode(JSON.stringify(header)),
+    );
 
     const rawPayload = base64UrlEncode(
       new TextEncoder().encode(JSON.stringify(payloadData)),
     );
-    const rawHeader = base64UrlEncode(
-      new TextEncoder().encode('{"alg":"ES256K"}'),
+
+    const messageToSign = new TextEncoder().encode(
+      `${rawHeader}.${rawPayload}`,
     );
-    const tokenAsBytes = new TextEncoder().encode(`${rawHeader}.${rawPayload}`);
+    const signature = await signer.sign(messageToSign);
 
     const nuc: Nuc = {
       rawHeader,
       rawPayload,
-      signature: new Uint8Array(keypair.signBytes(tokenAsBytes)),
+      signature: new Uint8Array(signature),
       payload: payloadData,
     };
 
@@ -150,19 +216,67 @@ abstract class AbstractBuilder {
       proofs: this._proof ? [this._proof.nuc, ...this._proof.proofs] : [],
     };
   }
+
+  /**
+   * Builds, signs, and serializes the token into a base64url string.
+   *
+   * Convenience method that combines building and serialization
+   * in a single step for easier token generation.
+   *
+   * @param signer - The signer to sign the token with
+   * @returns The signed and serialized token string
+   * @throws {Error} "Audience, subject, and command are required fields" - If any required field is missing
+   * @example
+   * ```typescript
+   * const tokenString = await builder
+   *   .audience(audienceDid)
+   *   .subject(subjectDid)
+   *   .command("/db/read")
+   *   .signAndSerialize(signer);
+   * ```
+   * @see {@link build}
+   * @see {@link Codec.serializeBase64Url}
+   */
+  public async signAndSerialize(signer: Signer): Promise<string> {
+    const envelope = await this.build(signer);
+    return Codec.serializeBase64Url(envelope);
+  }
 }
 
 /**
- * Builder for creating delegation tokens with policies.
- * Delegation tokens grant capabilities to other DIDs based on policy rules.
+ * Builds delegation tokens that grant capabilities to other DIDs.
+ *
+ * Delegation tokens establish trust relationships and permission boundaries
+ * through policy rules that constrain how granted capabilities can be used.
+ *
+ * @example
+ * ```typescript
+ * const token = new DelegationBuilder()
+ *   .audience(userDid)
+ *   .subject(userDid)
+ *   .command("/db/read")
+ *   .policy([["==", ".command", "/db/read"]])
+ *   .build(signer);
+ * ```
  */
 export class DelegationBuilder extends AbstractBuilder {
   private _policy: Policy = [];
 
   /**
-   * Sets the complete policy array for the delegation.
-   * @param policy - Array of policy rules
+   * Replaces all policies with the provided policy array.
+   *
+   * Policies define constraints that must be satisfied when the delegation
+   * is used to create invocation tokens.
+   *
+   * @param policy - Array of policy rules to enforce
    * @returns This builder instance for method chaining
+   * @example
+   * ```typescript
+   * builder.policy([
+   *   ["==", ".command", "/db/read"],
+   *   ["!=", ".args.table", "secrets"]
+   * ]);
+   * ```
    */
   public policy(policy: Policy): this {
     this._policy = policy;
@@ -170,9 +284,19 @@ export class DelegationBuilder extends AbstractBuilder {
   }
 
   /**
-   * Adds a single policy rule to the existing policy array.
-   * @param policy - A policy rule tuple (e.g., ["==", ".command", "/db/read"])
+   * Appends a single policy rule to the existing policy array.
+   *
+   * Use this method to incrementally build up policies instead of
+   * replacing them all at once.
+   *
+   * @param policy - A policy rule tuple to add
    * @returns This builder instance for method chaining
+   * @example
+   * ```typescript
+   * builder
+   *   .addPolicy(["==", ".command", "/db/read"])
+   *   .addPolicy(["!=", ".args.table", "secrets"]);
+   * ```
    */
   public addPolicy(policy: PolicyRule): this {
     this._policy.push(policy);
@@ -194,22 +318,49 @@ export class DelegationBuilder extends AbstractBuilder {
       exp: this._expiresAt,
       meta: this._meta,
       nonce: this._nonce || bytesToHex(randomBytes(DEFAULT_NONCE_LENGTH)),
-      prf: this._proof ? [bytesToHex(computeHash(this._proof.nuc))] : [],
+      prf: this._proof
+        ? [bytesToHex(Envelope.computeHash(this._proof.nuc))]
+        : [],
     };
   }
 }
 
 /**
- * Builder for creating invocation tokens with arguments.
- * Invocation tokens execute specific commands with provided arguments.
+ * Builds invocation tokens that execute commands with arguments.
+ *
+ * Invocation tokens represent the actual execution of a capability
+ * that was granted by a delegation token. They carry the command
+ * arguments and are validated against the delegation's policies.
+ *
+ * @example
+ * ```typescript
+ * const token = new InvocationBuilder()
+ *   .audience(serviceDid)
+ *   .subject(userDid)
+ *   .command("/db/query")
+ *   .arguments({ table: "users", limit: 100 })
+ *   .build(signer);
+ * ```
  */
 export class InvocationBuilder extends AbstractBuilder {
   private _args: Record<string, unknown> = {};
 
   /**
-   * Sets all arguments for the invocation at once.
+   * Replaces all arguments with the provided record.
+   *
+   * Arguments are passed to the command when the invocation is executed.
+   * These arguments are evaluated against policies in the delegation chain.
+   *
    * @param args - Record of argument key-value pairs
    * @returns This builder instance for method chaining
+   * @example
+   * ```typescript
+   * builder.arguments({
+   *   table: "users",
+   *   filter: { age: { $gte: 18 } },
+   *   limit: 100
+   * });
+   * ```
    */
   public arguments(args: Record<string, unknown>): this {
     this._args = args;
@@ -217,10 +368,20 @@ export class InvocationBuilder extends AbstractBuilder {
   }
 
   /**
-   * Adds or updates a single argument.
-   * @param key - The argument key
+   * Adds or updates a single argument in the arguments record.
+   *
+   * Use this method to incrementally build arguments or update
+   * specific values without replacing the entire arguments object.
+   *
+   * @param key - The argument key to add or update
    * @param value - The argument value
    * @returns This builder instance for method chaining
+   * @example
+   * ```typescript
+   * builder
+   *   .addArgument("table", "users")
+   *   .addArgument("limit", 100);
+   * ```
    */
   public addArgument(key: string, value: unknown): this {
     this._args[key] = value;
@@ -242,24 +403,28 @@ export class InvocationBuilder extends AbstractBuilder {
       exp: this._expiresAt,
       meta: this._meta,
       nonce: this._nonce || bytesToHex(randomBytes(DEFAULT_NONCE_LENGTH)),
-      prf: this._proof ? [bytesToHex(computeHash(this._proof.nuc))] : [],
+      prf: this._proof
+        ? [bytesToHex(Envelope.computeHash(this._proof.nuc))]
+        : [],
     };
   }
 }
 
 /**
- * Factory object for creating NUC token builders.
- * Provides fluent API entry points for creating delegation and invocation tokens.
+ * Creates NUC token builders for constructing delegation and invocation tokens.
+ *
+ * This factory provides the primary API for token creation in the NUC system.
+ * Use it to create builders for different token types and chain tokens together.
  *
  * @example
  * ```typescript
- * import { Builder } from "#/nuc/builder";
- * import { Keypair } from "#/core/keypair";
+ * import { Builder } from "@nillion/nuc";
+ * import { Keypair } from "@nillion/nuc";
  *
  * const keypair = Keypair.generate();
  *
  * // Create a delegation token
- * const delegation = Builder.delegation()
+ * const delegation = await Builder.delegation()
  *   .audience(audienceDid)
  *   .subject(subjectDid)
  *   .command("/db/read")
@@ -267,70 +432,85 @@ export class InvocationBuilder extends AbstractBuilder {
  *   .build(keypair);
  *
  * // Create an invocation token from the delegation
- * const invocation = Builder.invoking(delegation)
- *   .audience(audienceDid)
+ * const invocation = await Builder.invoking(delegation)
+ *   .audience(serviceDid)
  *   .arguments({ table: "users", id: 123 })
  *   .build(userKeypair);
  * ```
  */
 export const Builder = {
   /**
-   * Creates a new DelegationBuilder for building delegation tokens.
+   * Creates a new builder for constructing delegation tokens.
+   *
+   * Delegation tokens grant capabilities that can be further delegated
+   * or invoked by the audience.
+   *
    * @returns A new DelegationBuilder instance
    * @example
    * ```typescript
-   * const token = Builder.delegation()
+   * const token = await Builder.delegation()
    *   .audience(audienceDid)
    *   .subject(subjectDid)
    *   .command("/db/read")
    *   .policy([["==", ".command", "/db/read"]])
-   *   .build(keypair);
+   *   .build(signer);
    * ```
+   * @see {@link DelegationBuilder}
    */
   delegation(): DelegationBuilder {
     return new DelegationBuilder();
   },
 
   /**
-   * Creates a new InvocationBuilder for building invocation tokens.
+   * Creates a new builder for constructing invocation tokens.
+   *
+   * Invocation tokens execute commands and are typically created
+   * from existing delegations using `invoking()` instead.
+   *
    * @returns A new InvocationBuilder instance
    * @example
    * ```typescript
-   * const token = Builder.invocation()
-   *   .audience(audienceDid)
+   * const token = await Builder.invocation()
+   *   .audience(serviceDid)
    *   .subject(subjectDid)
    *   .command("/db/execute")
    *   .arguments({ query: "SELECT * FROM users" })
-   *   .build(keypair);
+   *   .build(signer);
    * ```
+   * @see {@link InvocationBuilder}
    */
   invocation(): InvocationBuilder {
     return new InvocationBuilder();
   },
 
   /**
-   * Creates a DelegationBuilder pre-configured from an existing delegation token.
-   * Used for creating chained delegation tokens.
+   * Creates a delegation builder pre-configured from an existing delegation.
+   *
+   * Extends an existing delegation to create a chain of trust. The new
+   * delegation inherits the subject and command from the proof. The new policy
+   * is initialised from the proof's policy but can be overridden.
+   *
    * @param proof - The existing delegation token envelope to extend
    * @returns A pre-configured DelegationBuilder
-   * @throws {Error} If the proof token is not a delegation
+   * @throws {Error} "Cannot extend a token that is not a delegation" - If the proof is an invocation token
    * @example
    * ```typescript
-   * const rootToken = Builder.delegation()
+   * const rootToken = await Builder.delegation()
    *   .audience(userDid)
    *   .subject(userDid)
    *   .command("/db/read")
    *   .policy([["==", ".command", "/db/read"]])
    *   .build(rootKeypair);
    *
-   * const chainedToken = Builder.delegating(rootToken)
+   * const chainedToken = await Builder.delegating(rootToken)
    *   .audience(newAudience) // Override the audience
    *   .build(userKeypair);
    * ```
+   * @see {@link DelegationBuilder}
    */
   delegating(proof: Envelope): DelegationBuilder {
     const proofPayload = proof.nuc.payload;
-    if (!isDelegationPayload(proofPayload)) {
+    if (!Payload.isDelegationPayload(proofPayload)) {
       throw new Error("Cannot extend a token that is not a delegation.");
     }
 
@@ -344,29 +524,33 @@ export const Builder = {
   },
 
   /**
-   * Creates an InvocationBuilder pre-configured from a delegation token.
-   * Used for invoking capabilities granted by a delegation.
+   * Creates an invocation builder from a delegation token.
+   *
+   * Invokes the capabilities granted by a delegation. The invocation
+   * inherits the subject and command from the delegation.
+   *
    * @param proof - The delegation token envelope granting the capability
    * @returns A pre-configured InvocationBuilder
-   * @throws {Error} If the proof token is not a delegation
+   * @throws {Error} "Cannot invoke a capability from a token that is not a delegation" - If the proof is not a delegation
    * @example
    * ```typescript
-   * const delegationToken = Builder.delegation()
+   * const delegationToken = await Builder.delegation()
    *   .audience(userDid)
    *   .subject(userDid)
    *   .command("/db/read")
    *   .policy([["==", ".command", "/db/read"]])
    *   .build(rootKeypair);
    *
-   * const invocationToken = Builder.invoking(delegationToken)
+   * const invocationToken = await Builder.invoking(delegationToken)
    *   .audience(serviceDid)
    *   .arguments({ table: "users" })
    *   .build(userKeypair);
    * ```
+   * @see {@link InvocationBuilder}
    */
   invoking(proof: Envelope): InvocationBuilder {
     const proofPayload = proof.nuc.payload;
-    if (!isDelegationPayload(proofPayload)) {
+    if (!Payload.isDelegationPayload(proofPayload)) {
       throw new Error(
         "Cannot invoke a capability from a token that is not a delegation.",
       );
@@ -378,5 +562,48 @@ export const Builder = {
     builder.proof(proof);
 
     return builder;
+  },
+
+  /**
+   * Creates a delegation builder from a serialized token string.
+   *
+   * Decodes and extends a base64url-encoded delegation token.
+   *
+   * @param proofString - The base64url encoded delegation token string
+   * @returns A pre-configured DelegationBuilder
+   * @throws {Error} Decoding errors from {@link Codec.decodeBase64Url}
+   * @throws {Error} "Cannot extend a token that is not a delegation" - If decoded token is not a delegation
+   * @example
+   * ```typescript
+   * const chainedToken = await Builder.delegatingFromString(tokenString)
+   *   .audience(newAudience)
+   *   .build(signer);
+   * ```
+   */
+  delegatingFromString(proofString: string): DelegationBuilder {
+    const proof = Codec.decodeBase64Url(proofString);
+    return this.delegating(proof);
+  },
+
+  /**
+   * Creates an invocation builder from a serialized token string.
+   *
+   * Decodes a base64url-encoded delegation token and prepares it for invocation.
+   *
+   * @param proofString - The base64url encoded delegation token string
+   * @returns A pre-configured InvocationBuilder
+   * @throws {Error} Decoding errors from {@link Codec.decodeBase64Url}
+   * @throws {Error} "Cannot invoke a capability from a token that is not a delegation" - If decoded token is not a delegation
+   * @example
+   * ```typescript
+   * const invocation = await Builder.invokingFromString(tokenString)
+   *   .audience(serviceDid)
+   *   .arguments({ action: "read" })
+   *   .build(signer);
+   * ```
+   */
+  invokingFromString(proofString: string): InvocationBuilder {
+    const proof = Codec.decodeBase64Url(proofString);
+    return this.invoking(proof);
   },
 } as const;

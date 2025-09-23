@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type Command, isCommandAttenuationOf } from "#/nuc/payload";
+import { type Command, Payload } from "#/nuc/payload";
 
 describe("isCommandAttenuationOf", () => {
   it.each([
@@ -11,9 +11,9 @@ describe("isCommandAttenuationOf", () => {
   ])(
     'should return %s for command "%s" and parent "%s"',
     (cmd, parent, expected) => {
-      expect(isCommandAttenuationOf(cmd as Command, parent as Command)).toBe(
-        expected,
-      );
+      expect(
+        Payload.isCommandAttenuationOf(cmd as Command, parent as Command),
+      ).toBe(expected);
     },
   );
 });

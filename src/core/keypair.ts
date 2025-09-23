@@ -100,9 +100,10 @@ export class Keypair {
   }
 
   /**
-   * Creates a DID (Decentralized Identifier) from this keypair's public key.
-   * @param format - The DID format to use: "key" (modern) or "nil" (legacy). Defaults to "key"
-   * @returns A structured DID object that can be serialized
+   * Creates a Did (Decentralized Identifier) from this keypair's public key.
+   * @param format - The Did format to use: "key" (modern) or "nil" (legacy). Defaults to "key"
+   * @deprecated The "nil" option will be removed in version 0.3.0.
+   * @returns A structured Did object that can be serialized
    * @example
    * ```typescript
    * const keypair = Keypair.generate();
@@ -117,6 +118,12 @@ export class Keypair {
    * ```
    */
   toDid(format: "key" | "nil" = "key"): Did {
+    if (format === "nil") {
+      console.warn(
+        'DEPRECATION WARNING: The "nil" Did format is deprecated and will be removed in version 0.3.0. Please use the "key" format instead.',
+      );
+    }
+
     switch (format) {
       case "key": {
         const didString = `did:key:${base58btc.encode(
@@ -164,10 +171,9 @@ export class Keypair {
    * @returns The signature as a Uint8Array
    */
   signBytes(bytes: Uint8Array): Uint8Array {
-    const signature = secp256k1.sign(bytes, this.#privateKey, {
+    return secp256k1.sign(bytes, this.#privateKey, {
       prehash: true,
     });
-    return signature.toBytes("compact");
   }
 
   /**

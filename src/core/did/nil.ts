@@ -1,3 +1,8 @@
+/**
+ * @module nil
+ * @deprecated This module will be removed in version 0.3.0. Use the `key` module instead.
+ */
+
 import { secp256k1 } from "@noble/curves/secp256k1";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils";
 import type { DidNil } from "#/core/did/types";
@@ -25,6 +30,14 @@ export function fromPublicKeyBytes(publicKeyBytes: Uint8Array): string {
   return `${NIL_PREFIX}${bytesToHex(publicKeyBytes)}`;
 }
 
+/**
+ * Validates a did:nil signature.
+ *
+ * @param did The did:nil Did
+ * @param message The message that was signed
+ * @param signature The signature to validate
+ * @returns True if the message was signed by the provided did.
+ */
 export function validateSignature(
   did: DidNil,
   message: Uint8Array,

@@ -3,7 +3,7 @@ import { bytesToHex, randomBytes } from "@noble/hashes/utils";
 import ky, { HTTPError, type Options } from "ky";
 import { z } from "zod";
 import { DEFAULT_NONCE_LENGTH } from "#/constants";
-import * as did from "#/core/did/did";
+import { Did } from "#/core/did/did";
 import { textToHex } from "#/core/encoding";
 import {
   NilauthErrorCodeSchema,
@@ -14,10 +14,10 @@ import {
 } from "#/core/errors";
 import type { Keypair } from "#/core/keypair";
 import { Log } from "#/core/logger";
+import { Signer } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
-import { serializeBase64Url } from "#/nuc/codec";
-import type { Envelope } from "#/nuc/envelope";
-import { computeHash } from "#/nuc/envelope";
+import { Codec } from "#/nuc/codec";
+import { Envelope } from "#/nuc/envelope";
 import { REVOKE_COMMAND } from "#/nuc/payload";
 import {
   type CreateTokenResponse,
@@ -108,7 +108,7 @@ function createSignedRequest(
  * Options required to construct a NilauthClient.
  */
 export type NilauthClientOptions = {
-  payer: Payer;
+  payer?: Payer;
   nilauth: {
     baseUrl: string;
     publicKey: string;
@@ -122,13 +122,16 @@ export type NilauthClientOptions = {
 export class NilauthClient {
   /**
    * Creates a NilauthClient instance by automatically fetching the service's public key.
-   * @param baseUrl - The base URL of the Nilauth service
-   * @param payer - The Payer instance for handling payments
+   * @param options - An object containing the Nilauth's baseUrl and an optional payer
    * @returns A configured NilauthClient instance
    * @throws {NilauthUnreachable} If the service cannot be reached
    * @throws {z.ZodError} If the service response is invalid
    */
-  static async create(baseUrl: string, payer: Payer): Promise<NilauthClient> {
+  static async create(options: {
+    baseUrl: string;
+    payer?: Payer;
+  }): Promise<NilauthClient> {
+    const { baseUrl, payer } = options;
     const url = NilauthUrl.about(baseUrl);
     const about = await performRequest(url, NilauthAboutResponseSchema);
     return new NilauthClient({
@@ -185,7 +188,7 @@ export class NilauthClient {
     const url = NilauthUrl.nucs.findRevocations(this.nilauthBaseUrl);
     const json = {
       hashes: [token.nuc, ...token.proofs].map((t) =>
-        bytesToHex(computeHash(t)),
+        bytesToHex(Envelope.computeHash(t)),
       ),
     };
     return performRequest(url, LookupRevokedTokenResponseSchema, {
@@ -200,7 +203,7 @@ export class NilauthClient {
     this.#options = options;
   }
 
-  get payer(): Payer {
+  get payer(): Payer | undefined {
     return this.#options.payer;
   }
 
@@ -271,23 +274,38 @@ export class NilauthClient {
   }
 
   /**
-   * Makes a payment for a subscription.
-   * @param amount - The amount to pay
-   * @param blindModule - The module being subscribed to
-   * @returns The transaction hash and signed payload
-   * @throws {PaymentTxFailed} If the payment transaction fails
+   * Initiates a payment for blind module subscription.
+   *
+   * Creates and executes a blockchain payment transaction for
+   * subscribing to the specified module. Requires a Payer instance.
+   *
+   * @param amount - The payment amount in the blockchain's native currency
+   * @param blindModule - The module to subscribe to ("nilai" or "nildb")
+   * @returns Transaction hash and signed payload for validation
+   * @throws {Error} "A Payer instance is required" - Payer not configured
+   * @throws {PaymentTxFailed} Payment transaction fails on blockchain
+   * @example
+   * ```typescript
+   * const { txHash, payloadHex } = await client.pay(100, "nildb");
+   * console.log(`Payment sent: ${txHash}`);
+   * ```
    */
   async pay(
     amount: number,
     blindModule: BlindModule,
   ): Promise<{ txHash: string; payloadHex: string }> {
+    if (!this.payer) {
+      throw new Error(
+        "A Payer instance is required for this operation. Please provide it during NilauthClient creation.",
+      );
+    }
     const payload = JSON.stringify({
       nonce: bytesToHex(randomBytes(DEFAULT_NONCE_LENGTH)),
       service_public_key: this.nilauthPublicKey,
       blind_module: blindModule,
     });
     const payloadHex = textToHex(payload);
-    const payloadDigest = sha256(payload);
+    const payloadDigest = sha256(new TextEncoder().encode(payload));
     Log.debug(
       `Making payment with payload=${payloadHex}, digest=${bytesToHex(
         payloadDigest,
@@ -295,7 +313,10 @@ export class NilauthClient {
     );
 
     try {
-      const txHash = await this.payer.pay(sha256(payload), amount);
+      const txHash = await this.payer.pay(
+        sha256(new TextEncoder().encode(payload)),
+        amount,
+      );
       return { txHash, payloadHex };
     } catch (cause) {
       throw new PaymentTxFailed(cause);
@@ -395,18 +416,18 @@ export class NilauthClient {
   }): Promise<void> {
     const { keypair, authToken, tokenToRevoke } = config;
 
-    const revokeTokenEnvelope = Builder.invocation()
+    const revokeTokenEnvelope = await Builder.invocation()
       .arguments({
-        token: serializeBase64Url(tokenToRevoke),
+        token: Codec.serializeBase64Url(tokenToRevoke),
       })
       .command(REVOKE_COMMAND)
-      .audience(did.parse(`did:nil:${this.nilauthPublicKey}`))
+      .audience(Did.parse(`did:nil:${this.nilauthPublicKey}`))
       .issuer(keypair.toDid("nil"))
       .subject(authToken.nuc.payload.sub)
       .proof(authToken)
-      .build(keypair);
+      .build(Signer.fromLegacyKeypair(keypair));
 
-    const revokeTokenString = serializeBase64Url(revokeTokenEnvelope);
+    const revokeTokenString = Codec.serializeBase64Url(revokeTokenEnvelope);
     const url = NilauthUrl.nucs.revoke(this.nilauthBaseUrl);
 
     await performRequest(url, z.unknown(), {
@@ -416,7 +437,7 @@ export class NilauthClient {
 
     Log.info(
       {
-        revokedTokenHash: bytesToHex(computeHash(tokenToRevoke.nuc)),
+        revokedTokenHash: bytesToHex(Envelope.computeHash(tokenToRevoke.nuc)),
       },
       "Token successfully revoked",
     );

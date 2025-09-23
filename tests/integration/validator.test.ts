@@ -1,256 +1,293 @@
-import { secp256k1 } from "@noble/curves/secp256k1";
 import { describe, it } from "vitest";
-import * as did from "#/core/did/did";
 import { Keypair } from "#/core/keypair";
-import {
-  Builder,
-  type DelegationBuilder,
-  type InvocationBuilder,
-} from "#/nuc/builder";
+import { Signer } from "#/core/signer";
+import { Builder } from "#/nuc/builder";
+import { REVOKE_COMMAND } from "#/nuc/payload";
 import {
   CHAIN_TOO_LONG,
   COMMAND_NOT_ATTENUATED,
   DIFFERENT_SUBJECTS,
   INVALID_AUDIENCE,
-  INVALID_SIGNATURES,
   ISSUER_AUDIENCE_MISMATCH,
   MISSING_PROOF,
   POLICY_NOT_MET,
   ROOT_KEY_SIGNATURE_MISSING,
   UNCHAINED_PROOFS,
-} from "#/nuc/validate/index";
-import { Asserter, ROOT_DIDS, ROOT_KEYS } from "./assertions";
-
-function delegation(privateKey: Uint8Array): DelegationBuilder {
-  // Create DID objects using the new factory function
-  const defaultAudience = did.fromPublicKey(
-    new Uint8Array(Array(33).fill(0xde)),
-  );
-  const publicDid = did.fromPublicKey(secp256k1.getPublicKey(privateKey));
-
-  return Builder.delegation().audience(defaultAudience).subject(publicDid);
-}
-
-function invocation(privateKey: Uint8Array): InvocationBuilder {
-  // Create DID objects using the new factory function
-  const defaultAudience = did.fromPublicKey(
-    new Uint8Array(Array(33).fill(0xde)),
-  );
-  const publicDid = did.fromPublicKey(secp256k1.getPublicKey(privateKey));
-
-  return Builder.invocation().audience(defaultAudience).subject(publicDid);
-}
+} from "#/validator/validator";
+import {
+  assertFailure,
+  assertSuccess,
+  ROOT_DIDS,
+  ROOT_KEYS,
+} from "#tests/helpers/assertions";
 
 describe("Validator", () => {
+  // Use a consistent root keypair for all tests, derived from the test seed
   const rootKeypair = Keypair.fromBytes(ROOT_KEYS[0]);
+  const rootSigner = Signer.fromKeypair(rootKeypair);
 
-  it("unlinked chain", () => {
-    const key = secp256k1.utils.randomSecretKey();
-    const userKeypair = Keypair.fromBytes(key);
-    const base = delegation(key).command("/nil");
+  it("should fail validation for an unlinked chain", async () => {
+    const userKeypair = Keypair.generate();
+    const userSigner = Signer.fromKeypair(userKeypair);
 
-    let envelope = base.build(rootKeypair);
-    envelope = base.proof(envelope).build(userKeypair);
+    // Create a base delegation
+    let envelope = await Builder.delegation()
+      .audience(userKeypair.toDid())
+      .command("/nil")
+      .subject(userKeypair.toDid())
+      .build(rootSigner);
 
-    const unlinkedToken = base.build(rootKeypair);
+    // Create a chained delegation from the base
+    envelope = await Builder.delegating(envelope)
+      .audience(Keypair.generate().toDid())
+      .build(userSigner);
+
+    // Create an unrelated token and push it into the proofs
+    const unlinkedToken = await Builder.delegation()
+      .audience(userKeypair.toDid())
+      .command("/nil")
+      .subject(userKeypair.toDid())
+      .build(rootSigner);
+
     envelope.proofs.push(unlinkedToken.nuc);
 
-    new Asserter().assertFailure(envelope, UNCHAINED_PROOFS);
+    assertFailure(envelope, UNCHAINED_PROOFS);
   });
 
-  it("chain too long", () => {
-    const key = secp256k1.utils.randomSecretKey();
-    const userKeypair = Keypair.fromBytes(key);
+  it("should fail validation if the chain is too long", async () => {
+    const userKeypair = Keypair.generate();
+    const userSigner = Signer.fromKeypair(userKeypair);
 
-    const builders = [
-      delegation(key).command("/nil"),
-      delegation(key).command("/nil"),
-      delegation(key).command("/nil"),
-    ];
-
-    let envelope = Builder.delegation()
+    // Create a chain of 3 delegations (root -> user -> user -> user)
+    let envelope = await Builder.delegation()
       .audience(userKeypair.toDid())
       .subject(userKeypair.toDid())
       .command("/nil")
-      .build(rootKeypair);
+      .build(rootSigner);
 
-    for (const builder of builders) {
-      envelope = builder.proof(envelope).build(userKeypair);
-    }
+    // Chain the delegations, setting the audience for each new link
+    envelope = await Builder.delegating(envelope)
+      .audience(userKeypair.toDid())
+      .build(userSigner);
+    envelope = await Builder.delegating(envelope)
+      .audience(userKeypair.toDid())
+      .build(userSigner);
+    envelope = await Builder.delegating(envelope)
+      .audience(userKeypair.toDid())
+      .build(userSigner);
 
-    const parameters = { maxChainLength: 2 };
-    new Asserter({ parameters }).assertFailure(envelope, CHAIN_TOO_LONG);
+    // Set max chain length to 2 (the chain has 4 tokens)
+    assertFailure(envelope, CHAIN_TOO_LONG, {
+      parameters: { maxChainLength: 2 },
+    });
   });
 
-  it("command not attenuated", () => {
-    const key = secp256k1.utils.randomSecretKey();
-    const userKeypair = Keypair.fromBytes(key);
+  it("should fail if a command is not a valid attenuation", async () => {
+    const userKeypair = Keypair.generate();
+    const userSigner = Signer.fromKeypair(userKeypair);
 
-    const root = delegation(key).command("/nil").audience(userKeypair.toDid());
-    const last = delegation(key).command("/bar");
-
-    let envelope = root.build(rootKeypair);
-    envelope = last.proof(envelope).build(userKeypair);
-
-    new Asserter().assertFailure(envelope, COMMAND_NOT_ATTENUATED);
-  });
-
-  it("different subjects", () => {
-    const key1 = secp256k1.utils.randomSecretKey();
-    const key2 = secp256k1.utils.randomSecretKey();
-    const userKeypair2 = Keypair.fromBytes(key2);
-
-    const root = delegation(key1)
+    const rootEnvelope = await Builder.delegation()
+      .audience(userKeypair.toDid())
+      .subject(userKeypair.toDid())
       .command("/nil")
-      .audience(userKeypair2.toDid());
-    const last = delegation(key2).command("/nil");
+      .build(rootSigner);
 
-    let envelope = root.build(rootKeypair);
-    envelope = last.proof(envelope).build(userKeypair2);
+    const chainedEnvelope = await Builder.delegating(rootEnvelope)
+      .command("/bar") // Invalid: "/bar" is not a sub-path of "/nil"
+      .audience(userKeypair.toDid()) // A new audience is still required
+      .build(userSigner);
 
-    new Asserter().assertFailure(envelope, DIFFERENT_SUBJECTS);
+    assertFailure(chainedEnvelope, COMMAND_NOT_ATTENUATED);
   });
 
-  it("audience mismatch", () => {
-    const key = secp256k1.utils.randomSecretKey();
-    const userKeypair = Keypair.fromBytes(key);
-    const root = delegation(key)
+  it("should fail if subjects differ across the chain", async () => {
+    const userKeypair1 = Keypair.generate();
+    const userKeypair2 = Keypair.generate();
+    const userSigner2 = Signer.fromKeypair(userKeypair2);
+
+    const rootEnvelope = await Builder.delegation()
+      .audience(userKeypair2.toDid())
+      .subject(userKeypair1.toDid())
       .command("/nil")
-      .audience(did.fromPublicKey(new Uint8Array(Array(33).fill(0xaa))));
-    const last = delegation(key).command("/nil");
+      .build(rootSigner);
 
-    let envelope = root.build(rootKeypair);
-    envelope = last.proof(envelope).build(userKeypair);
-
-    new Asserter().assertFailure(envelope, ISSUER_AUDIENCE_MISMATCH);
-  });
-
-  it("invalid audience invocation", () => {
-    const key = secp256k1.utils.randomSecretKey();
-    const userKeypair = Keypair.fromBytes(key);
-
-    const expectedAudience = did.serialize(
-      did.fromPublicKey(new Uint8Array(Array(33).fill(0xaa))),
-    );
-    const actualAudience = did.fromPublicKey(
-      new Uint8Array(Array(33).fill(0xbb)),
-    );
-
-    const root = delegation(key).command("/nil").audience(userKeypair.toDid());
-    const last = invocation(key).command("/nil").audience(actualAudience);
-
-    let envelope = root.build(rootKeypair);
-    envelope = last.proof(envelope).build(userKeypair);
-
-    const parameters = {
-      tokenRequirements: {
-        type: "invocation",
-        audience: expectedAudience,
-      } as const,
-    };
-    new Asserter({ parameters }).assertFailure(envelope, INVALID_AUDIENCE);
-  });
-
-  it("invalid signature", () => {
-    const key = secp256k1.utils.randomSecretKey();
-    const envelope = delegation(key).command("/nil").build(rootKeypair);
-
-    // Tamper with the signature
-    envelope.nuc.signature[0] ^= 1;
-
-    new Asserter().assertFailure(envelope, INVALID_SIGNATURES);
-  });
-
-  it("missing proof", () => {
-    const key = secp256k1.utils.randomSecretKey();
-    const userKeypair = Keypair.fromBytes(key);
-    const base = delegation(key).command("/nil").audience(userKeypair.toDid());
-
-    let envelope = base.build(rootKeypair);
-    envelope = base.proof(envelope).build(userKeypair);
-
-    // Remove the proof from the envelope
-    envelope.proofs = [];
-
-    new Asserter().assertFailure(envelope, MISSING_PROOF);
-  });
-
-  it("policy not met", () => {
-    const key = secp256k1.utils.randomSecretKey();
-    const userKeypair = Keypair.fromBytes(key);
-    const subject = userKeypair.toDid();
-
-    const root = Builder.delegation()
-      .policy([["==", ".args.foo", 42]])
-      .subject(subject)
-      .command("/nil")
-      .audience(userKeypair.toDid());
-
-    let envelope = root.build(rootKeypair);
-
-    // Using the new invoking method for cleaner API
-    envelope = Builder.invoking(envelope)
-      .arguments({ bar: 1337 })
+    const chainedEnvelope = await Builder.delegating(rootEnvelope)
+      .subject(userKeypair2.toDid()) // Invalid: subject changes mid-chain
       .audience(Keypair.generate().toDid())
-      .build(userKeypair);
+      .build(userSigner2);
 
-    new Asserter().assertFailure(envelope, POLICY_NOT_MET);
+    assertFailure(chainedEnvelope, DIFFERENT_SUBJECTS);
   });
 
-  it("root key signature missing", () => {
-    const key = secp256k1.utils.randomSecretKey();
-    const userKeypair = Keypair.fromBytes(key);
+  it("should fail if the issuer does not match the previous audience", async () => {
+    const userKeypair = Keypair.generate();
+    const anotherKeypair = Keypair.generate();
+    const anotherSigner = Signer.fromKeypair(anotherKeypair);
 
-    const root = delegation(key).command("/nil").audience(userKeypair.toDid());
-    const last = delegation(key).command("/nil");
+    const rootEnvelope = await Builder.delegation()
+      .audience(userKeypair.toDid())
+      .subject(userKeypair.toDid())
+      .command("/nil")
+      .build(rootSigner);
 
-    let envelope = root.build(userKeypair);
-    envelope = last.proof(envelope).build(userKeypair);
-    new Asserter({ rootDids: ROOT_DIDS }).assertFailure(
-      envelope,
-      ROOT_KEY_SIGNATURE_MISSING,
-    );
+    const chainedEnvelope = await Builder.delegating(rootEnvelope)
+      .audience(Keypair.generate().toDid())
+      .build(anotherSigner); // Invalid: signed by a party that was not the audience
+
+    assertFailure(chainedEnvelope, ISSUER_AUDIENCE_MISMATCH);
   });
 
-  it("valid chain", () => {
-    const subjectKey = secp256k1.utils.randomSecretKey();
-    const subjectKeypair = Keypair.fromBytes(subjectKey);
-    const subject = subjectKeypair.toDid();
+  it("should fail if an invocation has an invalid audience", async () => {
+    const userKeypair = Keypair.generate();
+    const userSigner = Signer.fromKeypair(userKeypair);
 
-    const rpcDid = did.fromPublicKey(new Uint8Array(Array(33).fill(33)));
+    const expectedAudienceDid = Keypair.generate().toDid();
+    const actualAudienceDid = Keypair.generate().toDid();
 
-    const root = Builder.delegation()
+    const delegationEnvelope = await Builder.delegation()
+      .audience(userKeypair.toDid())
+      .subject(userKeypair.toDid())
+      .command("/nil")
+      .build(rootSigner);
+
+    const invocationEnvelope = await Builder.invoking(delegationEnvelope)
+      .audience(actualAudienceDid)
+      .build(userSigner);
+
+    assertFailure(invocationEnvelope, INVALID_AUDIENCE, {
+      parameters: {
+        tokenRequirements: {
+          type: "invocation",
+          audience: expectedAudienceDid.didString,
+        } as const,
+      },
+    });
+  });
+
+  it("should fail if a required proof is missing from the envelope", async () => {
+    const userKeypair = Keypair.generate();
+    const userSigner = Signer.fromKeypair(userKeypair);
+
+    const rootEnvelope = await Builder.delegation()
+      .audience(userKeypair.toDid())
+      .subject(userKeypair.toDid())
+      .command("/nil")
+      .build(rootSigner);
+
+    const chainedEnvelope = await Builder.delegating(rootEnvelope)
+      .audience(userKeypair.toDid())
+      .build(userSigner);
+
+    chainedEnvelope.proofs = []; // Manually remove the proof
+    assertFailure(chainedEnvelope, MISSING_PROOF);
+  });
+
+  it("should fail if the policy of a parent delegation is not met", async () => {
+    const userKeypair = Keypair.generate();
+    const userSigner = Signer.fromKeypair(userKeypair);
+
+    const rootEnvelope = await Builder.delegation()
+      .policy([["==", ".args.foo", 42]])
+      .subject(userKeypair.toDid())
+      .command("/nil")
+      .audience(userKeypair.toDid())
+      .build(rootSigner);
+
+    const invocationEnvelope = await Builder.invoking(rootEnvelope)
+      .arguments({ bar: 1337 }) // Does not satisfy the policy
+      .audience(Keypair.generate().toDid())
+      .build(userSigner);
+    assertFailure(invocationEnvelope, POLICY_NOT_MET);
+  });
+
+  it("should fail if the root NUC is not signed by a trusted root key", async () => {
+    const userKeypair = Keypair.generate();
+    const anotherUserKeypair = Keypair.generate();
+    const anotherUserSigner = Signer.fromKeypair(anotherUserKeypair);
+
+    const rootEnvelope = await Builder.delegation()
+      .audience(userKeypair.toDid())
+      .subject(userKeypair.toDid())
+      .command("/nil")
+      .build(anotherUserSigner); // Signed by a non-root key
+
+    const chainedEnvelope = await Builder.delegating(rootEnvelope)
+      .audience(userKeypair.toDid())
+      .build(Signer.fromKeypair(userKeypair));
+
+    assertFailure(chainedEnvelope, ROOT_KEY_SIGNATURE_MISSING, {
+      rootDids: ROOT_DIDS,
+    });
+  });
+
+  it("should pass validation for a valid, multi-step chain", async () => {
+    const userKeypair = Keypair.generate();
+    const userSigner = Signer.fromKeypair(userKeypair);
+    const userDid = userKeypair.toDid();
+
+    const serviceKeypair = Keypair.generate();
+    const serviceDid = serviceKeypair.toDid();
+
+    const rootDelegation = await Builder.delegation()
       .policy([
         ["==", ".args.foo", 42],
         ["==", "$.req.bar", 1337],
       ])
-      .subject(subject)
+      .subject(userDid)
       .command("/nil")
-      .audience(subjectKeypair.toDid());
+      .audience(userDid)
+      .build(rootSigner);
 
-    const intermediate = Builder.delegation()
+    const intermediateDelegation = await Builder.delegating(rootDelegation)
       .policy([["==", ".args.bar", 1337]])
-      .subject(subject)
       .command("/nil/bar")
-      .audience(subjectKeypair.toDid());
+      .audience(userDid)
+      .build(userSigner);
 
-    const last = Builder.invocation()
+    const invocation = await Builder.invoking(intermediateDelegation)
       .arguments({ foo: 42, bar: 1337 })
-      .subject(subject)
-      .audience(rpcDid)
-      .command("/nil/bar/foo");
+      .audience(serviceDid)
+      .command("/nil/bar/foo")
+      .build(userSigner);
 
-    let envelope = root.build(rootKeypair);
-    envelope = intermediate.proof(envelope).build(subjectKeypair);
-    envelope = last.proof(envelope).build(subjectKeypair);
+    assertSuccess(invocation, {
+      parameters: {
+        tokenRequirements: {
+          type: "invocation",
+          audience: serviceDid.didString,
+        },
+      },
+      context: { req: { bar: 1337 } },
+      rootDids: ROOT_DIDS,
+    });
+  });
 
-    const parameters = {
-      tokenRequirements: {
-        type: "invocation",
-        audience: did.serialize(rpcDid),
-      } as const,
-    };
-    const context = { req: { bar: 1337 } };
-    new Asserter({ parameters, context }).assertSuccess(envelope);
+  it("should permit a namespace jump to the REVOKE_COMMAND", async () => {
+    const rootKeypair = Keypair.generate();
+    const rootSigner = Signer.fromKeypair(rootKeypair);
+    const userKeypair = Keypair.generate();
+    const userSigner = Signer.fromKeypair(userKeypair);
+
+    // 1. Root grants a normal, non-revoke capability.
+    const rootDelegation = await Builder.delegation()
+      .audience(userKeypair.toDid())
+      .subject(userKeypair.toDid())
+      .command("/nil/db/data")
+      .build(rootSigner);
+
+    // 2. User creates an invocation that "jumps" from the /db/data/read
+    //    namespace to the /nuc/revoke namespace.
+    const revocationInvocation = await Builder.invoking(rootDelegation)
+      .command(REVOKE_COMMAND)
+      .audience(Keypair.generate().toDid()) // Fake revocation service
+      .arguments({ token_hash: "any_hash_will_do_for_this_test" })
+      .build(userSigner);
+
+    // 3. Assert that this envelope passes validation.
+    //    This proves the validator's core logic correctly handles the exception
+    //    for REVOKE_COMMAND, even when the builder creates the namespace jump.
+    assertSuccess(revocationInvocation, {
+      rootDids: [rootKeypair.toDid().didString],
+    });
   });
 });

@@ -1,9 +1,10 @@
 import { bytesToHex } from "@noble/hashes/utils";
 import { beforeAll, describe, expect, it } from "vitest";
-import * as did from "#/core/did/did";
+import { Did } from "#/core/did/did";
 import { Keypair } from "#/core/keypair";
-import type { Envelope } from "#/nuc/envelope";
-import { computeHash } from "#/nuc/envelope";
+import { Signer } from "#/core/signer";
+import { Builder } from "#/nuc/builder";
+import { Envelope } from "#/nuc/envelope";
 import { NilauthClient } from "#/services/nilauth/client";
 import { PayerBuilder } from "#/services/payer/builder";
 
@@ -21,7 +22,10 @@ describe("nilauth client", () => {
     const payer = await PayerBuilder.fromKeypair(keypair)
       .chainUrl(Env.nilChainUrl)
       .build();
-    nilauthClient = await NilauthClient.create(Env.nilAuthUrl, payer);
+    nilauthClient = await NilauthClient.create({
+      baseUrl: Env.nilAuthUrl,
+      payer,
+    });
   });
 
   it("fetch subscription cost", async () => {
@@ -58,36 +62,107 @@ describe("nilauth client", () => {
     const response = await nilauthClient.requestToken(keypair, "nildb");
     envelope = response.token;
 
-    expect(did.areEqual(envelope.nuc.payload.sub, parsedDid)).toBeTruthy();
-    expect(did.areEqual(envelope.nuc.payload.aud, parsedDid)).toBeTruthy();
+    expect(Did.areEqual(envelope.nuc.payload.sub, parsedDid)).toBeTruthy();
+    expect(Did.areEqual(envelope.nuc.payload.aud, parsedDid)).toBeTruthy();
     expect(envelope.nuc.payload.cmd).toStrictEqual("/nil/db");
     expect(envelope.nuc.payload.exp).toBeGreaterThan(nowInSeconds);
 
-    const tokenHash = bytesToHex(computeHash(envelope.nuc));
+    const tokenHash = bytesToHex(Envelope.computeHash(envelope.nuc));
     const { revoked } =
       await nilauthClient.findRevocationsInProofChain(envelope);
     const wasRevoked = revoked.some((t) => t.tokenHash === tokenHash);
     expect(wasRevoked).toBeFalsy();
   });
 
-  it("revoke token", async () => {
+  it("should revoke intermediate delegation", async () => {
+    // TODO: nilauth only supports legacy dids so this will need updating when nilauth + nuc-rs are updated
+
+    // Phase 1: Build a 3-part delegation chain
+    // 1. Get a root token from nilauth
+    const { token: rootToken } = await nilauthClient.requestToken(
+      keypair, // The root keypair for the test suite
+      "nildb",
+    );
+
+    // 2. Delegate root token to a user.
+    const userKeypair = Keypair.generate();
+    const userDelegation = await Builder.delegating(rootToken)
+      .audience(userKeypair.toDid("nil"))
+      .subject(userKeypair.toDid("nil"))
+      .command("/some/specific/capability")
+      .build(Signer.fromLegacyKeypair(keypair));
+
+    // 3. The user invokes their delegation.
+    const finalInvocation = await Builder.invoking(userDelegation)
+      .audience(Keypair.generate().toDid("nil")) // Some final service
+      .build(Signer.fromLegacyKeypair(userKeypair)); // Signed by the user
+
+    // Phase 2: Revoke the intermediate token (userDelegation)
+    // 1. Get a fresh authToken to authorize the revocation itself.
     const { token: authToken } = await nilauthClient.requestToken(
       keypair,
       "nildb",
     );
 
+    // 2. Root revokes the delegation (userDelegation)
     await nilauthClient.revokeToken({
       keypair,
       authToken,
-      tokenToRevoke: envelope,
+      tokenToRevoke: userDelegation,
     });
+    await new Promise((resolve) => setTimeout(resolve, 200));
 
-    await new Promise((f) => setTimeout(f, 200));
+    // Phase 3: Verify the revocation status from the final token
+    const revokedTokenHash = bytesToHex(
+      Envelope.computeHash(userDelegation.nuc),
+    );
 
-    const tokenHash = bytesToHex(computeHash(envelope.nuc));
+    // 1. Ask the service: are any of its proofs revoked?"
     const { revoked } =
-      await nilauthClient.findRevocationsInProofChain(envelope);
-    const wasRevoked = revoked.some((t) => t.tokenHash === tokenHash);
-    expect(wasRevoked).toBeTruthy();
+      await nilauthClient.findRevocationsInProofChain(finalInvocation);
+
+    // 2. Assert that the service correctly identified the revoked middle link.
+    const wasRevoked = revoked.some((t) => t.tokenHash === revokedTokenHash);
+    expect(wasRevoked).toBe(true);
+
+    // Also assert that the root token itself was not part of the revoked list.
+    const rootTokenHash = bytesToHex(Envelope.computeHash(rootToken.nuc));
+    const wasRootRevoked = revoked.some((t) => t.tokenHash === rootTokenHash);
+    expect(wasRootRevoked).toBe(false);
+  });
+});
+
+describe("NilauthClient without a Payer", () => {
+  let clientWithoutPayer: NilauthClient;
+
+  beforeAll(async () => {
+    clientWithoutPayer = await NilauthClient.create({
+      baseUrl: Env.nilAuthUrl,
+    });
+  });
+
+  it("should successfully perform read-only operations", async () => {
+    // Create a dummy token to check for revocation
+    const testKeypair = Keypair.generate();
+    const tokenToRevoke = await Builder.delegation()
+      .audience(testKeypair.toDid())
+      .subject(testKeypair.toDid())
+      .command("/test")
+      .build(Signer.fromKeypair(Keypair.generate()));
+
+    // This should succeed as it doesn't require a payer
+    const promise =
+      clientWithoutPayer.findRevocationsInProofChain(tokenToRevoke);
+    await expect(promise).resolves.not.toThrow();
+  });
+
+  it("should throw when performing a write operation", async () => {
+    const promise = clientWithoutPayer.payAndValidate(
+      "some-public-key",
+      "nildb",
+    );
+    await expect(promise).rejects.toThrow(
+      "A Payer instance is required for this operation.",
+    );
   });
 });
