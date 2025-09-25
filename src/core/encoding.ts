@@ -1,4 +1,4 @@
-import { bytesToHex } from "@noble/hashes/utils";
+import { bytesToHex } from "@noble/hashes/utils.js";
 import { base64url } from "@scure/base";
 
 export function textToHex(text: string): string {

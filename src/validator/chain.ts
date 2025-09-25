@@ -1,4 +1,4 @@
-import { bytesToHex } from "@noble/hashes/utils";
+import { bytesToHex } from "@noble/hashes/utils.js";
 import { Did } from "#/core/did/did";
 import { Log } from "#/core/logger";
 import type { Nuc } from "#/nuc/envelope";

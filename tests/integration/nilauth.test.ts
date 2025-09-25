@@ -1,4 +1,4 @@
-import { bytesToHex } from "@noble/hashes/utils";
+import { bytesToHex } from "@noble/hashes/utils.js";
 import { beforeAll, describe, expect, it } from "vitest";
 import { Did } from "#/core/did/did";
 import { Keypair } from "#/core/keypair";

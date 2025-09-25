@@ -1,4 +1,4 @@
-import { secp256k1 } from "@noble/curves/secp256k1";
+import { secp256k1 } from "@noble/curves/secp256k1.js";
 import * as didNil from "#/core/did/nil";
 import type { Envelope } from "#/nuc/envelope";
 import { type ValidationParameters, Validator } from "#/validator/validator";

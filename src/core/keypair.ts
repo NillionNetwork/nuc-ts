@@ -1,5 +1,5 @@
-import { secp256k1 } from "@noble/curves/secp256k1";
-import { bytesToHex, hexToBytes } from "@noble/hashes/utils";
+import { secp256k1 } from "@noble/curves/secp256k1.js";
+import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
 import { base58btc } from "multiformats/bases/base58";
 import type { Did } from "#/core/did/types";
 

@@ -1,4 +1,4 @@
-import { hexToBytes } from "@noble/hashes/utils";
+import { hexToBytes } from "@noble/hashes/utils.js";
 import { Wallet } from "ethers";
 import { describe, expect, it } from "vitest";
 import * as ethr from "#/core/did/ethr";

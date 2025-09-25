@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { hexToBytes } from "@noble/hashes/utils";
+import { hexToBytes } from "@noble/hashes/utils.js";
 import { z } from "zod";
 import * as didNil from "#/core/did/nil";
 import { Codec } from "#/nuc/codec";

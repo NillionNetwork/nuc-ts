@@ -1,4 +1,4 @@
-import { hexToBytes } from "@noble/hashes/utils";
+import { hexToBytes } from "@noble/hashes/utils.js";
 import _ from "es-toolkit/compat";
 import { z } from "zod";
 import * as ethr from "./ethr";

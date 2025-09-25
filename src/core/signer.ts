@@ -1,4 +1,4 @@
-import { hexToBytes } from "@noble/hashes/utils";
+import { hexToBytes } from "@noble/hashes/utils.js";
 import type { TypedDataDomain } from "ethers";
 import { type NucHeader, NucHeaders, NucHeaderType } from "#/nuc/header";
 import { Payload } from "#/nuc/payload";

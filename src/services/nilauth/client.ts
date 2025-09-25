@@ -1,5 +1,5 @@
-import { sha256 } from "@noble/hashes/sha2";
-import { bytesToHex, randomBytes } from "@noble/hashes/utils";
+import { sha256 } from "@noble/hashes/sha2.js";
+import { bytesToHex, randomBytes } from "@noble/hashes/utils.js";
 import ky, { HTTPError, type Options } from "ky";
 import { z } from "zod";
 import { DEFAULT_NONCE_LENGTH } from "#/constants";
