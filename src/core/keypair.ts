@@ -120,7 +120,7 @@ export class Keypair {
   toDid(format: "key" | "nil" = "key"): Did {
     if (format === "nil") {
       console.warn(
-        'DEPRECATION WARNING: The "nil" Did format is deprecated and will be removed in version 0.3.0. Please use the "key" format instead.',
+        'DEPRECATION WARNING: The "nil" Did format is deprecated and will be removed in the next major version.. Please use the "key" format instead.',
       );
     }
 

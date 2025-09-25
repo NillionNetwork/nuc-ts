@@ -73,7 +73,7 @@ export namespace Signer {
    */
   export function fromLegacyKeypair(keypair: Keypair): Signer {
     console.warn(
-      "DEPRECATION WARNING: `Signer.fromLegacyKeypair` is deprecated and will be removed in version 0.3.0. Use `Signer.fromKeypair` instead.",
+      "DEPRECATION WARNING: `Signer.fromLegacyKeypair` is deprecated and will be removed in the next major version.. Use `Signer.fromKeypair` instead.",
     );
 
     return {

@@ -105,7 +105,7 @@ export namespace Did {
   ): Did {
     if (method === "nil") {
       console.warn(
-        'DEPRECATION WARNING: The "nil" Did method is deprecated and will be removed in version 0.3.0. Please use the "key" method instead.',
+        'DEPRECATION WARNING: The "nil" Did method is deprecated and will be removed in the next major version.. Please use the "key" method instead.',
       );
     }
 
