@@ -12,6 +12,18 @@ pnpm install @nillion/nuc
 import { Builder, Codec, Keypair, Validator } from '@nillion/nuc';
 ```
 
+## Core Concepts
+
+A Nuc (Nillion User Controlled) token is a type of capability-based authorisation token inspired by the UCAN specification. It grants specific permissions from a sender to a receiver. Three core claims define the actors in this relationship:
+
+| Claim     | Role                    | Description                                                                                                                                                   |
+|:----------|:------------------------|:--------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **`iss`** | **Issuer (Sender)**     | The principal who created and signed the token.                                                                                                               |
+| **`aud`** | **Audience (Receiver)** | The principal the token is addressed to. This is the only entity that can use (i.e., invoke or delegate) the token.                                           |
+| **`sub`** | **Subject**             | The principal the token is "about". It represents the identity whose authority is being granted. This value must stay the same throughout a delegation chain. |
+
+In a simple, two-party delegation, the `aud` and `sub` are often the same. When the Audience creates a new, chained token, it becomes the `iss` of the new token.
+
 ## Complete Usage Example
 
 This example demonstrates the primary workflow of creating delegation and invocation tokens:

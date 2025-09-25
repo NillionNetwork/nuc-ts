@@ -26,7 +26,12 @@ abstract class AbstractBuilder {
   protected abstract _getPayloadData(issuer: Did): Payload;
 
   /**
-   * Specifies the token's intended recipient.
+   * Specifies the token's audience (aud), the recipient of the grant.
+   *
+   * The audience is the principal that this token is intended for and
+   * who is authorised to use it. In a delegation chain, the audience of
+   * one token becomes the issuer of the next.
+   *
    * @param aud The recipient's Did.
    * @returns This builder for method chaining.
    */
@@ -36,7 +41,11 @@ abstract class AbstractBuilder {
   }
 
   /**
-   * Specifies the subject the token represents.
+   * Specifies the token's subject (sub), the principal the token is about.
+   *
+   * The subject is the principal whose authority is being delegated or invoked.
+   * This claim must remain consistent throughout a delegation chain.
+   *
    * @param sub The subject's Did.
    * @returns This builder for method chaining.
    */
@@ -150,10 +159,11 @@ abstract class AbstractBuilder {
   }
 
   /**
-   * Overrides the token issuer.
+   * Specifies the token's issuer (iss), the principal who creates and signs the token.
    *
-   * By default, the issuer is derived from the signer's Did.
-   * Use this method only when the issuer differs from the signer.
+   * By default, the issuer is derived from the `Signer`'s Did during the build process.
+   * Use this method only in advanced scenarios where the issuer needs to be explicitly
+   * set to a Did other than the signer's.
    *
    * @param iss - The Did of the issuer
    * @returns This builder instance for method chaining
