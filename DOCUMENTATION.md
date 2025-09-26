@@ -51,14 +51,14 @@ const rootDelegation = await Builder.delegation()
     ["!=", ".args.table", "secrets"]
   ])
   .expiresAt(Date.now() + 3600 * 1000)  // Expires in 1 hour
-  .build(rootKeypair);
+  .sign(rootKeypair);
 
 // Step 4: Build an invocation token from the delegation
 // This actually invokes the granted capability
 const invocation = await Builder.invoking(rootDelegation)
   .audience(serviceDid)                 // The service that will process this
   .arguments({collection: "users"})     // Arguments for the command
-  .build(userKeypair);
+  .sign(userKeypair);
 
 // Step 5: Serialise for transmission
 const tokenString = Codec.serializeBase64Url(invocation);

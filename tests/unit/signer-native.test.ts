@@ -15,7 +15,7 @@ describe("Native Signer (`did:key`)", () => {
       .audience(audience)
       .subject(audience)
       .command("/test")
-      .build(signer);
+      .sign(signer);
 
     expect(() => validateNucSignature(envelope.nuc)).not.toThrow();
 

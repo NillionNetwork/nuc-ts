@@ -35,19 +35,19 @@ describe("Validator", () => {
       .audience(userKeypair.toDid())
       .command("/nil")
       .subject(userKeypair.toDid())
-      .build(rootSigner);
+      .sign(rootSigner);
 
     // Create a chained delegation from the base
     envelope = await Builder.delegating(envelope)
       .audience(Keypair.generate().toDid())
-      .build(userSigner);
+      .sign(userSigner);
 
     // Create an unrelated token and push it into the proofs
     const unlinkedToken = await Builder.delegation()
       .audience(userKeypair.toDid())
       .command("/nil")
       .subject(userKeypair.toDid())
-      .build(rootSigner);
+      .sign(rootSigner);
 
     envelope.proofs.push(unlinkedToken.nuc);
 
@@ -63,18 +63,18 @@ describe("Validator", () => {
       .audience(userKeypair.toDid())
       .subject(userKeypair.toDid())
       .command("/nil")
-      .build(rootSigner);
+      .sign(rootSigner);
 
     // Chain the delegations, setting the audience for each new link
     envelope = await Builder.delegating(envelope)
       .audience(userKeypair.toDid())
-      .build(userSigner);
+      .sign(userSigner);
     envelope = await Builder.delegating(envelope)
       .audience(userKeypair.toDid())
-      .build(userSigner);
+      .sign(userSigner);
     envelope = await Builder.delegating(envelope)
       .audience(userKeypair.toDid())
-      .build(userSigner);
+      .sign(userSigner);
 
     // Set max chain length to 2 (the chain has 4 tokens)
     assertFailure(envelope, CHAIN_TOO_LONG, {
@@ -90,12 +90,12 @@ describe("Validator", () => {
       .audience(userKeypair.toDid())
       .subject(userKeypair.toDid())
       .command("/nil")
-      .build(rootSigner);
+      .sign(rootSigner);
 
     const chainedEnvelope = await Builder.delegating(rootEnvelope)
       .command("/bar") // Invalid: "/bar" is not a sub-path of "/nil"
       .audience(userKeypair.toDid()) // A new audience is still required
-      .build(userSigner);
+      .sign(userSigner);
 
     assertFailure(chainedEnvelope, COMMAND_NOT_ATTENUATED);
   });
@@ -109,12 +109,12 @@ describe("Validator", () => {
       .audience(userKeypair2.toDid())
       .subject(userKeypair1.toDid())
       .command("/nil")
-      .build(rootSigner);
+      .sign(rootSigner);
 
     const chainedEnvelope = await Builder.delegating(rootEnvelope)
       .subject(userKeypair2.toDid()) // Invalid: subject changes mid-chain
       .audience(Keypair.generate().toDid())
-      .build(userSigner2);
+      .sign(userSigner2);
 
     assertFailure(chainedEnvelope, DIFFERENT_SUBJECTS);
   });
@@ -128,11 +128,11 @@ describe("Validator", () => {
       .audience(userKeypair.toDid())
       .subject(userKeypair.toDid())
       .command("/nil")
-      .build(rootSigner);
+      .sign(rootSigner);
 
     const chainedEnvelope = await Builder.delegating(rootEnvelope)
       .audience(Keypair.generate().toDid())
-      .build(anotherSigner); // Invalid: signed by a party that was not the audience
+      .sign(anotherSigner); // Invalid: signed by a party that was not the audience
 
     assertFailure(chainedEnvelope, ISSUER_AUDIENCE_MISMATCH);
   });
@@ -148,11 +148,11 @@ describe("Validator", () => {
       .audience(userKeypair.toDid())
       .subject(userKeypair.toDid())
       .command("/nil")
-      .build(rootSigner);
+      .sign(rootSigner);
 
     const invocationEnvelope = await Builder.invoking(delegationEnvelope)
       .audience(actualAudienceDid)
-      .build(userSigner);
+      .sign(userSigner);
 
     assertFailure(invocationEnvelope, INVALID_AUDIENCE, {
       parameters: {
@@ -172,11 +172,11 @@ describe("Validator", () => {
       .audience(userKeypair.toDid())
       .subject(userKeypair.toDid())
       .command("/nil")
-      .build(rootSigner);
+      .sign(rootSigner);
 
     const chainedEnvelope = await Builder.delegating(rootEnvelope)
       .audience(userKeypair.toDid())
-      .build(userSigner);
+      .sign(userSigner);
 
     chainedEnvelope.proofs = []; // Manually remove the proof
     assertFailure(chainedEnvelope, MISSING_PROOF);
@@ -191,12 +191,12 @@ describe("Validator", () => {
       .subject(userKeypair.toDid())
       .command("/nil")
       .audience(userKeypair.toDid())
-      .build(rootSigner);
+      .sign(rootSigner);
 
     const invocationEnvelope = await Builder.invoking(rootEnvelope)
       .arguments({ bar: 1337 }) // Does not satisfy the policy
       .audience(Keypair.generate().toDid())
-      .build(userSigner);
+      .sign(userSigner);
     assertFailure(invocationEnvelope, POLICY_NOT_MET);
   });
 
@@ -209,11 +209,11 @@ describe("Validator", () => {
       .audience(userKeypair.toDid())
       .subject(userKeypair.toDid())
       .command("/nil")
-      .build(anotherUserSigner); // Signed by a non-root key
+      .sign(anotherUserSigner); // Signed by a non-root key
 
     const chainedEnvelope = await Builder.delegating(rootEnvelope)
       .audience(userKeypair.toDid())
-      .build(Signer.fromKeypair(userKeypair));
+      .sign(Signer.fromKeypair(userKeypair));
 
     assertFailure(chainedEnvelope, ROOT_KEY_SIGNATURE_MISSING, {
       rootDids: ROOT_DIDS,
@@ -236,19 +236,19 @@ describe("Validator", () => {
       .subject(userDid)
       .command("/nil")
       .audience(userDid)
-      .build(rootSigner);
+      .sign(rootSigner);
 
     const intermediateDelegation = await Builder.delegating(rootDelegation)
       .policy([["==", ".args.bar", 1337]])
       .command("/nil/bar")
       .audience(userDid)
-      .build(userSigner);
+      .sign(userSigner);
 
     const invocation = await Builder.invoking(intermediateDelegation)
       .arguments({ foo: 42, bar: 1337 })
       .audience(serviceDid)
       .command("/nil/bar/foo")
-      .build(userSigner);
+      .sign(userSigner);
 
     assertSuccess(invocation, {
       parameters: {
@@ -273,7 +273,7 @@ describe("Validator", () => {
       .audience(userKeypair.toDid())
       .subject(userKeypair.toDid())
       .command("/nil/db/data")
-      .build(rootSigner);
+      .sign(rootSigner);
 
     // 2. User creates an invocation that "jumps" from the /db/data/read
     //    namespace to the /nuc/revoke namespace.
@@ -281,7 +281,7 @@ describe("Validator", () => {
       .command(REVOKE_COMMAND)
       .audience(Keypair.generate().toDid()) // Fake revocation service
       .arguments({ token_hash: "any_hash_will_do_for_this_test" })
-      .build(userSigner);
+      .sign(userSigner);
 
     // 3. Assert that this envelope passes validation.
     //    This proves the validator's core logic correctly handles the exception

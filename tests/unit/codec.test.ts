@@ -17,12 +17,12 @@ describe("Codec Module", () => {
           .audience(userKeypair.toDid())
           .subject(userKeypair.toDid())
           .command("/test")
-          .build(Signer.fromKeypair(rootKeypair));
+          .sign(Signer.fromKeypair(rootKeypair));
 
         const finalEnvelope = isChained
           ? await Builder.delegating(rootEnvelope)
               .audience(Keypair.generate().toDid())
-              .build(Signer.fromKeypair(userKeypair))
+              .sign(Signer.fromKeypair(userKeypair))
           : rootEnvelope;
 
         const serialized = Codec.serializeBase64Url(finalEnvelope);
@@ -58,7 +58,7 @@ describe("Codec Module", () => {
         .audience(userKeypair.toDid())
         .subject(userKeypair.toDid())
         .command("/test")
-        .build(Signer.fromKeypair(rootKeypair));
+        .sign(Signer.fromKeypair(rootKeypair));
       const validSerialized = Codec.serializeBase64Url(rootEnvelope);
       const invalidChain = `${validSerialized}//${validSerialized}`;
       expect(() => Codec.decodeBase64Url(invalidChain)).toThrow("empty token");

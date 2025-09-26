@@ -195,7 +195,7 @@ abstract class AbstractBuilder {
    *   .build(signer);
    * ```
    */
-  public async build(signer: Signer): Promise<Envelope> {
+  public async sign(signer: Signer): Promise<Envelope> {
     // The issuer is now authoritatively derived from the signer.
     const issuer = this._issuer ?? (await signer.getDid());
     const payloadData = this._getPayloadData(issuer);
@@ -244,11 +244,11 @@ abstract class AbstractBuilder {
    *   .command("/db/read")
    *   .signAndSerialize(signer);
    * ```
-   * @see {@link build}
+   * @see {@link sign}
    * @see {@link Codec.serializeBase64Url}
    */
   public async signAndSerialize(signer: Signer): Promise<string> {
-    const envelope = await this.build(signer);
+    const envelope = await this.sign(signer);
     return Codec.serializeBase64Url(envelope);
   }
 }

@@ -30,7 +30,7 @@ describe("Native Signer (`did:ethr`)", () => {
       .audience(audience)
       .subject(audience)
       .command("/test")
-      .build(nativeEthrSigner);
+      .sign(nativeEthrSigner);
 
     expect(() => validateNucSignature(envelope.nuc)).not.toThrow();
 

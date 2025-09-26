@@ -15,7 +15,7 @@ describe("Legacy Signer (`did:nil`)", () => {
       .audience(audience)
       .subject(audience)
       .command("/test")
-      .build(signer);
+      .sign(signer);
 
     expect(() => validateNucSignature(envelope.nuc)).not.toThrow();
 

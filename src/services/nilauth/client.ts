@@ -425,7 +425,7 @@ export class NilauthClient {
       .issuer(keypair.toDid("nil"))
       .subject(authToken.nuc.payload.sub)
       .proof(authToken)
-      .build(Signer.fromLegacyKeypair(keypair));
+      .sign(Signer.fromLegacyKeypair(keypair));
 
     const revokeTokenString = Codec.serializeBase64Url(revokeTokenEnvelope);
     const url = NilauthUrl.nucs.revoke(this.nilauthBaseUrl);

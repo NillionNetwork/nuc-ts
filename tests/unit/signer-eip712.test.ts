@@ -23,7 +23,7 @@ describe("EIP-712 Signer (`did:ethr`)", () => {
       .audience(audience)
       .subject(audience)
       .command("/test/delegate")
-      .build(signer);
+      .sign(signer);
 
     expect(() => validateNucSignature(envelope.nuc)).not.toThrow();
   });
@@ -35,7 +35,7 @@ describe("EIP-712 Signer (`did:ethr`)", () => {
       .subject(audience)
       .command("/test/invoke")
       .arguments({ test: true })
-      .build(signer);
+      .sign(signer);
 
     expect(() => validateNucSignature(envelope.nuc)).not.toThrow();
   });

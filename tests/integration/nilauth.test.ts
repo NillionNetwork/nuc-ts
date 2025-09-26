@@ -90,12 +90,12 @@ describe("nilauth client", () => {
       .audience(userKeypair.toDid("nil"))
       .subject(userKeypair.toDid("nil"))
       .command("/some/specific/capability")
-      .build(Signer.fromLegacyKeypair(keypair));
+      .sign(Signer.fromLegacyKeypair(keypair));
 
     // 3. The user invokes their delegation.
     const finalInvocation = await Builder.invoking(userDelegation)
       .audience(Keypair.generate().toDid("nil")) // Some final service
-      .build(Signer.fromLegacyKeypair(userKeypair)); // Signed by the user
+      .sign(Signer.fromLegacyKeypair(userKeypair)); // Signed by the user
 
     // Phase 2: Revoke the intermediate token (userDelegation)
     // 1. Get a fresh authToken to authorize the revocation itself.
@@ -148,7 +148,7 @@ describe("NilauthClient without a Payer", () => {
       .audience(testKeypair.toDid())
       .subject(testKeypair.toDid())
       .command("/test")
-      .build(Signer.fromKeypair(Keypair.generate()));
+      .sign(Signer.fromKeypair(Keypair.generate()));
 
     // This should succeed as it doesn't require a payer
     const promise =

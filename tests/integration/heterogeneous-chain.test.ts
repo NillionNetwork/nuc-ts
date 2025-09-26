@@ -47,7 +47,7 @@ describe("heterogeneous nuc chain", () => {
       .audience(userDid)
       .subject(userDid)
       .command("/nil/db/data")
-      .build(rootSigner);
+      .sign(rootSigner);
 
     // 2. User (did:ethr) delegates to LegacySvc (did:nil)
     const userToLegacySvcDelegation = await Builder.delegating(
@@ -55,13 +55,13 @@ describe("heterogeneous nuc chain", () => {
     )
       .audience(legacySvcDid)
       .command("/nil/db/data/find")
-      .build(userSigner);
+      .sign(userSigner);
 
     // 3. LegacySvc (did:nil) invokes the command for the FinalSvc
     const invocation = await Builder.invoking(userToLegacySvcDelegation)
       .audience(finalSvcDid)
       .arguments({ id: 123 })
-      .build(legacySvcSigner);
+      .sign(legacySvcSigner);
 
     // Phase 3 - Validation
     assertSuccess(invocation, { rootDids: [rootDid.didString] });
