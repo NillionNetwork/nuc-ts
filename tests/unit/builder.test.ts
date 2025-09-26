@@ -55,7 +55,7 @@ describe("Builder", () => {
       .command("/db/read")
       .sign(Signer.fromKeypair(rootKeypair));
 
-    const chainedEnvelope = await Builder.delegating(rootEnvelope)
+    const chainedEnvelope = await Builder.extendingDelegation(rootEnvelope)
       .audience(aud) // new audience
       .sign(Signer.fromKeypair(userKeypair)); // signed by user
 
@@ -83,7 +83,7 @@ describe("Builder", () => {
       .sign(Signer.fromKeypair(rootKeypair));
 
     // Create an invocation from the delegation
-    const invocationEnvelope = await Builder.invoking(delegationEnvelope)
+    const invocationEnvelope = await Builder.invokingFrom(delegationEnvelope)
       .audience(aud) // new audience
       .addArgument("action", "read")
       .addArgument("resourceId", 456)
@@ -136,7 +136,7 @@ describe("Builder Ergonomics", () => {
       .command("/test/delegate")
       .signAndSerialize(rootSigner);
 
-    const chainedDelegationString = await Builder.delegatingFromString(
+    const chainedDelegationString = await Builder.extendingDelegationFromString(
       rootDelegationString,
     )
       .audience(serviceDid)

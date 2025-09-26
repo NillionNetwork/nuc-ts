@@ -20,7 +20,7 @@ describe("Codec Module", () => {
           .sign(Signer.fromKeypair(rootKeypair));
 
         const finalEnvelope = isChained
-          ? await Builder.delegating(rootEnvelope)
+          ? await Builder.extendingDelegation(rootEnvelope)
               .audience(Keypair.generate().toDid())
               .sign(Signer.fromKeypair(userKeypair))
           : rootEnvelope;

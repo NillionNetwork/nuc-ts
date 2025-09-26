@@ -86,14 +86,14 @@ describe("nilauth client", () => {
 
     // 2. Delegate root token to a user.
     const userKeypair = Keypair.generate();
-    const userDelegation = await Builder.delegating(rootToken)
+    const userDelegation = await Builder.extendingDelegation(rootToken)
       .audience(userKeypair.toDid("nil"))
       .subject(userKeypair.toDid("nil"))
       .command("/some/specific/capability")
       .sign(Signer.fromLegacyKeypair(keypair));
 
     // 3. The user invokes their delegation.
-    const finalInvocation = await Builder.invoking(userDelegation)
+    const finalInvocation = await Builder.invokingFrom(userDelegation)
       .audience(Keypair.generate().toDid("nil")) // Some final service
       .sign(Signer.fromLegacyKeypair(userKeypair)); // Signed by the user
 

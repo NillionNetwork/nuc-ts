@@ -50,7 +50,7 @@ describe("heterogeneous nuc chain", () => {
       .sign(rootSigner);
 
     // 2. User (did:ethr) delegates to LegacySvc (did:nil)
-    const userToLegacySvcDelegation = await Builder.delegating(
+    const userToLegacySvcDelegation = await Builder.extendingDelegation(
       rootToUserDelegation,
     )
       .audience(legacySvcDid)
@@ -58,7 +58,7 @@ describe("heterogeneous nuc chain", () => {
       .sign(userSigner);
 
     // 3. LegacySvc (did:nil) invokes the command for the FinalSvc
-    const invocation = await Builder.invoking(userToLegacySvcDelegation)
+    const invocation = await Builder.invokingFrom(userToLegacySvcDelegation)
       .audience(finalSvcDid)
       .arguments({ id: 123 })
       .sign(legacySvcSigner);

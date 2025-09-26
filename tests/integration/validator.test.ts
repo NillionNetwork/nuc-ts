@@ -38,7 +38,7 @@ describe("Validator", () => {
       .sign(rootSigner);
 
     // Create a chained delegation from the base
-    envelope = await Builder.delegating(envelope)
+    envelope = await Builder.extendingDelegation(envelope)
       .audience(Keypair.generate().toDid())
       .sign(userSigner);
 
@@ -66,13 +66,13 @@ describe("Validator", () => {
       .sign(rootSigner);
 
     // Chain the delegations, setting the audience for each new link
-    envelope = await Builder.delegating(envelope)
+    envelope = await Builder.extendingDelegation(envelope)
       .audience(userKeypair.toDid())
       .sign(userSigner);
-    envelope = await Builder.delegating(envelope)
+    envelope = await Builder.extendingDelegation(envelope)
       .audience(userKeypair.toDid())
       .sign(userSigner);
-    envelope = await Builder.delegating(envelope)
+    envelope = await Builder.extendingDelegation(envelope)
       .audience(userKeypair.toDid())
       .sign(userSigner);
 
@@ -92,7 +92,7 @@ describe("Validator", () => {
       .command("/nil")
       .sign(rootSigner);
 
-    const chainedEnvelope = await Builder.delegating(rootEnvelope)
+    const chainedEnvelope = await Builder.extendingDelegation(rootEnvelope)
       .command("/bar") // Invalid: "/bar" is not a sub-path of "/nil"
       .audience(userKeypair.toDid()) // A new audience is still required
       .sign(userSigner);
@@ -111,7 +111,7 @@ describe("Validator", () => {
       .command("/nil")
       .sign(rootSigner);
 
-    const chainedEnvelope = await Builder.delegating(rootEnvelope)
+    const chainedEnvelope = await Builder.extendingDelegation(rootEnvelope)
       .subject(userKeypair2.toDid()) // Invalid: subject changes mid-chain
       .audience(Keypair.generate().toDid())
       .sign(userSigner2);
@@ -130,7 +130,7 @@ describe("Validator", () => {
       .command("/nil")
       .sign(rootSigner);
 
-    const chainedEnvelope = await Builder.delegating(rootEnvelope)
+    const chainedEnvelope = await Builder.extendingDelegation(rootEnvelope)
       .audience(Keypair.generate().toDid())
       .sign(anotherSigner); // Invalid: signed by a party that was not the audience
 
@@ -150,7 +150,7 @@ describe("Validator", () => {
       .command("/nil")
       .sign(rootSigner);
 
-    const invocationEnvelope = await Builder.invoking(delegationEnvelope)
+    const invocationEnvelope = await Builder.invokingFrom(delegationEnvelope)
       .audience(actualAudienceDid)
       .sign(userSigner);
 
@@ -174,7 +174,7 @@ describe("Validator", () => {
       .command("/nil")
       .sign(rootSigner);
 
-    const chainedEnvelope = await Builder.delegating(rootEnvelope)
+    const chainedEnvelope = await Builder.extendingDelegation(rootEnvelope)
       .audience(userKeypair.toDid())
       .sign(userSigner);
 
@@ -193,7 +193,7 @@ describe("Validator", () => {
       .audience(userKeypair.toDid())
       .sign(rootSigner);
 
-    const invocationEnvelope = await Builder.invoking(rootEnvelope)
+    const invocationEnvelope = await Builder.invokingFrom(rootEnvelope)
       .arguments({ bar: 1337 }) // Does not satisfy the policy
       .audience(Keypair.generate().toDid())
       .sign(userSigner);
@@ -211,7 +211,7 @@ describe("Validator", () => {
       .command("/nil")
       .sign(anotherUserSigner); // Signed by a non-root key
 
-    const chainedEnvelope = await Builder.delegating(rootEnvelope)
+    const chainedEnvelope = await Builder.extendingDelegation(rootEnvelope)
       .audience(userKeypair.toDid())
       .sign(Signer.fromKeypair(userKeypair));
 
@@ -238,13 +238,15 @@ describe("Validator", () => {
       .audience(userDid)
       .sign(rootSigner);
 
-    const intermediateDelegation = await Builder.delegating(rootDelegation)
+    const intermediateDelegation = await Builder.extendingDelegation(
+      rootDelegation,
+    )
       .policy([["==", ".args.bar", 1337]])
       .command("/nil/bar")
       .audience(userDid)
       .sign(userSigner);
 
-    const invocation = await Builder.invoking(intermediateDelegation)
+    const invocation = await Builder.invokingFrom(intermediateDelegation)
       .arguments({ foo: 42, bar: 1337 })
       .audience(serviceDid)
       .command("/nil/bar/foo")
@@ -277,7 +279,7 @@ describe("Validator", () => {
 
     // 2. User creates an invocation that "jumps" from the /db/data/read
     //    namespace to the /nuc/revoke namespace.
-    const revocationInvocation = await Builder.invoking(rootDelegation)
+    const revocationInvocation = await Builder.invokingFrom(rootDelegation)
       .command(REVOKE_COMMAND)
       .audience(Keypair.generate().toDid()) // Fake revocation service
       .arguments({ token_hash: "any_hash_will_do_for_this_test" })

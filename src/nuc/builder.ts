@@ -518,7 +518,7 @@ export const Builder = {
    * ```
    * @see {@link DelegationBuilder}
    */
-  delegating(proof: Envelope): DelegationBuilder {
+  extendingDelegation(proof: Envelope): DelegationBuilder {
     const proofPayload = proof.nuc.payload;
     if (!Payload.isDelegationPayload(proofPayload)) {
       throw new Error("Cannot extend a token that is not a delegation.");
@@ -528,7 +528,6 @@ export const Builder = {
     builder.subject(proofPayload.sub);
     builder.command(proofPayload.cmd);
     builder.proof(proof);
-    builder.policy(proofPayload.pol);
 
     return builder;
   },
@@ -551,14 +550,14 @@ export const Builder = {
    *   .policy([["==", ".command", "/db/read"]])
    *   .build(rootKeypair);
    *
-   * const invocationToken = await Builder.invoking(delegationToken)
+   * const invocationToken = await Builder.invokingFrom(delegationToken)
    *   .audience(serviceDid)
    *   .arguments({ table: "users" })
    *   .build(userKeypair);
    * ```
    * @see {@link InvocationBuilder}
    */
-  invoking(proof: Envelope): InvocationBuilder {
+  invokingFrom(proof: Envelope): InvocationBuilder {
     const proofPayload = proof.nuc.payload;
     if (!Payload.isDelegationPayload(proofPayload)) {
       throw new Error(
@@ -585,14 +584,14 @@ export const Builder = {
    * @throws {Error} "Cannot extend a token that is not a delegation" - If decoded token is not a delegation
    * @example
    * ```typescript
-   * const chainedToken = await Builder.delegatingFromString(tokenString)
+   * const chainedToken = await Builder.extendingDelegationFromString(tokenString)
    *   .audience(newAudience)
    *   .build(signer);
    * ```
    */
-  delegatingFromString(proofString: string): DelegationBuilder {
+  extendingDelegationFromString(proofString: string): DelegationBuilder {
     const proof = Codec.decodeBase64Url(proofString);
-    return this.delegating(proof);
+    return this.extendingDelegation(proof);
   },
 
   /**
@@ -614,6 +613,6 @@ export const Builder = {
    */
   invokingFromString(proofString: string): InvocationBuilder {
     const proof = Codec.decodeBase64Url(proofString);
-    return this.invoking(proof);
+    return this.invokingFrom(proof);
   },
 } as const;
