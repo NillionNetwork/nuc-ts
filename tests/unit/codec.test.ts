@@ -1,7 +1,6 @@
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { Keypair } from "#/core/keypair";
-import { Signer } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
 import { Codec } from "#/nuc/codec";
 
@@ -17,12 +16,12 @@ describe("Codec Module", () => {
           .audience(userKeypair.toDid())
           .subject(userKeypair.toDid())
           .command("/test")
-          .sign(Signer.fromKeypair(rootKeypair));
+          .sign(rootKeypair.signer());
 
         const finalEnvelope = isChained
-          ? await Builder.extendingDelegation(rootEnvelope)
+          ? await Builder.delegationFrom(rootEnvelope)
               .audience(Keypair.generate().toDid())
-              .sign(Signer.fromKeypair(userKeypair))
+              .sign(userKeypair.signer())
           : rootEnvelope;
 
         const serialized = Codec.serializeBase64Url(finalEnvelope);
@@ -58,7 +57,7 @@ describe("Codec Module", () => {
         .audience(userKeypair.toDid())
         .subject(userKeypair.toDid())
         .command("/test")
-        .sign(Signer.fromKeypair(rootKeypair));
+        .sign(rootKeypair.signer());
       const validSerialized = Codec.serializeBase64Url(rootEnvelope);
       const invalidChain = `${validSerialized}//${validSerialized}`;
       expect(() => Codec.decodeBase64Url(invalidChain)).toThrow("empty token");

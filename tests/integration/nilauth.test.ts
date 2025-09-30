@@ -2,7 +2,6 @@ import { bytesToHex } from "@noble/hashes/utils.js";
 import { beforeAll, describe, expect, it } from "vitest";
 import { Did } from "#/core/did/did";
 import { Keypair } from "#/core/keypair";
-import { Signer } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
 import { Envelope } from "#/nuc/envelope";
 import { NilauthClient } from "#/services/nilauth/client";
@@ -35,7 +34,7 @@ describe("nilauth client", () => {
 
   it("is not subscribed", async () => {
     const response = await nilauthClient.subscriptionStatus(
-      keypair.toDid("key"),
+      keypair.toDid(),
       "nildb",
     );
     expect(response.subscribed).toBeFalsy();
@@ -44,7 +43,7 @@ describe("nilauth client", () => {
   it("pay and validate subscription", async () => {
     const promise = nilauthClient.paySubscription(
       keypair,
-      keypair.toDid("key"),
+      keypair.toDid(),
       "nildb",
     );
     await expect(promise).resolves.toBeUndefined();
@@ -52,7 +51,7 @@ describe("nilauth client", () => {
 
   it("is subscribed", async () => {
     const response = await nilauthClient.subscriptionStatus(
-      keypair.toDid("key"),
+      keypair.toDid(),
       "nildb",
     );
     expect(response.subscribed).toBeTruthy();
@@ -60,7 +59,7 @@ describe("nilauth client", () => {
 
   let envelope: Envelope;
   it("request token", async () => {
-    const parsedDid = keypair.toDid("nil");
+    const parsedDid = keypair.toDid();
     const nowInSeconds = Math.floor(Date.now() / 1000);
 
     const response = await nilauthClient.requestToken(keypair, "nildb");
@@ -79,8 +78,6 @@ describe("nilauth client", () => {
   });
 
   it("should revoke intermediate delegation", async () => {
-    // TODO: nilauth only supports legacy dids so this will need updating when nilauth + nuc-rs are updated
-
     // Phase 1: Build a 3-part delegation chain
     // 1. Get a root token from nilauth
     const { token: rootToken } = await nilauthClient.requestToken(
@@ -90,16 +87,16 @@ describe("nilauth client", () => {
 
     // 2. Delegate root token to a user.
     const userKeypair = Keypair.generate();
-    const userDelegation = await Builder.extendingDelegation(rootToken)
-      .audience(userKeypair.toDid("nil"))
-      .subject(userKeypair.toDid("nil"))
+    const userDelegation = await Builder.delegationFrom(rootToken)
+      .audience(userKeypair.toDid())
+      .subject(userKeypair.toDid())
       .command("/some/specific/capability")
-      .sign(Signer.fromLegacyKeypair(keypair));
+      .sign(keypair.signer());
 
     // 3. The user invokes their delegation.
-    const finalInvocation = await Builder.invokingFrom(userDelegation)
-      .audience(Keypair.generate().toDid("nil")) // Some final service
-      .sign(Signer.fromLegacyKeypair(userKeypair)); // Signed by the user
+    const finalInvocation = await Builder.invocationFrom(userDelegation)
+      .audience(Keypair.generate().toDid()) // Some final service
+      .sign(userKeypair.signer()); // Signed by the user
 
     // Phase 2: Revoke the intermediate token (userDelegation)
     // 1. Get a fresh authToken to authorize the revocation itself.
@@ -152,7 +149,7 @@ describe("NilauthClient without a Payer", () => {
       .audience(testKeypair.toDid())
       .subject(testKeypair.toDid())
       .command("/test")
-      .sign(Signer.fromKeypair(Keypair.generate()));
+      .sign(Keypair.generate().signer());
 
     // This should succeed as it doesn't require a payer
     const promise =
@@ -163,7 +160,7 @@ describe("NilauthClient without a Payer", () => {
   it("should throw when performing a write operation", async () => {
     const promise = clientWithoutPayer.paySubscription(
       Keypair.generate(),
-      Keypair.generate().toDid("key"),
+      Keypair.generate().toDid(),
       "nildb",
     );
     await expect(promise).rejects.toThrow(

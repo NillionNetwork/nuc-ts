@@ -1,6 +1,5 @@
 import { describe, it } from "vitest";
 import { Keypair } from "#/core/keypair";
-import { Signer } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
 import { Codec } from "#/nuc/codec";
 import { Payload, REVOKE_COMMAND } from "#/nuc/payload";
@@ -17,7 +16,7 @@ describe("Builder", () => {
       .audience(aud)
       .subject(sub)
       .command(REVOKE_COMMAND)
-      .sign(Signer.fromKeypair(keypair));
+      .sign(keypair.signer());
 
     const payload = envelope.nuc.payload;
 
@@ -34,7 +33,7 @@ describe("Builder", () => {
       .audience(aud)
       .subject(sub)
       .command("/db/read")
-      .sign(Signer.fromKeypair(keypair));
+      .sign(keypair.signer());
 
     const payload = envelope.nuc.payload;
 
@@ -53,11 +52,11 @@ describe("Builder", () => {
       .audience(userKeypair.toDid())
       .subject(userKeypair.toDid())
       .command("/db/read")
-      .sign(Signer.fromKeypair(rootKeypair));
+      .sign(rootKeypair.signer());
 
-    const chainedEnvelope = await Builder.extendingDelegation(rootEnvelope)
+    const chainedEnvelope = await Builder.delegationFrom(rootEnvelope)
       .audience(aud) // new audience
-      .sign(Signer.fromKeypair(userKeypair)); // signed by user
+      .sign(userKeypair.signer()); // signed by user
 
     expect(chainedEnvelope.proofs).toHaveLength(1);
     expect(chainedEnvelope.nuc.payload.prf).toHaveLength(1);
@@ -80,14 +79,14 @@ describe("Builder", () => {
       .audience(userKeypair.toDid())
       .subject(userKeypair.toDid())
       .command("/db/read")
-      .sign(Signer.fromKeypair(rootKeypair));
+      .sign(rootKeypair.signer());
 
     // Create an invocation from the delegation
-    const invocationEnvelope = await Builder.invokingFrom(delegationEnvelope)
+    const invocationEnvelope = await Builder.invocationFrom(delegationEnvelope)
       .audience(aud) // new audience
       .addArgument("action", "read")
       .addArgument("resourceId", 456)
-      .sign(Signer.fromKeypair(userKeypair)); // signed by user
+      .sign(userKeypair.signer()); // signed by user
 
     expect(invocationEnvelope.proofs).toHaveLength(1);
     expect(invocationEnvelope.nuc.payload.prf).toHaveLength(1);
@@ -108,9 +107,9 @@ describe("Builder", () => {
 
 describe("Builder Ergonomics", () => {
   const rootKeypair = Keypair.generate();
-  const rootSigner = Signer.fromKeypair(rootKeypair);
+  const rootSigner = rootKeypair.signer();
   const userKeypair = Keypair.generate();
-  const userSigner = Signer.fromKeypair(userKeypair);
+  const userSigner = userKeypair.signer();
   const serviceDid = Keypair.generate().toDid();
 
   it("should sign and serialize a delegation in one step", async ({
@@ -136,7 +135,7 @@ describe("Builder Ergonomics", () => {
       .command("/test/delegate")
       .signAndSerialize(rootSigner);
 
-    const chainedDelegationString = await Builder.extendingDelegationFromString(
+    const chainedDelegationString = await Builder.delegationFromString(
       rootDelegationString,
     )
       .audience(serviceDid)
@@ -159,7 +158,7 @@ describe("Builder Ergonomics", () => {
       .command("/test/invoke")
       .signAndSerialize(rootSigner);
 
-    const invocationString = await Builder.invokingFromString(
+    const invocationString = await Builder.invocationFromString(
       rootDelegationString,
     )
       .audience(serviceDid)

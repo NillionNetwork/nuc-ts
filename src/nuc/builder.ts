@@ -496,13 +496,12 @@ export const Builder = {
   /**
    * Creates a delegation builder pre-configured from an existing delegation.
    *
-   * Extends an existing delegation to create a chain of trust. The new
-   * delegation inherits the subject and command from the proof. The new policy
-   * is initialised from the proof's policy but can be overridden.
+   * This creates a new `DelegationBuilder` that inherits the subject and
+   * command from the provided proof envelope.
    *
-   * @param proof - The existing delegation token envelope to extend
-   * @returns A pre-configured DelegationBuilder
-   * @throws {Error} "Cannot extend a token that is not a delegation" - If the proof is an invocation token
+   * @param proof - The existing delegation token envelope to extend from.
+   * @returns A pre-configured DelegationBuilder.
+   * @throws {Error} "Cannot create a delegation from a proof that is not a delegation" - If the proof is an invocation token
    * @example
    * ```typescript
    * const rootToken = await Builder.delegation()
@@ -512,16 +511,18 @@ export const Builder = {
    *   .policy([["==", ".command", "/db/read"]])
    *   .build(rootKeypair);
    *
-   * const chainedToken = await Builder.delegating(rootToken)
+   * const chainedToken = await Builder.delegationFrom(rootToken)
    *   .audience(newAudience) // Override the audience
    *   .build(userKeypair);
    * ```
    * @see {@link DelegationBuilder}
    */
-  extendingDelegation(proof: Envelope): DelegationBuilder {
+  delegationFrom(proof: Envelope): DelegationBuilder {
     const proofPayload = proof.nuc.payload;
     if (!Payload.isDelegationPayload(proofPayload)) {
-      throw new Error("Cannot extend a token that is not a delegation.");
+      throw new Error(
+        "Cannot create a delegation from a proof that is not a delegation.",
+      );
     }
 
     const builder = new DelegationBuilder();
@@ -535,12 +536,12 @@ export const Builder = {
   /**
    * Creates an invocation builder from a delegation token.
    *
-   * Invokes the capabilities granted by a delegation. The invocation
-   * inherits the subject and command from the delegation.
+   * This creates a new `InvocationBuilder` that inherits the subject and
+   * command from the provided proof envelope.
    *
-   * @param proof - The delegation token envelope granting the capability
-   * @returns A pre-configured InvocationBuilder
-   * @throws {Error} "Cannot invoke a capability from a token that is not a delegation" - If the proof is not a delegation
+   * @param proof - The delegation token envelope granting the capability.
+   * @returns A pre-configured InvocationBuilder.
+   * @throws {Error} "Cannot invoke a capability from a proof that is not a delegation" - If the proof is not a delegation
    * @example
    * ```typescript
    * const delegationToken = await Builder.delegation()
@@ -550,18 +551,18 @@ export const Builder = {
    *   .policy([["==", ".command", "/db/read"]])
    *   .build(rootKeypair);
    *
-   * const invocationToken = await Builder.invokingFrom(delegationToken)
+   * const invocationToken = await Builder.invocationFrom(delegationToken)
    *   .audience(serviceDid)
    *   .arguments({ table: "users" })
    *   .build(userKeypair);
    * ```
    * @see {@link InvocationBuilder}
    */
-  invokingFrom(proof: Envelope): InvocationBuilder {
+  invocationFrom(proof: Envelope): InvocationBuilder {
     const proofPayload = proof.nuc.payload;
     if (!Payload.isDelegationPayload(proofPayload)) {
       throw new Error(
-        "Cannot invoke a capability from a token that is not a delegation.",
+        "Cannot invoke a capability from a proof that is not a delegation.",
       );
     }
 
@@ -575,44 +576,38 @@ export const Builder = {
 
   /**
    * Creates a delegation builder from a serialized token string.
-   *
-   * Decodes and extends a base64url-encoded delegation token.
-   *
-   * @param proofString - The base64url encoded delegation token string
-   * @returns A pre-configured DelegationBuilder
+   * @param proofString - The base64url encoded delegation token string.
+   * @returns A pre-configured DelegationBuilder.
    * @throws {Error} Decoding errors from {@link Codec.decodeBase64Url}
-   * @throws {Error} "Cannot extend a token that is not a delegation" - If decoded token is not a delegation
+   * @throws {Error} "Cannot create a delegation from a proof that is not a delegation" - If decoded token is not a delegation
    * @example
    * ```typescript
-   * const chainedToken = await Builder.extendingDelegationFromString(tokenString)
+   * const chainedToken = await Builder.delegationFromString(tokenString)
    *   .audience(newAudience)
    *   .build(signer);
    * ```
    */
-  extendingDelegationFromString(proofString: string): DelegationBuilder {
+  delegationFromString(proofString: string): DelegationBuilder {
     const proof = Codec.decodeBase64Url(proofString);
-    return this.extendingDelegation(proof);
+    return this.delegationFrom(proof);
   },
 
   /**
    * Creates an invocation builder from a serialized token string.
-   *
-   * Decodes a base64url-encoded delegation token and prepares it for invocation.
-   *
-   * @param proofString - The base64url encoded delegation token string
-   * @returns A pre-configured InvocationBuilder
+   * @param proofString - The base64url encoded delegation token string.
+   * @returns A pre-configured InvocationBuilder.
    * @throws {Error} Decoding errors from {@link Codec.decodeBase64Url}
-   * @throws {Error} "Cannot invoke a capability from a token that is not a delegation" - If decoded token is not a delegation
+   * @throws {Error} "Cannot invoke a capability from a proof that is not a delegation" - If decoded token is not a delegation
    * @example
    * ```typescript
-   * const invocation = await Builder.invokingFromString(tokenString)
+   * const invocation = await Builder.invocationFromString(tokenString)
    *   .audience(serviceDid)
    *   .arguments({ action: "read" })
    *   .build(signer);
    * ```
    */
-  invokingFromString(proofString: string): InvocationBuilder {
+  invocationFromString(proofString: string): InvocationBuilder {
     const proof = Codec.decodeBase64Url(proofString);
-    return this.invokingFrom(proof);
+    return this.invocationFrom(proof);
   },
 } as const;

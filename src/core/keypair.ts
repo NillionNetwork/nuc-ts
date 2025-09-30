@@ -2,6 +2,7 @@ import { secp256k1 } from "@noble/curves/secp256k1.js";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
 import { base58btc } from "multiformats/bases/base58";
 import type { Did } from "#/core/did/types";
+import { Signer, type Signer as SignerType } from "#/core/signer";
 
 /**
  * Represents a secp256k1 elliptic curve key pair with a simplified, hex-string based API.
@@ -147,6 +148,32 @@ export class Keypair {
         };
       }
     }
+  }
+
+  /**
+   * Creates a `Signer` instance from this keypair.
+   *
+   * This is a convenience method for creating a signer that can be used
+   * with the `Builder` to sign Nuc tokens.
+   *
+   * @param didMethod - The Did format the signer should use: "key" (default) or "nil" (legacy).
+   * @returns A `Signer` instance configured for the specified Did method.
+   * @example
+   * ```typescript
+   * const keypair = Keypair.generate();
+   *
+   * // Create a modern signer (did:key format)
+   * const signer = keypair.signer();
+   *
+   * // Create a legacy signer (did:nil format)
+   * const legacySigner = keypair.signer("nil");
+   * ```
+   */
+  signer(didMethod: "key" | "nil" = "key"): SignerType {
+    if (didMethod === "nil") {
+      return Signer.fromLegacyKeypair(this);
+    }
+    return Signer.fromKeypair(this);
   }
 
   /**

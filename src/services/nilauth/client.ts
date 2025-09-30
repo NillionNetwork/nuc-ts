@@ -371,7 +371,7 @@ export class NilauthClient {
   }): Promise<void> {
     const { keypair, authToken, tokenToRevoke } = config;
 
-    const revokeTokenEnvelope = await Builder.invokingFrom(authToken)
+    const revokeTokenEnvelope = await Builder.invocationFrom(authToken)
       .arguments({
         token: Codec.serializeBase64Url(tokenToRevoke),
       })
