@@ -35,20 +35,24 @@ describe("nilauth client", () => {
 
   it("is not subscribed", async () => {
     const response = await nilauthClient.subscriptionStatus(
-      keypair.publicKey(),
+      keypair.toDid("key"),
       "nildb",
     );
     expect(response.subscribed).toBeFalsy();
   });
 
   it("pay and validate subscription", async () => {
-    const promise = nilauthClient.payAndValidate(keypair.publicKey(), "nildb");
+    const promise = nilauthClient.paySubscription(
+      keypair,
+      keypair.toDid("key"),
+      "nildb",
+    );
     await expect(promise).resolves.toBeUndefined();
   });
 
   it("is subscribed", async () => {
     const response = await nilauthClient.subscriptionStatus(
-      keypair.publicKey(),
+      keypair.toDid("key"),
       "nildb",
     );
     expect(response.subscribed).toBeTruthy();
@@ -157,8 +161,9 @@ describe("NilauthClient without a Payer", () => {
   });
 
   it("should throw when performing a write operation", async () => {
-    const promise = clientWithoutPayer.payAndValidate(
-      "some-public-key",
+    const promise = clientWithoutPayer.paySubscription(
+      Keypair.generate(),
+      Keypair.generate().toDid("key"),
       "nildb",
     );
     await expect(promise).rejects.toThrow(

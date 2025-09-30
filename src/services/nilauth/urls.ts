@@ -20,7 +20,7 @@ export const NilauthUrl = {
     validate: (base: string) => `${base}/api/v1/payments/validate`,
   },
   subscriptions: {
-    status: (base: string, publicKey: string, blindModule: BlindModule) =>
-      `${base}/api/v1/subscriptions/status?public_key=${publicKey}&blind_module=${blindModule}`,
+    status: (base: string, did: string, blindModule: BlindModule) =>
+      `${base}/api/v1/subscriptions/status?did=${did}&blind_module=${blindModule}`,
   },
 } as const;
