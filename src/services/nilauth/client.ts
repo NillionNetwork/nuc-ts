@@ -274,9 +274,11 @@ export class NilauthClient {
     const costUnil = await this.subscriptionCost(blindModule);
     const payerDid = payerKeypair.toDid("key");
 
+    // Key ordering must match what nilauth expects we need to do canonical Json serialization
+    // to resolve this see - https://github.com/NillionNetwork/nilauth/issues/50
     const onChainPayload = {
-      nonce: bytesToHex(randomBytes(16)),
       service_public_key: this.nilauthPublicKey,
+      nonce: bytesToHex(randomBytes(16)),
       blind_module: blindModule,
       payer_did: Did.serialize(payerDid),
       subscriber_did: Did.serialize(subscriberDid),
