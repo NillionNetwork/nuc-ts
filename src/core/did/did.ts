@@ -85,7 +85,6 @@ export namespace Did {
    *
    * @param publicKey - The public key as a hex string
    * @param method - The Did method to use: "key" (default) or "nil"
-   * @deprecated The "nil" option will be removed in version 0.3.0.
    * @returns A structured Did object
    *
    * @example
@@ -105,7 +104,7 @@ export namespace Did {
   ): Did {
     if (method === "nil") {
       console.warn(
-        'DEPRECATION WARNING: The "nil" Did method is deprecated and will be removed in the next major version.. Please use the "key" method instead.',
+        'The "did:nil" method is deprecated and will be removed in the next major version. Please use the "did:key" method instead.',
       );
     }
 
