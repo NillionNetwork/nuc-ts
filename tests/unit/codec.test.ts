@@ -1,27 +1,28 @@
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { Keypair } from "#/core/keypair";
+import { Signer } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
 import { Codec } from "#/nuc/codec";
 
 describe("Codec Module", () => {
-  const rootKeypair = Keypair.generate();
-  const userKeypair = Keypair.generate();
+  const rootSigner = Signer.generate();
+  const userSigner = Signer.generate();
 
   // Property-Based Test: Serialization and decoding should be inverses.
   it("should serialize and decode any token without data loss", async () => {
     await fc.assert(
       fc.asyncProperty(fc.boolean(), async (isChained) => {
+        const userDid = await userSigner.getDid();
         const rootEnvelope = await Builder.delegation()
-          .audience(userKeypair.toDid())
-          .subject(userKeypair.toDid())
+          .audience(userDid)
+          .subject(userDid)
           .command("/test")
-          .sign(rootKeypair.signer());
+          .sign(rootSigner);
 
         const finalEnvelope = isChained
           ? await Builder.delegationFrom(rootEnvelope)
-              .audience(Keypair.generate().toDid())
-              .sign(userKeypair.signer())
+              .audience(await Signer.generate().getDid())
+              .sign(userSigner)
           : rootEnvelope;
 
         const serialized = Codec.serializeBase64Url(finalEnvelope);
@@ -53,11 +54,12 @@ describe("Codec Module", () => {
     });
 
     it("should throw for empty tokens in a chain", async () => {
+      const userDid = await userSigner.getDid();
       const rootEnvelope = await Builder.delegation()
-        .audience(userKeypair.toDid())
-        .subject(userKeypair.toDid())
+        .audience(userDid)
+        .subject(userDid)
         .command("/test")
-        .sign(rootKeypair.signer());
+        .sign(rootSigner);
       const validSerialized = Codec.serializeBase64Url(rootEnvelope);
       const invalidChain = `${validSerialized}//${validSerialized}`;
       expect(() => Codec.decodeBase64Url(invalidChain)).toThrow("empty token");

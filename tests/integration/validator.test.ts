@@ -1,5 +1,5 @@
 import { describe, it } from "vitest";
-import { Keypair } from "#/core/keypair";
+import { Signer } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
 import { REVOKE_COMMAND } from "#/nuc/payload";
 import {
@@ -21,31 +21,30 @@ import {
 } from "#tests/helpers/assertions";
 
 describe("Validator", () => {
-  // Use a consistent root keypair for all tests, derived from the test seed
-  const rootKeypair = Keypair.fromBytes(ROOT_KEYS[0]);
-  const rootSigner = rootKeypair.signer();
+  // Use a consistent root signer for all tests, derived from the test seed
+  const rootSigner = Signer.fromPrivateKey(ROOT_KEYS[0]);
 
   it("should fail validation for an unlinked chain", async () => {
-    const userKeypair = Keypair.generate();
-    const userSigner = userKeypair.signer();
+    const userSigner = Signer.generate();
+    const userDid = await userSigner.getDid();
 
     // Create a base delegation
     let envelope = await Builder.delegation()
-      .audience(userKeypair.toDid())
+      .audience(userDid)
       .command("/nil")
-      .subject(userKeypair.toDid())
+      .subject(userDid)
       .sign(rootSigner);
 
     // Create a chained delegation from the base
     envelope = await Builder.delegationFrom(envelope)
-      .audience(Keypair.generate().toDid())
+      .audience(await Signer.generate().getDid())
       .sign(userSigner);
 
     // Create an unrelated token and push it into the proofs
     const unlinkedToken = await Builder.delegation()
-      .audience(userKeypair.toDid())
+      .audience(userDid)
       .command("/nil")
-      .subject(userKeypair.toDid())
+      .subject(userDid)
       .sign(rootSigner);
 
     envelope.proofs.push(unlinkedToken.nuc);
@@ -54,25 +53,25 @@ describe("Validator", () => {
   });
 
   it("should fail validation if the chain is too long", async () => {
-    const userKeypair = Keypair.generate();
-    const userSigner = userKeypair.signer();
+    const userSigner = Signer.generate();
+    const userDid = await userSigner.getDid();
 
     // Create a chain of 3 delegations (root -> user -> user -> user)
     let envelope = await Builder.delegation()
-      .audience(userKeypair.toDid())
-      .subject(userKeypair.toDid())
+      .audience(userDid)
+      .subject(userDid)
       .command("/nil")
       .sign(rootSigner);
 
     // Chain the delegations, setting the audience for each new link
     envelope = await Builder.delegationFrom(envelope)
-      .audience(userKeypair.toDid())
+      .audience(userDid)
       .sign(userSigner);
     envelope = await Builder.delegationFrom(envelope)
-      .audience(userKeypair.toDid())
+      .audience(userDid)
       .sign(userSigner);
     envelope = await Builder.delegationFrom(envelope)
-      .audience(userKeypair.toDid())
+      .audience(userDid)
       .sign(userSigner);
 
     // Set max chain length to 2 (the chain has 4 tokens)
@@ -82,70 +81,71 @@ describe("Validator", () => {
   });
 
   it("should fail if a command is not a valid attenuation", async () => {
-    const userKeypair = Keypair.generate();
-    const userSigner = userKeypair.signer();
+    const userSigner = Signer.generate();
+    const userDid = await userSigner.getDid();
 
     const rootEnvelope = await Builder.delegation()
-      .audience(userKeypair.toDid())
-      .subject(userKeypair.toDid())
+      .audience(userDid)
+      .subject(userDid)
       .command("/nil")
       .sign(rootSigner);
 
     const chainedEnvelope = await Builder.delegationFrom(rootEnvelope)
       .command("/bar") // Invalid: "/bar" is not a sub-path of "/nil"
-      .audience(userKeypair.toDid()) // A new audience is still required
+      .audience(userDid) // A new audience is still required
       .sign(userSigner);
 
     assertFailure(chainedEnvelope, COMMAND_NOT_ATTENUATED);
   });
 
   it("should fail if subjects differ across the chain", async () => {
-    const userKeypair1 = Keypair.generate();
-    const userKeypair2 = Keypair.generate();
-    const userSigner2 = userKeypair2.signer();
+    const userSigner1 = Signer.generate();
+    const userSigner2 = Signer.generate();
+    const userDid1 = await userSigner1.getDid();
+    const userDid2 = await userSigner2.getDid();
 
     const rootEnvelope = await Builder.delegation()
-      .audience(userKeypair2.toDid())
-      .subject(userKeypair1.toDid())
+      .audience(userDid2)
+      .subject(userDid1)
       .command("/nil")
       .sign(rootSigner);
 
     const chainedEnvelope = await Builder.delegationFrom(rootEnvelope)
-      .subject(userKeypair2.toDid()) // Invalid: subject changes mid-chain
-      .audience(Keypair.generate().toDid())
+      .subject(userDid2) // Invalid: subject changes mid-chain
+      .audience(await Signer.generate().getDid())
       .sign(userSigner2);
 
     assertFailure(chainedEnvelope, DIFFERENT_SUBJECTS);
   });
 
   it("should fail if the issuer does not match the previous audience", async () => {
-    const userKeypair = Keypair.generate();
-    const anotherKeypair = Keypair.generate();
-    const anotherSigner = anotherKeypair.signer();
+    const userSigner = Signer.generate();
+    const anotherSigner = Signer.generate();
+    const userDid = await userSigner.getDid();
 
     const rootEnvelope = await Builder.delegation()
-      .audience(userKeypair.toDid())
-      .subject(userKeypair.toDid())
+      .audience(userDid)
+      .subject(userDid)
       .command("/nil")
       .sign(rootSigner);
 
     const chainedEnvelope = await Builder.delegationFrom(rootEnvelope)
-      .audience(Keypair.generate().toDid())
+      .audience(await Signer.generate().getDid())
       .sign(anotherSigner); // Invalid: signed by a party that was not the audience
 
     assertFailure(chainedEnvelope, ISSUER_AUDIENCE_MISMATCH);
   });
 
   it("should fail if an invocation has an invalid audience", async () => {
-    const userKeypair = Keypair.generate();
-    const userSigner = userKeypair.signer();
+    const userSigner = Signer.generate();
+    const userDid = await userSigner.getDid();
 
-    const expectedAudienceDid = Keypair.generate().toDid();
-    const actualAudienceDid = Keypair.generate().toDid();
+    const expectedAudienceDid = await Signer.generate().getDid();
+    const actualAudienceDid = await Signer.generate().getDid();
 
     const delegationEnvelope = await Builder.delegation()
-      .audience(userKeypair.toDid())
-      .subject(userKeypair.toDid())
+      .audience(userDid)
+      .subject(userDid)
       .command("/nil")
       .sign(rootSigner);
 
@@ -164,17 +164,17 @@ describe("Validator", () => {
   });
 
   it("should fail if a required proof is missing from the envelope", async () => {
-    const userKeypair = Keypair.generate();
-    const userSigner = userKeypair.signer();
+    const userSigner = Signer.generate();
+    const userDid = await userSigner.getDid();
 
     const rootEnvelope = await Builder.delegation()
-      .audience(userKeypair.toDid())
-      .subject(userKeypair.toDid())
+      .audience(userDid)
+      .subject(userDid)
       .command("/nil")
       .sign(rootSigner);
 
     const chainedEnvelope = await Builder.delegationFrom(rootEnvelope)
-      .audience(userKeypair.toDid())
+      .audience(userDid)
       .sign(userSigner);
 
     chainedEnvelope.proofs = []; // Manually remove the proof
@@ -182,37 +182,37 @@ describe("Validator", () => {
   });
 
   it("should fail if the policy of a parent delegation is not met", async () => {
-    const userKeypair = Keypair.generate();
-    const userSigner = userKeypair.signer();
+    const userSigner = Signer.generate();
+    const userDid = await userSigner.getDid();
 
     const rootEnvelope = await Builder.delegation()
       .policy([["==", ".args.foo", 42]])
-      .subject(userKeypair.toDid())
+      .subject(userDid)
       .command("/nil")
-      .audience(userKeypair.toDid())
+      .audience(userDid)
       .sign(rootSigner);
 
     const invocationEnvelope = await Builder.invocationFrom(rootEnvelope)
       .arguments({ bar: 1337 }) // Does not satisfy the policy
-      .audience(Keypair.generate().toDid())
+      .audience(await Signer.generate().getDid())
       .sign(userSigner);
     assertFailure(invocationEnvelope, POLICY_NOT_MET);
   });
 
   it("should fail if the root NUC is not signed by a trusted root key", async () => {
-    const userKeypair = Keypair.generate();
-    const anotherUserKeypair = Keypair.generate();
-    const anotherUserSigner = anotherUserKeypair.signer();
+    const userSigner = Signer.generate();
+    const anotherUserSigner = Signer.generate();
+    const userDid = await userSigner.getDid();
 
     const rootEnvelope = await Builder.delegation()
-      .audience(userKeypair.toDid())
-      .subject(userKeypair.toDid())
+      .audience(userDid)
+      .subject(userDid)
       .command("/nil")
       .sign(anotherUserSigner); // Signed by a non-root key
 
     const chainedEnvelope = await Builder.delegationFrom(rootEnvelope)
-      .audience(userKeypair.toDid())
-      .sign(userKeypair.signer());
+      .audience(userDid)
+      .sign(userSigner);
 
     assertFailure(chainedEnvelope, ROOT_KEY_SIGNATURE_MISSING, {
       rootDids: ROOT_DIDS,
@@ -220,12 +220,10 @@ describe("Validator", () => {
   });
 
   it("should pass validation for a valid, multi-step chain", async () => {
-    const userKeypair = Keypair.generate();
-    const userSigner = userKeypair.signer();
-    const userDid = userKeypair.toDid();
+    const userSigner = Signer.generate();
+    const userDid = await userSigner.getDid();
 
-    const serviceKeypair = Keypair.generate();
-    const serviceDid = serviceKeypair.toDid();
+    const serviceDid = await Signer.generate().getDid();
 
     const rootDelegation = await Builder.delegation()
       .policy([
@@ -262,23 +260,22 @@ describe("Validator", () => {
   });
 
   it("should permit a namespace jump to the REVOKE_COMMAND", async () => {
-    const rootKeypair = Keypair.generate();
-    const rootSigner = rootKeypair.signer();
-    const userKeypair = Keypair.generate();
-    const userSigner = userKeypair.signer();
+    const testRootSigner = Signer.generate();
+    const userSigner = Signer.generate();
+    const userDid = await userSigner.getDid();
 
     // 1. Root grants a normal, non-revoke capability.
     const rootDelegation = await Builder.delegation()
-      .audience(userKeypair.toDid())
-      .subject(userKeypair.toDid())
+      .audience(userDid)
+      .subject(userDid)
       .command("/nil/db/data")
-      .sign(rootSigner);
+      .sign(testRootSigner);
 
     // 2. User creates an invocation that "jumps" from the /db/data/read
     //    namespace to the /nuc/revoke namespace.
     const revocationInvocation = await Builder.invocationFrom(rootDelegation)
       .command(REVOKE_COMMAND)
-      .audience(Keypair.generate().toDid()) // Fake revocation service
+      .audience(await Signer.generate().getDid()) // Fake revocation service
       .arguments({ token_hash: "any_hash_will_do_for_this_test" })
       .sign(userSigner);
 
@@ -286,7 +283,7 @@ describe("Validator", () => {
     //    This proves the validator's core logic correctly handles the exception
     //    for REVOKE_COMMAND, even when the builder creates the namespace jump.
     assertSuccess(revocationInvocation, {
-      rootDids: [rootKeypair.toDid().didString],
+      rootDids: [(await testRootSigner.getDid()).didString],
     });
   });
 });

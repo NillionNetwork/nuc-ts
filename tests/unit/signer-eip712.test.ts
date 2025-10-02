@@ -18,7 +18,7 @@ describe("EIP-712 Signer (`did:ethr`)", () => {
   };
 
   it("should build and successfully validate an EIP-712 signed delegation", async () => {
-    const signer = Signer.fromEip712(eip712Signer, domain);
+    const signer = Signer.fromWeb3(eip712Signer, domain);
     const envelope = await Builder.delegation()
       .audience(audience)
       .subject(audience)
@@ -29,7 +29,7 @@ describe("EIP-712 Signer (`did:ethr`)", () => {
   });
 
   it("should build and successfully validate an EIP-712 signed invocation", async () => {
-    const signer = Signer.fromEip712(eip712Signer, domain);
+    const signer = Signer.fromWeb3(eip712Signer, domain);
     const envelope = await Builder.invocation()
       .audience(audience)
       .subject(audience)

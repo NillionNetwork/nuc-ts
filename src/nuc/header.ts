@@ -63,6 +63,16 @@ export const NucHeaderSchema = z
 export type NucHeader = z.infer<typeof NucHeaderSchema>;
 
 /**
+ * The default EIP-712 domain for signing Nuc payloads.
+ * This is used for creating signatures with Web3 wallets.
+ */
+export const NUC_EIP712_DOMAIN: TypedDataDomain = {
+  name: "NUC",
+  version: "1",
+  chainId: 1,
+};
+
+/**
  * Predefined header configurations.
  */
 export const NucHeaders = {

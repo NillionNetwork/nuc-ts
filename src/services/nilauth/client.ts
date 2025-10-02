@@ -9,9 +9,8 @@ import {
   NilauthUnreachable,
   PaymentTxFailed,
 } from "#/core/errors";
-import type { Keypair } from "#/core/keypair";
 import { Log } from "#/core/logger";
-import { Signer } from "#/core/signer";
+import type { Signer } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
 import { Codec } from "#/nuc/codec";
 import { Envelope } from "#/nuc/envelope";
@@ -330,7 +329,7 @@ export class NilauthClient {
   /**
    * Performs a subscription payment and validates it with the service.
    * @deprecated This method will be removed in a future version. Use the decoupled flow: `createPaymentResource`, `payer.pay`, and `validatePayment`.
-   * @param payerKeypair - The keypair of the identity paying for the subscription.
+   * @param payerSigner - The signer of the identity paying for the subscription.
    * @param subscriberDid - The Did of the identity receiving the subscription.
    * @param blindModule - The module to subscribe to ("nilai" or "nildb").
    * @throws {Error} If a Payer instance is not configured on the client.
@@ -338,7 +337,7 @@ export class NilauthClient {
    * @throws {NilauthErrorResponse} If payment validation fails.
    */
   async payAndValidate(
-    payerKeypair: Keypair,
+    payerSigner: Signer,
     subscriberDid: Did,
     blindModule: BlindModule,
   ): Promise<void> {
@@ -349,7 +348,7 @@ export class NilauthClient {
     }
 
     const costUnil = await this.subscriptionCost(blindModule);
-    const payerDid = payerKeypair.toDid("key");
+    const payerDid = await payerSigner.getDid();
 
     const { resourceHash, payload } = this.createPaymentResource(
       subscriberDid,
@@ -364,7 +363,6 @@ export class NilauthClient {
       throw new PaymentTxFailed(cause);
     }
 
-    const payerSigner = Signer.fromKeypair(payerKeypair);
     await this.validatePayment(txHash, payload, payerSigner);
   }
 

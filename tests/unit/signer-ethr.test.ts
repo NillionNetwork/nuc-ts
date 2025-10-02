@@ -2,8 +2,8 @@ import { hexToBytes } from "@noble/hashes/utils.js";
 import { Wallet } from "ethers";
 import { describe, expect, it } from "vitest";
 import * as ethr from "#/core/did/ethr";
-import { Keypair } from "#/core/keypair";
-import type { Signer } from "#/core/signer";
+import type { Signer as SignerType } from "#/core/signer";
+import { Signer } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
 import { NucHeaders } from "#/nuc/header";
 import { validateNucSignature } from "#/validator/signatures";
@@ -11,9 +11,10 @@ import { validateNucSignature } from "#/validator/signatures";
 describe("Native Signer (`did:ethr`)", () => {
   it("should build and successfully validate a native signed Nuc from an ethers wallet", async () => {
     const wallet = Wallet.createRandom();
-    const audience = Keypair.generate().toDid();
+    const audienceSigner = Signer.generate();
+    const audience = await audienceSigner.getDid();
 
-    const nativeEthrSigner: Signer = {
+    const nativeEthrSigner: SignerType = {
       header: NucHeaders.v1,
       getDid: async () => ethr.fromAddress(await wallet.getAddress()),
       sign: async (data: Uint8Array): Promise<Uint8Array> => {

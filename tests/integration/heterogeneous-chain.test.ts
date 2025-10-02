@@ -2,7 +2,7 @@ import { hexToBytes } from "@noble/hashes/utils.js";
 import { Wallet } from "ethers";
 import { describe, it } from "vitest";
 import * as ethr from "#/core/did/ethr";
-import { Keypair } from "#/core/keypair";
+import type { Signer as SignerType } from "#/core/signer";
 import { Signer } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
 import { NucHeaders } from "#/nuc/header";
@@ -14,14 +14,13 @@ describe("heterogeneous nuc chain", () => {
   }) => {
     // Phase 1 - Actors
     // A. The root of trust, using did:key
-    const rootKeypair = Keypair.generate();
-    const rootSigner = Signer.fromKeypair(rootKeypair);
-    const rootDid = rootKeypair.toDid("key");
+    const rootSigner = Signer.generate();
+    const rootDid = await rootSigner.getDid();
 
     // B. An intermediate user with an Ethereum wallet
     const userWallet = Wallet.createRandom();
     const userDid = ethr.fromAddress(userWallet.address);
-    const userSigner: Signer = {
+    const userSigner: SignerType = {
       header: NucHeaders.v1,
       getDid: async () => userDid,
       sign: async (data) => {
@@ -34,12 +33,11 @@ describe("heterogeneous nuc chain", () => {
     };
 
     // C. A legacy service that the user delegates a sub-capability to
-    const legacySvcKeypair = Keypair.generate();
-    const legacySvcSigner = Signer.fromLegacyKeypair(legacySvcKeypair);
-    const legacySvcDid = legacySvcKeypair.toDid("nil");
+    const legacySvcSigner = Signer.generate("nil");
+    const legacySvcDid = await legacySvcSigner.getDid();
 
     // D. The final service that receives the invocation
-    const finalSvcDid = Keypair.generate().toDid("key");
+    const finalSvcDid = await Signer.generate().getDid();
 
     // Phase 2 - Build the chain
     // 1. Root (did:key) delegates to User (did:ethr)

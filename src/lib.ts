@@ -6,7 +6,6 @@ export type {
   Multicodec,
 } from "#/core/did/types";
 export * as Errors from "#/core/errors";
-export { Keypair } from "#/core/keypair";
 export type { Eip712Signer } from "#/core/signer";
 export { Signer } from "#/core/signer";
 export type {
@@ -14,10 +13,10 @@ export type {
   InvocationBuilder,
 } from "#/nuc/builder";
 export { Builder } from "#/nuc/builder";
-
 export { Codec } from "#/nuc/codec";
 export type { Nuc } from "#/nuc/envelope";
 export { Envelope } from "#/nuc/envelope";
+export { NUC_EIP712_DOMAIN } from "#/nuc/header";
 export type {
   Command,
   DelegationPayload,

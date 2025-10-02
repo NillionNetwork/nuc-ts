@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { base64UrlDecode } from "#/core/encoding";
-import { Keypair } from "#/core/keypair";
+import { Signer } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
 import { validateNucSignature } from "#/validator/signatures";
 
 describe("Legacy Signer (`did:nil`)", () => {
   it("should build and successfully validate a legacy signed Nuc", async () => {
-    const keypair = Keypair.generate();
-    const signer = keypair.signer("nil");
-    const audience = Keypair.generate().toDid("nil");
+    const signer = Signer.generate("nil");
+    const audienceSigner = Signer.generate("nil");
+    const audience = await audienceSigner.getDid();
 
     const envelope = await Builder.delegation()
       .audience(audience)

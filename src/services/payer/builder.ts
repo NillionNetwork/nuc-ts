@@ -5,8 +5,8 @@ import {
 } from "@cosmjs/proto-signing";
 import { GasPrice, SigningStargateClient } from "@cosmjs/stargate";
 import type { Window as KeplrWindow } from "@keplr-wallet/types";
+import { hexToBytes } from "@noble/hashes/utils.js";
 import { z } from "zod";
-import type { Keypair } from "#/core/keypair";
 import { Payer, PayerConfigSchema } from "#/services/payer/client";
 import { MsgPayForCompatWrapper } from "#/services/payer/grpc-compat";
 import {
@@ -29,14 +29,16 @@ export class PayerBuilder {
   private _broadcastTimeoutMs = 30000;
   private _broadcastPollIntervalMs = 1000;
   private _signerSource?:
-    | { type: "keypair"; value: Keypair }
+    | { type: "privateKey"; value: Uint8Array }
     | { type: "keplr"; chainId: string };
 
   private constructor() {}
 
-  static fromKeypair(keypair: Keypair): PayerBuilder {
+  static fromPrivateKey(privateKey: string | Uint8Array): PayerBuilder {
     const builder = new PayerBuilder();
-    builder._signerSource = { type: "keypair", value: keypair };
+    const bytes =
+      typeof privateKey === "string" ? hexToBytes(privateKey) : privateKey;
+    builder._signerSource = { type: "privateKey", value: bytes };
     return builder;
   }
 
@@ -69,7 +71,7 @@ export class PayerBuilder {
   async build(): Promise<Payer> {
     if (!this._signerSource) {
       throw new Error(
-        "Signer source not configured. Use fromKeypair() or fromKeplr().",
+        "Signer source not configured. Use fromPrivateKey() or fromKeplr().",
       );
     }
 
@@ -81,8 +83,11 @@ export class PayerBuilder {
     let address: string;
 
     switch (this._signerSource.type) {
-      case "keypair": {
-        signer = await createSignerFromKeyPair(this._signerSource.value);
+      case "privateKey": {
+        signer = await DirectSecp256k1Wallet.fromKey(
+          this._signerSource.value,
+          NilChainAddressPrefix,
+        );
         const accounts = await signer.getAccounts();
         if (accounts.length === 0) {
           throw new Error("No accounts on the offline signer");
@@ -137,13 +142,4 @@ export class PayerBuilder {
 
     return new Payer(config);
   }
-}
-
-async function createSignerFromKeyPair(
-  keypair: Keypair,
-): Promise<OfflineSigner> {
-  return await DirectSecp256k1Wallet.fromKey(
-    keypair.privateKeyBytes(),
-    NilChainAddressPrefix,
-  );
 }

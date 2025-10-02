@@ -9,7 +9,7 @@ pnpm install @nillion/nuc
 ```
 
 ```typescript
-import { Builder, Codec, Keypair, Validator } from '@nillion/nuc';
+import { Builder, Codec, Signer, Validator } from '@nillion/nuc';
 ```
 
 ## Core Concepts
@@ -29,48 +29,55 @@ In a simple, two-party delegation, the `aud` and `sub` are often the same. When 
 This example demonstrates the primary workflow of creating delegation and invocation tokens:
 
 ```typescript
-import { Keypair, Builder, Codec, Validator } from '@nillion/nuc';
+import { Signer, Builder, Codec, Validator } from '@nillion/nuc';
 
-// Step 1: Create keypairs
-const rootKeypair = Keypair.generate();
-const userKeypair = Keypair.generate();
-const serviceKeypair = Keypair.generate();
+// Step 1: Create Signers for different parties
+// A root authority (e.g., for a server-side process with a private key)
+const rootSigner = Signer.fromPrivateKey("YOUR_ROOT_PRIVATE_KEY_HEX");
 
-// Step 2: Create the service Did that will receive the invocation
-const serviceDid = serviceKeypair.toDid();
+// A user identity, newly generated for this session
+const userSigner = Signer.generate();
+
+// A service that will receive the final invocation
+const serviceSigner = Signer.generate();
+
+// Step 2: Get the Dids for the user and service
+const userDid = await userSigner.getDid();
+const serviceDid = await serviceSigner.getDid();
 const serviceDidString = serviceDid.didString; // e.g., "did:key:zDnae..."
 
 // Step 3: Build a root delegation token
-// This grants capabilities to the user's keypair
+// This grants capabilities from the root to the user
 const rootDelegation = await Builder.delegation()
-  .audience(userKeypair.toDid())        // Who can use this delegation
-  .subject(userKeypair.toDid())         // Who the delegation is about
-  .command("/nil/db/collections/read")  // The authorised command namespace
-  .policy([                             // Policy rules that must be satisfied
+  .audience(userDid)                      // Who can use this delegation
+  .subject(userDid)                       // Who the delegation is about
+  .command("/nil/db/collections/read")    // The authorized command namespace
+  .policy([                               // Policy rules that must be satisfied
     ["==", ".command", "/db/read"],
     ["!=", ".args.table", "secrets"]
   ])
-  .expiresAt(Date.now() + 3600 * 1000)  // Expires in 1 hour
-  .sign(rootKeypair);
+  .expiresAt(Date.now() + 3600 * 1000)    // Expires in 1 hour
+  .sign(rootSigner);
 
 // Step 4: Build an invocation token from the delegation
-// This actually invokes the granted capability
-const invocation = await Builder.invoking(rootDelegation)
-  .audience(serviceDid)                 // The service that will process this
-  .arguments({collection: "users"})     // Arguments for the command
-  .sign(userKeypair);
+// The user invokes their granted capability for the service
+const invocation = await Builder.invocationFrom(rootDelegation)
+  .audience(serviceDid)                   // The service that will process this
+  .arguments({collection: "users"})       // Arguments for the command
+  .sign(userSigner); // Signed by the user
 
-// Step 5: Serialise for transmission
+// Step 5: Serialize for transmission
 const tokenString = Codec.serializeBase64Url(invocation);
 console.log("Token to send:", tokenString);
 
 // Step 6: (Optional) Decode and validate the token
 // This would typically happen on the receiving service
 const decoded = Codec.decodeBase64Url(tokenString);
+const rootDid = await rootSigner.getDid();
 
 try {
   Validator.validate(decoded, {
-    rootIssuers: [rootKeypair.toDid().didString], // Use the Did string for validation
+    rootIssuers: [rootDid.didString], // Use the Did string for validation
     params: {
       tokenRequirements: {
         type: "invocation",

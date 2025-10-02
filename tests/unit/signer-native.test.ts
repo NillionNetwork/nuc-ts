@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { base64UrlDecode } from "#/core/encoding";
-import { Keypair } from "#/core/keypair";
+import { Signer } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
 import { validateNucSignature } from "#/validator/signatures";
 
 describe("Native Signer (`did:key`)", () => {
   it("should build and successfully validate a native signed Nuc", async () => {
-    const keypair = Keypair.generate();
-    const signer = keypair.signer();
-    const audience = Keypair.generate().toDid();
+    const signer = Signer.generate();
+    const audienceSigner = Signer.generate();
+    const audience = await audienceSigner.getDid();
 
     const envelope = await Builder.delegation()
       .audience(audience)
