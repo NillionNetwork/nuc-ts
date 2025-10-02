@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { hexToBytes } from "@noble/hashes/utils.js";
 import { z } from "zod";
-import * as didNil from "#/core/did/nil";
+import * as didKey from "#/core/did/key";
 import { Codec } from "#/nuc/codec";
 import type {
   TokenRequirement,
@@ -55,7 +55,7 @@ const InputSchema = z
   .transform((input) => ({
     token: input.token,
     rootKeys: input.root_keys.map((hexKey) =>
-      didNil.fromPublicKeyBytes(hexToBytes(hexKey)),
+      didKey.fromPublicKeyBytes(hexToBytes(hexKey)),
     ),
     currentTime: input.current_time * 1000,
     context: input.context,

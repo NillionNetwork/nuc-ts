@@ -61,17 +61,23 @@ export namespace Did {
    *
    * @example
    * ```typescript
-   * const keypair = Keypair.generate();
-   * const didKey = keypair.toDid("key");
-   * const didNil = keypair.toDid("nil");
+   * const privateKey = new Uint8Array(32);
+   * crypto.getRandomValues(privateKey);
+   * const didKey = await Signer.fromPrivateKey(privateKey, "key").getDid();
+   * const didNil = await Signer.fromPrivateKey(privateKey, "nil").getDid();
    * console.log(Did.areEqual(didKey, didNil)); // true
    * ```
    */
   export function areEqual(a: Did, b: Did): boolean {
+    // Handle ethr by case-insensitive string comparison
+    if (a.method === "ethr" && b.method === "ethr") {
+      return a.address.toLowerCase() === b.address.toLowerCase();
+    }
+
+    // Handle public key based Dids (key, nil) by comparing public keys
     const pkA = getPublicKeyBytes(a);
     const pkB = getPublicKeyBytes(b);
 
-    // If both have public keys, compare them directly byte-for-byte.
     if (pkA && pkB) {
       return _.isEqual(pkA, pkB);
     }
@@ -104,7 +110,7 @@ export namespace Did {
   ): Did {
     if (method === "nil") {
       console.warn(
-        'The "did:nil" method is deprecated and will be removed in the next major version. Please use the "did:key" method instead.',
+        'DEPRECATION WARNING: The "nil" Did method is deprecated and will be removed in a future version. Use the "key" method instead.',
       );
     }
 

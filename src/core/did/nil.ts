@@ -1,6 +1,6 @@
 /**
  * @module nil
- * @deprecated This module will be removed in version 0.3.0. Use the `key` module instead.
+ * @deprecated The "nil" Did method is deprecated and will be removed in a future version. Use the "key" method instead.
  */
 
 import { secp256k1 } from "@noble/curves/secp256k1.js";

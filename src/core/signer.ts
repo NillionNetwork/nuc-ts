@@ -1,25 +1,11 @@
 import { secp256k1 } from "@noble/curves/secp256k1.js";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
 import type { TypedDataDomain } from "ethers";
-import {
-  NUC_EIP712_DOMAIN,
-  type NucHeader,
-  NucHeaders,
-  NucHeaderType,
-} from "#/nuc/header";
+import { NUC_EIP712_DOMAIN, type NucHeader, NucHeaders } from "#/nuc/header";
 import { Payload } from "#/nuc/payload";
 import { Did } from "./did/did";
 import * as ethr from "./did/ethr";
 import { base64UrlDecode } from "./encoding";
-
-export const Headers = {
-  legacy: { alg: "ES256K" },
-  v1: { typ: NucHeaderType.NATIVE, alg: "ES256K", ver: "1.0.0" },
-  v1_eip712: (_domain: TypedDataDomain) => ({
-    typ: NucHeaderType.EIP712,
-    // ...
-  }),
-} as const;
 
 /**
  * An abstract signer that can be used to sign Nucs.

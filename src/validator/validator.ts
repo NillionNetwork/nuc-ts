@@ -3,15 +3,8 @@ import { Log } from "#/core/logger";
 import type { Envelope } from "#/nuc/envelope";
 import { Payload } from "#/nuc/payload";
 import { Policy } from "#/nuc/policy";
-import {
-  CHAIN_TOO_LONG,
-  PROOFS_MUST_BE_DELEGATIONS,
-  sortProofs,
-  TOO_MANY_PROOFS,
-  validatePayloadChain,
-  validateProofs,
-} from "./chain";
-import { INVALID_SIGNATURES, validateEnvelopeSignature } from "./signatures";
+import { sortProofs, validatePayloadChain, validateProofs } from "./chain";
+import { validateEnvelopeSignature } from "./signatures";
 import type {
   TokenRequirement,
   ValidationOptions,
@@ -25,11 +18,6 @@ export type {
   ValidationParameters,
 } from "./types";
 
-export const INVALID_AUDIENCE = "invalid audience";
-export const NEED_DELEGATION = "token must be a delegation";
-export const NEED_INVOCATION = "token must be an invocation";
-export const POLICY_NOT_MET = "policy not met";
-
 const DEFAULT_VALIDATION_PARAMETERS: Required<
   Omit<ValidationParameters, "tokenRequirements">
 > = {
@@ -38,25 +26,33 @@ const DEFAULT_VALIDATION_PARAMETERS: Required<
   maxPolicyDepth: 5,
 };
 
-// Re-export constants from submodules
-export {
-  CHAIN_TOO_LONG,
-  COMMAND_NOT_ATTENUATED,
-  DIFFERENT_SUBJECTS,
-  ISSUER_AUDIENCE_MISMATCH,
-  MISSING_PROOF,
-  NOT_BEFORE_BACKWARDS,
-  PROOFS_MUST_BE_DELEGATIONS,
-  ROOT_KEY_SIGNATURE_MISSING,
-  SUBJECT_NOT_IN_CHAIN,
-  TOO_MANY_PROOFS,
-  UNCHAINED_PROOFS,
-} from "./chain";
-export { POLICY_TOO_DEEP, POLICY_TOO_WIDE } from "./policy";
-export { INVALID_SIGNATURES } from "./signatures";
-export { NOT_BEFORE_NOT_MET, TOKEN_EXPIRED } from "./temporal";
-
 export namespace Validator {
+  // Chain validation errors
+  export const CHAIN_TOO_LONG = "token chain is too long";
+  export const COMMAND_NOT_ATTENUATED = "command is not an attenuation";
+  export const DIFFERENT_SUBJECTS = "different subjects in chain";
+  export const ISSUER_AUDIENCE_MISMATCH = "issuer/audience mismatch";
+  export const MISSING_PROOF = "proof is missing";
+  export const NOT_BEFORE_BACKWARDS = "`not before` cannot move backwards";
+  export const PROOFS_MUST_BE_DELEGATIONS = "proofs must be delegations";
+  export const ROOT_KEY_SIGNATURE_MISSING =
+    "root NUC is not signed by a root issuer";
+  export const SUBJECT_NOT_IN_CHAIN = "subject not in chain";
+  export const TOO_MANY_PROOFS = "up to one `prf` in a token is allowed";
+  export const UNCHAINED_PROOFS = "extra proofs not part of chain provided";
+  // Policy validation errors
+  export const POLICY_TOO_DEEP = "policy is too deep";
+  export const POLICY_TOO_WIDE = "policy is too wide";
+  // Signature validation errors
+  export const INVALID_SIGNATURES = "invalid signatures";
+  // Temporal validation errors
+  export const NOT_BEFORE_NOT_MET = "`not before` date not met";
+  export const TOKEN_EXPIRED = "token is expired";
+  // Top-level validation errors
+  export const INVALID_AUDIENCE = "invalid audience";
+  export const NEED_DELEGATION = "token must be a delegation";
+  export const NEED_INVOCATION = "token must be an invocation";
+  export const POLICY_NOT_MET = "policy not met";
   /**
    * Validates a NUC token envelope against requirements and policies.
    *
@@ -137,17 +133,17 @@ export namespace Validator {
           chainLength: envelope.proofs.length + 1,
           maxChainLength: config.maxChainLength,
         },
-        CHAIN_TOO_LONG,
+        Validator.CHAIN_TOO_LONG,
       );
-      throw new Error(CHAIN_TOO_LONG);
+      throw new Error(Validator.CHAIN_TOO_LONG);
     }
 
     const payload = envelope.nuc.payload;
     const proofBytes = Payload.getProofBytes(payload);
 
     if (proofBytes.length > 1) {
-      Log.debug({ proofCount: proofBytes.length }, TOO_MANY_PROOFS);
-      throw new Error(TOO_MANY_PROOFS);
+      Log.debug({ proofCount: proofBytes.length }, Validator.TOO_MANY_PROOFS);
+      throw new Error(Validator.TOO_MANY_PROOFS);
     }
 
     const proofs = proofBytes.flatMap((proofHash) =>
@@ -164,8 +160,8 @@ export namespace Validator {
     try {
       validateEnvelopeSignature(envelope);
     } catch (error) {
-      Log.debug({ error }, INVALID_SIGNATURES);
-      throw new Error(INVALID_SIGNATURES);
+      Log.debug({ error }, Validator.INVALID_SIGNATURES);
+      throw new Error(Validator.INVALID_SIGNATURES);
     }
   }
 }
@@ -202,18 +198,18 @@ function validateDelegationPayload(
   if (tokenRequirements.type === "invocation") {
     Log.debug(
       { expectedType: "invocation", actualType: "delegation" },
-      NEED_INVOCATION,
+      Validator.NEED_INVOCATION,
     );
-    throw new Error(NEED_INVOCATION);
+    throw new Error(Validator.NEED_INVOCATION);
   }
 
   if (tokenRequirements.type === "delegation") {
     if (!Did.areEqual(payload.aud, Did.parse(tokenRequirements.audience))) {
       Log.debug(
         { expected: tokenRequirements.audience, actual: payload.aud },
-        INVALID_AUDIENCE,
+        Validator.INVALID_AUDIENCE,
       );
-      throw new Error(INVALID_AUDIENCE);
+      throw new Error(Validator.INVALID_AUDIENCE);
     }
   }
 }
@@ -241,18 +237,18 @@ function validateInvocationPayload(
   if (tokenRequirements.type === "delegation") {
     Log.debug(
       { expectedType: "delegation", actualType: "invocation" },
-      NEED_DELEGATION,
+      Validator.NEED_DELEGATION,
     );
-    throw new Error(NEED_DELEGATION);
+    throw new Error(Validator.NEED_DELEGATION);
   }
 
   if (tokenRequirements.type === "invocation") {
     if (!Did.areEqual(payload.aud, Did.parse(tokenRequirements.audience))) {
       Log.debug(
         { expected: tokenRequirements.audience, actual: payload.aud },
-        INVALID_AUDIENCE,
+        Validator.INVALID_AUDIENCE,
       );
-      throw new Error(INVALID_AUDIENCE);
+      throw new Error(Validator.INVALID_AUDIENCE);
     }
   }
 }
@@ -267,8 +263,8 @@ function validatePolicyEvaluates(
   context: Record<string, unknown>,
 ): void {
   if (Payload.isInvocationPayload(proof)) {
-    Log.debug({ proof }, PROOFS_MUST_BE_DELEGATIONS);
-    throw new Error(PROOFS_MUST_BE_DELEGATIONS);
+    Log.debug({ proof }, Validator.PROOFS_MUST_BE_DELEGATIONS);
+    throw new Error(Validator.PROOFS_MUST_BE_DELEGATIONS);
   }
 
   if (
@@ -277,8 +273,8 @@ function validatePolicyEvaluates(
   ) {
     Log.debug(
       { policy: proof.pol, payload: payloadJson, context },
-      POLICY_NOT_MET,
+      Validator.POLICY_NOT_MET,
     );
-    throw new Error(POLICY_NOT_MET);
+    throw new Error(Validator.POLICY_NOT_MET);
   }
 }

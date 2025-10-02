@@ -2,17 +2,7 @@ import { describe, it } from "vitest";
 import { Signer } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
 import { REVOKE_COMMAND } from "#/nuc/payload";
-import {
-  CHAIN_TOO_LONG,
-  COMMAND_NOT_ATTENUATED,
-  DIFFERENT_SUBJECTS,
-  INVALID_AUDIENCE,
-  ISSUER_AUDIENCE_MISMATCH,
-  MISSING_PROOF,
-  POLICY_NOT_MET,
-  ROOT_KEY_SIGNATURE_MISSING,
-  UNCHAINED_PROOFS,
-} from "#/validator/validator";
+import { Validator } from "#/validator/validator";
 import {
   assertFailure,
   assertSuccess,
@@ -49,7 +39,7 @@ describe("Validator", () => {
 
     envelope.proofs.push(unlinkedToken.nuc);
 
-    assertFailure(envelope, UNCHAINED_PROOFS);
+    assertFailure(envelope, Validator.UNCHAINED_PROOFS);
   });
 
   it("should fail validation if the chain is too long", async () => {
@@ -75,7 +65,7 @@ describe("Validator", () => {
       .sign(userSigner);
 
     // Set max chain length to 2 (the chain has 4 tokens)
-    assertFailure(envelope, CHAIN_TOO_LONG, {
+    assertFailure(envelope, Validator.CHAIN_TOO_LONG, {
       parameters: { maxChainLength: 2 },
     });
   });
@@ -95,7 +85,7 @@ describe("Validator", () => {
       .audience(userDid) // A new audience is still required
       .sign(userSigner);
 
-    assertFailure(chainedEnvelope, COMMAND_NOT_ATTENUATED);
+    assertFailure(chainedEnvelope, Validator.COMMAND_NOT_ATTENUATED);
   });
 
   it("should fail if subjects differ across the chain", async () => {
@@ -115,7 +105,7 @@ describe("Validator", () => {
       .audience(await Signer.generate().getDid())
       .sign(userSigner2);
 
-    assertFailure(chainedEnvelope, DIFFERENT_SUBJECTS);
+    assertFailure(chainedEnvelope, Validator.DIFFERENT_SUBJECTS);
   });
 
   it("should fail if the issuer does not match the previous audience", async () => {
@@ -133,7 +123,7 @@ describe("Validator", () => {
       .audience(await Signer.generate().getDid())
       .sign(anotherSigner); // Invalid: signed by a party that was not the audience
 
-    assertFailure(chainedEnvelope, ISSUER_AUDIENCE_MISMATCH);
+    assertFailure(chainedEnvelope, Validator.ISSUER_AUDIENCE_MISMATCH);
   });
 
   it("should fail if an invocation has an invalid audience", async () => {
@@ -153,7 +143,7 @@ describe("Validator", () => {
       .audience(actualAudienceDid)
       .sign(userSigner);
 
-    assertFailure(invocationEnvelope, INVALID_AUDIENCE, {
+    assertFailure(invocationEnvelope, Validator.INVALID_AUDIENCE, {
       parameters: {
         tokenRequirements: {
           type: "invocation",
@@ -178,7 +168,7 @@ describe("Validator", () => {
       .sign(userSigner);
 
     chainedEnvelope.proofs = []; // Manually remove the proof
-    assertFailure(chainedEnvelope, MISSING_PROOF);
+    assertFailure(chainedEnvelope, Validator.MISSING_PROOF);
   });
 
   it("should fail if the policy of a parent delegation is not met", async () => {
@@ -196,7 +186,7 @@ describe("Validator", () => {
       .arguments({ bar: 1337 }) // Does not satisfy the policy
       .audience(await Signer.generate().getDid())
       .sign(userSigner);
-    assertFailure(invocationEnvelope, POLICY_NOT_MET);
+    assertFailure(invocationEnvelope, Validator.POLICY_NOT_MET);
   });
 
   it("should fail if the root NUC is not signed by a trusted root key", async () => {
@@ -214,7 +204,7 @@ describe("Validator", () => {
       .audience(userDid)
       .sign(userSigner);
 
-    assertFailure(chainedEnvelope, ROOT_KEY_SIGNATURE_MISSING, {
+    assertFailure(chainedEnvelope, Validator.ROOT_KEY_SIGNATURE_MISSING, {
       rootDids: ROOT_DIDS,
     });
   });

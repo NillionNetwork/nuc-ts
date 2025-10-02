@@ -1,12 +1,10 @@
-import { hexToBytes } from "@noble/hashes/utils.js";
 import { Wallet } from "ethers";
 import { describe, it } from "vitest";
 import * as ethr from "#/core/did/ethr";
-import type { Signer as SignerType } from "#/core/signer";
 import { Signer } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
-import { NucHeaders } from "#/nuc/header";
 import { assertSuccess } from "#tests/helpers/assertions";
+import { createNativeEthrSigner } from "#tests/helpers/signers";
 
 describe("heterogeneous nuc chain", () => {
   it("should validate a heterogeneous chain: did:key -> did:ethr -> did:nil", async ({
@@ -20,17 +18,7 @@ describe("heterogeneous nuc chain", () => {
     // B. An intermediate user with an Ethereum wallet
     const userWallet = Wallet.createRandom();
     const userDid = ethr.fromAddress(userWallet.address);
-    const userSigner: SignerType = {
-      header: NucHeaders.v1,
-      getDid: async () => userDid,
-      sign: async (data) => {
-        const signatureHex = await userWallet.signMessage(data);
-        const cleanHex = signatureHex.startsWith("0x")
-          ? signatureHex.slice(2)
-          : signatureHex;
-        return hexToBytes(cleanHex);
-      },
-    };
+    const userSigner = createNativeEthrSigner(userWallet);
 
     // C. A legacy service that the user delegates a sub-capability to
     const legacySvcSigner = Signer.generate("nil");

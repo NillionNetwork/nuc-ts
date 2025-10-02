@@ -428,10 +428,10 @@ export class InvocationBuilder extends AbstractBuilder {
  *
  * @example
  * ```typescript
- * import { Builder } from "@nillion/nuc";
- * import { Keypair } from "@nillion/nuc";
+ * import { Builder, Signer } from "@nillion/nuc";
  *
- * const keypair = Keypair.generate();
+ * const signer = Signer.generate();
+ * const userSigner = Signer.generate();
  *
  * // Create a delegation token
  * const delegation = await Builder.delegation()
@@ -439,13 +439,13 @@ export class InvocationBuilder extends AbstractBuilder {
  *   .subject(subjectDid)
  *   .command("/db/read")
  *   .policy([["==", ".command", "/db/read"]])
- *   .build(keypair);
+ *   .sign(signer);
  *
  * // Create an invocation token from the delegation
- * const invocation = await Builder.invoking(delegation)
+ * const invocation = await Builder.invocationFrom(delegation)
  *   .audience(serviceDid)
  *   .arguments({ table: "users", id: 123 })
- *   .build(userKeypair);
+ *   .sign(userSigner);
  * ```
  */
 export const Builder = {
@@ -509,11 +509,11 @@ export const Builder = {
    *   .subject(userDid)
    *   .command("/db/read")
    *   .policy([["==", ".command", "/db/read"]])
-   *   .build(rootKeypair);
+   *   .build(rootSigner);
    *
    * const chainedToken = await Builder.delegationFrom(rootToken)
    *   .audience(newAudience) // Override the audience
-   *   .build(userKeypair);
+   *   .build(userSigner);
    * ```
    * @see {@link DelegationBuilder}
    */

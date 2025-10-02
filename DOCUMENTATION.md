@@ -53,8 +53,8 @@ const rootDelegation = await Builder.delegation()
   .subject(userDid)                       // Who the delegation is about
   .command("/nil/db/collections/read")    // The authorized command namespace
   .policy([                               // Policy rules that must be satisfied
-    ["==", ".command", "/db/read"],
-    ["!=", ".args.table", "secrets"]
+    ["==", ".command", "/nil/db/collections"], // Command must be an attenuation
+    ["!=", ".args.collection", "secrets"]
   ])
   .expiresAt(Date.now() + 3600 * 1000)    // Expires in 1 hour
   .sign(rootSigner);
@@ -63,7 +63,8 @@ const rootDelegation = await Builder.delegation()
 // The user invokes their granted capability for the service
 const invocation = await Builder.invocationFrom(rootDelegation)
   .audience(serviceDid)                   // The service that will process this
-  .arguments({collection: "users"})       // Arguments for the command
+  .command("/nil/db/collections/read")    // The specific command being invoked
+  .arguments({ collection: "users" })       // Arguments for the command
   .sign(userSigner); // Signed by the user
 
 // Step 5: Serialize for transmission
