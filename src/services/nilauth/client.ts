@@ -251,32 +251,23 @@ export class NilauthClient {
   }
 
   /**
-   * Performs a subscription payment and validates it with the service.
-   * This must be performed by the **Payer**.
-   * @param payerKeypair - The keypair of the identity paying for the subscription.
-   * @param subscriberDid - The Did of the identity receiving the sub scription.
+   * Creates the payload for a subscription payment and its corresponding resource hash.
+   * This is the first step in the decoupled payment flow. The returned `resourceHash`
+   * is sent on-chain, and the `payload` object is used for validation.
+   * @param subscriberDid - The Did of the identity receiving the subscription.
    * @param blindModule - The module to subscribe to ("nilai" or "nildb").
-   * @throws {Error} If a Payer instance is not configured on the client.
-   * @throws {PaymentTxFailed} If the on-chain payment transaction fails.
-   * @throws {NilauthErrorResponse} If payment validation fails.
+   * @param payerDid - The Did of the identity paying for the subscription.
+   * @returns An object containing the payload and its SHA-256 hash.
    */
-  async paySubscription(
-    payerKeypair: Keypair,
+  createPaymentResource(
     subscriberDid: Did,
     blindModule: BlindModule,
-  ): Promise<void> {
-    if (!this.payer) {
-      throw new Error(
-        "A Payer instance is required for this operation. Please provide it during NilauthClient creation.",
-      );
-    }
-
-    const costUnil = await this.subscriptionCost(blindModule);
-    const payerDid = payerKeypair.toDid("key");
-
-    // Key ordering must match what nilauth expects we need to do canonical Json serialization
-    // to resolve this see - https://github.com/NillionNetwork/nilauth/issues/50
-    const onChainPayload = {
+    payerDid: Did,
+  ): { resourceHash: Uint8Array; payload: object } {
+    // Key ordering must match what nilauth expects. A more robust canonical JSON
+    // serialization should be used in the future.
+    // See: https://github.com/NillionNetwork/nilauth/issues/50
+    const payload = {
       service_public_key: this.nilauthPublicKey,
       nonce: bytesToHex(randomBytes(16)),
       blind_module: blindModule,
@@ -284,21 +275,30 @@ export class NilauthClient {
       subscriber_did: Did.serialize(subscriberDid),
     };
 
-    const payloadStr = JSON.stringify(onChainPayload);
+    const payloadStr = JSON.stringify(payload);
     const resourceHash = sha256(new TextEncoder().encode(payloadStr));
     Log.debug(
-      `Making payment with payload=${payloadStr}, digest=${bytesToHex(
+      `Created payment resource with payload=${payloadStr}, digest=${bytesToHex(
         resourceHash,
       )}`,
     );
 
-    let txHash: string;
-    try {
-      txHash = await this.payer.pay(resourceHash, costUnil);
-    } catch (cause) {
-      throw new PaymentTxFailed(cause);
-    }
+    return { resourceHash, payload };
+  }
 
+  /**
+   * Validates a payment transaction with the nilauth service.
+   * This is the final step in the decoupled payment flow.
+   * @param txHash - The transaction hash from the on-chain payment.
+   * @param payload - The original payload object returned by `createPaymentResource`.
+   * @param payerKeypair - The keypair of the identity that paid for the subscription.
+   * @throws {NilauthErrorResponse} If payment validation fails.
+   */
+  async validatePayment(
+    txHash: string,
+    payload: object,
+    payerKeypair: Keypair,
+  ): Promise<void> {
     const identityNuc = await this.createIdentityNuc(
       payerKeypair,
       "/nil/auth/payments/validate",
@@ -307,7 +307,7 @@ export class NilauthClient {
     const url = NilauthUrl.payments.validate(this.nilauthBaseUrl);
     const json = {
       tx_hash: txHash,
-      payload: onChainPayload,
+      payload: payload,
     };
 
     await performRequest(url, ValidatePaymentResponseSchema, {
@@ -323,7 +323,47 @@ export class NilauthClient {
       },
     });
 
-    Log.info({ subscriberDid, blindModule }, "Subscription payment validated");
+    Log.info({ txHash }, "Subscription payment validated");
+  }
+
+  /**
+   * Performs a subscription payment and validates it with the service.
+   * @deprecated This method will be removed in a future version. Use the decoupled flow: `createPaymentResource`, `payer.pay`, and `validatePayment`.
+   * @param payerKeypair - The keypair of the identity paying for the subscription.
+   * @param subscriberDid - The Did of the identity receiving the subscription.
+   * @param blindModule - The module to subscribe to ("nilai" or "nildb").
+   * @throws {Error} If a Payer instance is not configured on the client.
+   * @throws {PaymentTxFailed} If the on-chain payment transaction fails.
+   * @throws {NilauthErrorResponse} If payment validation fails.
+   */
+  async payAndValidate(
+    payerKeypair: Keypair,
+    subscriberDid: Did,
+    blindModule: BlindModule,
+  ): Promise<void> {
+    if (!this.payer) {
+      throw new Error(
+        "A Payer instance is required for this operation. Please provide it during NilauthClient creation.",
+      );
+    }
+
+    const costUnil = await this.subscriptionCost(blindModule);
+    const payerDid = payerKeypair.toDid("key");
+
+    const { resourceHash, payload } = this.createPaymentResource(
+      subscriberDid,
+      blindModule,
+      payerDid,
+    );
+
+    let txHash: string;
+    try {
+      txHash = await this.payer.pay(resourceHash, costUnil);
+    } catch (cause) {
+      throw new PaymentTxFailed(cause);
+    }
+
+    await this.validatePayment(txHash, payload, payerKeypair);
   }
 
   /**

@@ -41,7 +41,7 @@ describe("nilauth client", () => {
   });
 
   it("pay and validate subscription", async () => {
-    const promise = nilauthClient.paySubscription(
+    const promise = nilauthClient.payAndValidate(
       keypair,
       keypair.toDid(),
       "nildb",
@@ -158,7 +158,7 @@ describe("NilauthClient without a Payer", () => {
   });
 
   it("should throw when performing a write operation", async () => {
-    const promise = clientWithoutPayer.paySubscription(
+    const promise = clientWithoutPayer.payAndValidate(
       Keypair.generate(),
       Keypair.generate().toDid(),
       "nildb",
@@ -166,5 +166,63 @@ describe("NilauthClient without a Payer", () => {
     await expect(promise).rejects.toThrow(
       "A Payer instance is required for this operation.",
     );
+  });
+});
+
+describe("nilauth client - decoupled payment flow", () => {
+  let nilauthClient: NilauthClient;
+
+  beforeAll(async () => {
+    const keypair = Keypair.from(Env.NilauthClient);
+    const payer = await PayerBuilder.fromKeypair(keypair)
+      .chainUrl(Env.nilChainUrl)
+      .build();
+    nilauthClient = await NilauthClient.create({
+      baseUrl: Env.nilAuthUrl,
+      payer,
+    });
+  });
+
+  it("should successfully pay and validate a subscription using the decoupled flow", async () => {
+    const payerKeypair = Keypair.from(Env.NilauthClient);
+    const subscriberKeypair = Keypair.generate();
+    const payerDid = payerKeypair.toDid("key");
+    const subscriberDid = subscriberKeypair.toDid("key");
+    const blindModule = "nilai";
+
+    // 1. Check current status (should not be subscribed)
+    const initialStatus = await nilauthClient.subscriptionStatus(
+      subscriberDid,
+      blindModule,
+    );
+    expect(initialStatus.subscribed).toBeFalsy();
+
+    // 2. Get subscription cost
+    const costUnil = await nilauthClient.subscriptionCost(blindModule);
+    expect(costUnil).toBeGreaterThan(0);
+
+    // 3. Create payment resource
+    const { resourceHash, payload } = nilauthClient.createPaymentResource(
+      subscriberDid,
+      blindModule,
+      payerDid,
+    );
+
+    // 4. Pay on-chain
+    const txHash = await nilauthClient.payer!.pay(resourceHash, costUnil);
+    expect(txHash).toBeDefined();
+
+    // 5. Validate with nilauth
+    await expect(
+      nilauthClient.validatePayment(txHash, payload, payerKeypair),
+    ).resolves.toBeUndefined();
+
+    // 6. Verify subscription is now active
+    const finalStatus = await nilauthClient.subscriptionStatus(
+      subscriberDid,
+      blindModule,
+    );
+    expect(finalStatus.subscribed).toBeTruthy();
+    expect(finalStatus.details?.expiresAt).toBeGreaterThan(Date.now());
   });
 });
