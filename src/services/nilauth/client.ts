@@ -154,14 +154,15 @@ export class NilauthClient {
    * @internal
    */
   private async createIdentityNuc(
-    keypair: Keypair,
+    signer: Signer,
     command: string,
   ): Promise<string> {
+    const subject = await signer.getDid();
     return Builder.invocation()
-      .subject(keypair.toDid("key"))
+      .subject(subject)
       .audience(this.nilauthDid)
       .command(command)
-      .signAndSerialize(Signer.fromKeypair(keypair));
+      .signAndSerialize(signer);
   }
 
   /**
@@ -291,16 +292,16 @@ export class NilauthClient {
    * This is the final step in the decoupled payment flow.
    * @param txHash - The transaction hash from the on-chain payment.
    * @param payload - The original payload object returned by `createPaymentResource`.
-   * @param payerKeypair - The keypair of the identity that paid for the subscription.
+   * @param payerSigner - The signer of the identity that paid for the subscription.
    * @throws {NilauthErrorResponse} If payment validation fails.
    */
   async validatePayment(
     txHash: string,
     payload: object,
-    payerKeypair: Keypair,
+    payerSigner: Signer,
   ): Promise<void> {
     const identityNuc = await this.createIdentityNuc(
-      payerKeypair,
+      payerSigner,
       "/nil/auth/payments/validate",
     );
 
@@ -363,23 +364,24 @@ export class NilauthClient {
       throw new PaymentTxFailed(cause);
     }
 
-    await this.validatePayment(txHash, payload, payerKeypair);
+    const payerSigner = Signer.fromKeypair(payerKeypair);
+    await this.validatePayment(txHash, payload, payerSigner);
   }
 
   /**
    * Requests a root NUC from the Nilauth service for an active subscription.
    * This must be performed by the **Subscriber**.
-   * @param subscriberKeypair - The keypair of the subscribed identity.
+   * @param subscriberSigner - The signer of the subscribed identity.
    * @param blindModule - The module to request a token for ("nilai" or "nildb").
    * @returns The created token response.
    * @throws {NilauthErrorResponse} If token creation fails (e.g., no active subscription).
    */
   async requestToken(
-    subscriberKeypair: Keypair,
+    subscriberSigner: Signer,
     blindModule: BlindModule,
   ): Promise<CreateTokenResponse> {
     const identityNuc = await this.createIdentityNuc(
-      subscriberKeypair,
+      subscriberSigner,
       "/nil/auth/nucs/create",
     );
 
@@ -401,17 +403,19 @@ export class NilauthClient {
   /**
    * Revokes a previously issued token.
    * @param config - Revocation configuration
-   * @param config.keypair - The keypair to sign the revocation with
+   * @param config.signer - The signer to authorize the revocation
    * @param config.authToken - The authentication token granting revocation permission
    * @param config.tokenToRevoke - The token to revoke
    * @throws {NilauthErrorResponse} If revocation fails
    */
   async revokeToken(config: {
-    keypair: Keypair;
+    signer: Signer;
     authToken: Envelope;
     tokenToRevoke: Envelope;
   }): Promise<void> {
-    const { keypair, authToken, tokenToRevoke } = config;
+    const { signer, authToken, tokenToRevoke } = config;
+
+    const issuer = await signer.getDid();
 
     const revokeTokenEnvelope = await Builder.invocationFrom(authToken)
       .arguments({
@@ -419,9 +423,9 @@ export class NilauthClient {
       })
       .command(REVOKE_COMMAND)
       .audience(this.nilauthDid)
-      .issuer(keypair.toDid("key"))
+      .issuer(issuer)
       // Subject is inherited from authToken
-      .sign(Signer.fromKeypair(keypair));
+      .sign(signer);
 
     const revokeTokenString = Codec.serializeBase64Url(revokeTokenEnvelope);
     const url = NilauthUrl.nucs.revoke(this.nilauthBaseUrl);

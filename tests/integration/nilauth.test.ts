@@ -62,7 +62,10 @@ describe("nilauth client", () => {
     const parsedDid = keypair.toDid();
     const nowInSeconds = Math.floor(Date.now() / 1000);
 
-    const response = await nilauthClient.requestToken(keypair, "nildb");
+    const response = await nilauthClient.requestToken(
+      keypair.signer(),
+      "nildb",
+    );
     envelope = response.token;
 
     expect(Did.areEqual(envelope.nuc.payload.sub, parsedDid)).toBeTruthy();
@@ -81,7 +84,7 @@ describe("nilauth client", () => {
     // Phase 1: Build a 3-part delegation chain
     // 1. Get a root token from nilauth
     const { token: rootToken } = await nilauthClient.requestToken(
-      keypair, // The root keypair for the test suite
+      keypair.signer(), // The root keypair for the test suite
       "nildb",
     );
 
@@ -101,13 +104,13 @@ describe("nilauth client", () => {
     // Phase 2: Revoke the intermediate token (userDelegation)
     // 1. Get a fresh authToken to authorize the revocation itself.
     const { token: authToken } = await nilauthClient.requestToken(
-      keypair,
+      keypair.signer(),
       "nildb",
     );
 
     // 2. Root revokes the delegation (userDelegation)
     await nilauthClient.revokeToken({
-      keypair,
+      signer: keypair.signer(),
       authToken,
       tokenToRevoke: userDelegation,
     });
@@ -214,7 +217,7 @@ describe("nilauth client - decoupled payment flow", () => {
 
     // 5. Validate with nilauth
     await expect(
-      nilauthClient.validatePayment(txHash, payload, payerKeypair),
+      nilauthClient.validatePayment(txHash, payload, payerKeypair.signer()),
     ).resolves.toBeUndefined();
 
     // 6. Verify subscription is now active
