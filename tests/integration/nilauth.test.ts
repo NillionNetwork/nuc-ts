@@ -1,7 +1,6 @@
-import { bytesToHex } from "@noble/hashes/utils";
+import { bytesToHex } from "@noble/hashes/utils.js";
 import { beforeAll, describe, expect, it } from "vitest";
 import { Did } from "#/core/did/did";
-import { Keypair } from "#/core/keypair";
 import { Signer } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
 import { Envelope } from "#/nuc/envelope";
@@ -15,11 +14,11 @@ const Env = {
 };
 
 describe("nilauth client", () => {
-  const keypair = Keypair.from(Env.NilauthClient);
+  const signer = Signer.fromPrivateKey(Env.NilauthClient);
   let nilauthClient: NilauthClient;
 
   beforeAll(async () => {
-    const payer = await PayerBuilder.fromKeypair(keypair)
+    const payer = await PayerBuilder.fromPrivateKey(Env.NilauthClient)
       .chainUrl(Env.nilChainUrl)
       .build();
     nilauthClient = await NilauthClient.create({
@@ -35,20 +34,24 @@ describe("nilauth client", () => {
 
   it("is not subscribed", async () => {
     const response = await nilauthClient.subscriptionStatus(
-      keypair.publicKey(),
+      await signer.getDid(),
       "nildb",
     );
     expect(response.subscribed).toBeFalsy();
   });
 
   it("pay and validate subscription", async () => {
-    const promise = nilauthClient.payAndValidate(keypair.publicKey(), "nildb");
+    const promise = nilauthClient.payAndValidate(
+      signer,
+      await signer.getDid(),
+      "nildb",
+    );
     await expect(promise).resolves.toBeUndefined();
   });
 
   it("is subscribed", async () => {
     const response = await nilauthClient.subscriptionStatus(
-      keypair.publicKey(),
+      await signer.getDid(),
       "nildb",
     );
     expect(response.subscribed).toBeTruthy();
@@ -56,10 +59,10 @@ describe("nilauth client", () => {
 
   let envelope: Envelope;
   it("request token", async () => {
-    const parsedDid = keypair.toDid("nil");
+    const parsedDid = await signer.getDid();
     const nowInSeconds = Math.floor(Date.now() / 1000);
 
-    const response = await nilauthClient.requestToken(keypair, "nildb");
+    const response = await nilauthClient.requestToken(signer, "nildb");
     envelope = response.token;
 
     expect(Did.areEqual(envelope.nuc.payload.sub, parsedDid)).toBeTruthy();
@@ -75,38 +78,37 @@ describe("nilauth client", () => {
   });
 
   it("should revoke intermediate delegation", async () => {
-    // TODO: nilauth only supports legacy dids so this will need updating when nilauth + nuc-rs are updated
-
     // Phase 1: Build a 3-part delegation chain
     // 1. Get a root token from nilauth
     const { token: rootToken } = await nilauthClient.requestToken(
-      keypair, // The root keypair for the test suite
+      signer, // The root signer for the test suite
       "nildb",
     );
 
     // 2. Delegate root token to a user.
-    const userKeypair = Keypair.generate();
-    const userDelegation = await Builder.delegating(rootToken)
-      .audience(userKeypair.toDid("nil"))
-      .subject(userKeypair.toDid("nil"))
+    const userSigner = Signer.generate();
+    const userDid = await userSigner.getDid();
+    const userDelegation = await Builder.delegationFrom(rootToken)
+      .audience(userDid)
+      .subject(userDid)
       .command("/some/specific/capability")
-      .build(Signer.fromLegacyKeypair(keypair));
+      .sign(signer);
 
     // 3. The user invokes their delegation.
-    const finalInvocation = await Builder.invoking(userDelegation)
-      .audience(Keypair.generate().toDid("nil")) // Some final service
-      .build(Signer.fromLegacyKeypair(userKeypair)); // Signed by the user
+    const finalInvocation = await Builder.invocationFrom(userDelegation)
+      .audience(await Signer.generate().getDid()) // Some final service
+      .sign(userSigner); // Signed by the user
 
     // Phase 2: Revoke the intermediate token (userDelegation)
     // 1. Get a fresh authToken to authorize the revocation itself.
     const { token: authToken } = await nilauthClient.requestToken(
-      keypair,
+      signer,
       "nildb",
     );
 
     // 2. Root revokes the delegation (userDelegation)
     await nilauthClient.revokeToken({
-      keypair,
+      signer: signer,
       authToken,
       tokenToRevoke: userDelegation,
     });
@@ -143,12 +145,13 @@ describe("NilauthClient without a Payer", () => {
 
   it("should successfully perform read-only operations", async () => {
     // Create a dummy token to check for revocation
-    const testKeypair = Keypair.generate();
+    const testSigner = Signer.generate();
+    const testDid = await testSigner.getDid();
     const tokenToRevoke = await Builder.delegation()
-      .audience(testKeypair.toDid())
-      .subject(testKeypair.toDid())
+      .audience(testDid)
+      .subject(testDid)
       .command("/test")
-      .build(Signer.fromKeypair(Keypair.generate()));
+      .sign(Signer.generate());
 
     // This should succeed as it doesn't require a payer
     const promise =
@@ -157,12 +160,71 @@ describe("NilauthClient without a Payer", () => {
   });
 
   it("should throw when performing a write operation", async () => {
+    const testSigner = Signer.generate();
     const promise = clientWithoutPayer.payAndValidate(
-      "some-public-key",
+      testSigner,
+      await testSigner.getDid(),
       "nildb",
     );
     await expect(promise).rejects.toThrow(
       "A Payer instance is required for this operation.",
     );
+  });
+});
+
+describe("nilauth client - decoupled payment flow", () => {
+  let nilauthClient: NilauthClient;
+
+  beforeAll(async () => {
+    const payer = await PayerBuilder.fromPrivateKey(Env.NilauthClient)
+      .chainUrl(Env.nilChainUrl)
+      .build();
+    nilauthClient = await NilauthClient.create({
+      baseUrl: Env.nilAuthUrl,
+      payer,
+    });
+  });
+
+  it("should successfully pay and validate a subscription using the decoupled flow", async () => {
+    const payerSigner = Signer.fromPrivateKey(Env.NilauthClient);
+    const subscriberSigner = Signer.generate();
+    const payerDid = await payerSigner.getDid();
+    const subscriberDid = await subscriberSigner.getDid();
+    const blindModule = "nilai";
+
+    // 1. Check current status (should not be subscribed)
+    const initialStatus = await nilauthClient.subscriptionStatus(
+      subscriberDid,
+      blindModule,
+    );
+    expect(initialStatus.subscribed).toBeFalsy();
+
+    // 2. Get subscription cost
+    const costUnil = await nilauthClient.subscriptionCost(blindModule);
+    expect(costUnil).toBeGreaterThan(0);
+
+    // 3. Create payment resource
+    const { resourceHash, payload } = nilauthClient.createPaymentResource(
+      subscriberDid,
+      blindModule,
+      payerDid,
+    );
+
+    // 4. Pay on-chain
+    const txHash = await nilauthClient.payer!.pay(resourceHash, costUnil);
+    expect(txHash).toBeDefined();
+
+    // 5. Validate with nilauth
+    await expect(
+      nilauthClient.validatePayment(txHash, payload, payerSigner),
+    ).resolves.toBeUndefined();
+
+    // 6. Verify subscription is now active
+    const finalStatus = await nilauthClient.subscriptionStatus(
+      subscriberDid,
+      blindModule,
+    );
+    expect(finalStatus.subscribed).toBeTruthy();
+    expect(finalStatus.details?.expiresAt).toBeGreaterThan(Date.now());
   });
 });

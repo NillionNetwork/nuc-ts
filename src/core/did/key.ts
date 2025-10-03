@@ -1,4 +1,4 @@
-import { secp256k1 } from "@noble/curves/secp256k1";
+import { secp256k1 } from "@noble/curves/secp256k1.js";
 import { base58btc } from "multiformats/bases/base58";
 import type { DidKey } from "#/core/did/types";
 

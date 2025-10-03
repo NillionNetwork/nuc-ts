@@ -1,12 +1,10 @@
-import { hexToBytes } from "@noble/hashes/utils";
 import { Wallet } from "ethers";
 import { describe, it } from "vitest";
 import * as ethr from "#/core/did/ethr";
-import { Keypair } from "#/core/keypair";
 import { Signer } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
-import { NucHeaders } from "#/nuc/header";
 import { assertSuccess } from "#tests/helpers/assertions";
+import { createNativeEthrSigner } from "#tests/helpers/signers";
 
 describe("heterogeneous nuc chain", () => {
   it("should validate a heterogeneous chain: did:key -> did:ethr -> did:nil", async ({
@@ -14,32 +12,20 @@ describe("heterogeneous nuc chain", () => {
   }) => {
     // Phase 1 - Actors
     // A. The root of trust, using did:key
-    const rootKeypair = Keypair.generate();
-    const rootSigner = Signer.fromKeypair(rootKeypair);
-    const rootDid = rootKeypair.toDid("key");
+    const rootSigner = Signer.generate();
+    const rootDid = await rootSigner.getDid();
 
     // B. An intermediate user with an Ethereum wallet
     const userWallet = Wallet.createRandom();
     const userDid = ethr.fromAddress(userWallet.address);
-    const userSigner: Signer = {
-      header: NucHeaders.v1,
-      getDid: async () => userDid,
-      sign: async (data) => {
-        const signatureHex = await userWallet.signMessage(data);
-        const cleanHex = signatureHex.startsWith("0x")
-          ? signatureHex.slice(2)
-          : signatureHex;
-        return hexToBytes(cleanHex);
-      },
-    };
+    const userSigner = createNativeEthrSigner(userWallet);
 
     // C. A legacy service that the user delegates a sub-capability to
-    const legacySvcKeypair = Keypair.generate();
-    const legacySvcSigner = Signer.fromLegacyKeypair(legacySvcKeypair);
-    const legacySvcDid = legacySvcKeypair.toDid("nil");
+    const legacySvcSigner = Signer.generate("nil");
+    const legacySvcDid = await legacySvcSigner.getDid();
 
     // D. The final service that receives the invocation
-    const finalSvcDid = Keypair.generate().toDid("key");
+    const finalSvcDid = await Signer.generate().getDid();
 
     // Phase 2 - Build the chain
     // 1. Root (did:key) delegates to User (did:ethr)
@@ -47,21 +33,21 @@ describe("heterogeneous nuc chain", () => {
       .audience(userDid)
       .subject(userDid)
       .command("/nil/db/data")
-      .build(rootSigner);
+      .sign(rootSigner);
 
     // 2. User (did:ethr) delegates to LegacySvc (did:nil)
-    const userToLegacySvcDelegation = await Builder.delegating(
+    const userToLegacySvcDelegation = await Builder.delegationFrom(
       rootToUserDelegation,
     )
       .audience(legacySvcDid)
       .command("/nil/db/data/find")
-      .build(userSigner);
+      .sign(userSigner);
 
     // 3. LegacySvc (did:nil) invokes the command for the FinalSvc
-    const invocation = await Builder.invoking(userToLegacySvcDelegation)
+    const invocation = await Builder.invocationFrom(userToLegacySvcDelegation)
       .audience(finalSvcDid)
       .arguments({ id: 123 })
-      .build(legacySvcSigner);
+      .sign(legacySvcSigner);
 
     // Phase 3 - Validation
     assertSuccess(invocation, { rootDids: [rootDid.didString] });

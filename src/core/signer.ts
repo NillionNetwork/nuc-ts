@@ -1,20 +1,11 @@
-import { hexToBytes } from "@noble/hashes/utils";
+import { secp256k1 } from "@noble/curves/secp256k1.js";
+import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
 import type { TypedDataDomain } from "ethers";
-import { type NucHeader, NucHeaders, NucHeaderType } from "#/nuc/header";
+import { NUC_EIP712_DOMAIN, type NucHeader, NucHeaders } from "#/nuc/header";
 import { Payload } from "#/nuc/payload";
 import { Did } from "./did/did";
 import * as ethr from "./did/ethr";
 import { base64UrlDecode } from "./encoding";
-import type { Keypair } from "./keypair";
-
-export const Headers = {
-  legacy: { alg: "ES256K" },
-  v1: { typ: NucHeaderType.NATIVE, alg: "ES256K", ver: "1.0.0" },
-  v1_eip712: (_domain: TypedDataDomain) => ({
-    typ: NucHeaderType.EIP712,
-    // ...
-  }),
-} as const;
 
 /**
  * An abstract signer that can be used to sign Nucs.
@@ -53,45 +44,61 @@ export class SigningError extends Error {
 
 export namespace Signer {
   /**
-   * Creates a modern Signer from a nuc-ts Keypair.
-   * @param keypair The Keypair to use for signing.
-   * @returns A Signer instance using the v1 header and did:key format.
+   * Generates a new cryptographically secure Signer.
+   * @param didMethod The Did method to use. Defaults to "key".
+   * @returns A new Signer instance with a random private key.
    */
-  export function fromKeypair(keypair: Keypair): Signer {
-    return {
-      header: NucHeaders.v1,
-      getDid: async () => keypair.toDid("key"),
-      sign: async (data) => keypair.signBytes(data),
-    };
+  export function generate(didMethod: "key" | "nil" = "key"): Signer {
+    const privateKey = secp256k1.utils.randomSecretKey();
+    return fromPrivateKey(privateKey, didMethod);
   }
 
   /**
-   * Creates a legacy Signer from a nuc-ts Keypair for nilauth compatibility.
-   * @param keypair The Keypair to use for signing.
-   * @returns A Signer instance that uses the legacy header and did:nil format.
-   * @deprecated This will be removed in version 0.3.0. Use `fromKeypair` instead.
+   * Creates a Signer from a private key.
+   * @param privateKey The private key as a hex string or a Uint8Array.
+   * @param didMethod The Did method to use. Defaults to "key".
+   * @returns A new Signer instance.
    */
-  export function fromLegacyKeypair(keypair: Keypair): Signer {
-    console.warn(
-      "DEPRECATION WARNING: `Signer.fromLegacyKeypair` is deprecated and will be removed in version 0.3.0. Use `Signer.fromKeypair` instead.",
-    );
+  export function fromPrivateKey(
+    privateKey: string | Uint8Array,
+    didMethod: "key" | "nil" = "key",
+  ): Signer {
+    const privateKeyBytes =
+      typeof privateKey === "string" ? hexToBytes(privateKey) : privateKey;
+    const publicKeyBytes = secp256k1.getPublicKey(privateKeyBytes);
+    const publicKeyHex = bytesToHex(publicKeyBytes);
+
+    if (didMethod === "nil") {
+      console.warn(
+        'DEPRECATION WARNING: The "nil" DID method is deprecated and will be removed in a future version. Use the "key" method instead.',
+      );
+      return {
+        header: NucHeaders.legacy,
+        getDid: async () => Did.fromPublicKey(publicKeyHex, "nil"),
+        sign: async (data) =>
+          secp256k1.sign(data, privateKeyBytes, {
+            prehash: true,
+          }) as Uint8Array,
+      };
+    }
 
     return {
-      header: NucHeaders.legacy,
-      getDid: async () => keypair.toDid("nil"),
-      sign: async (data) => keypair.signBytes(data),
+      header: NucHeaders.v1,
+      getDid: async () => Did.fromPublicKey(publicKeyHex, "key"),
+      sign: async (data) =>
+        secp256k1.sign(data, privateKeyBytes, { prehash: true }) as Uint8Array,
     };
   }
 
   /**
    * Creates an EIP-712 Signer for Ethereum wallet signing.
    * @param signer The EIP-712 compatible signer (e.g., ethers Wallet)
-   * @param domain The EIP-712 domain parameters
+   * @param domain The optional EIP-712 domain parameters
    * @returns A Signer instance that uses EIP-712 signing
    */
-  export function fromEip712(
+  export function fromWeb3(
     signer: Eip712Signer,
-    domain: TypedDataDomain,
+    domain: TypedDataDomain = NUC_EIP712_DOMAIN,
   ): Signer {
     const eip712Header = NucHeaders.v1_eip712(domain);
     return {

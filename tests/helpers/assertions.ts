@@ -1,11 +1,11 @@
-import { secp256k1 } from "@noble/curves/secp256k1";
-import * as didNil from "#/core/did/nil";
+import { secp256k1 } from "@noble/curves/secp256k1.js";
+import * as didKey from "#/core/did/key";
 import type { Envelope } from "#/nuc/envelope";
 import { type ValidationParameters, Validator } from "#/validator/validator";
 
 export const ROOT_KEYS = [secp256k1.utils.randomSecretKey()];
 export const ROOT_DIDS: string[] = ROOT_KEYS.map((privKey) =>
-  didNil.fromPublicKeyBytes(secp256k1.getPublicKey(privKey)),
+  didKey.fromPublicKeyBytes(secp256k1.getPublicKey(privKey)),
 );
 
 export type AsserterConfiguration = {

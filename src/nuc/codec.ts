@@ -58,7 +58,7 @@ function serializeToken(nuc: Nuc): string {
  *
  * @example
  * ```typescript
- * import { Codec, Builder, Keypair } from "@nillion/nuc";
+ * import { Codec, Builder } from "@nillion/nuc";
  *
  * // Create and serialize a token
  * const envelope = await Builder.delegation()

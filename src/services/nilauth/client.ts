@@ -1,20 +1,16 @@
-import { sha256 } from "@noble/hashes/sha2";
-import { bytesToHex, randomBytes } from "@noble/hashes/utils";
+import { sha256 } from "@noble/hashes/sha2.js";
+import { bytesToHex, randomBytes } from "@noble/hashes/utils.js";
 import ky, { HTTPError, type Options } from "ky";
 import { z } from "zod";
-import { DEFAULT_NONCE_LENGTH } from "#/constants";
 import { Did } from "#/core/did/did";
-import { textToHex } from "#/core/encoding";
 import {
-  NilauthErrorCodeSchema,
   NilauthErrorResponse,
   NilauthErrorResponseBodySchema,
   NilauthUnreachable,
   PaymentTxFailed,
 } from "#/core/errors";
-import type { Keypair } from "#/core/keypair";
 import { Log } from "#/core/logger";
-import { Signer } from "#/core/signer";
+import type { Signer } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
 import { Codec } from "#/nuc/codec";
 import { Envelope } from "#/nuc/envelope";
@@ -32,7 +28,6 @@ import {
   SubscriptionCostResponseSchema,
   type SubscriptionStatusResponse,
   SubscriptionStatusResponseSchema,
-  type ValidatePaymentResponse,
   ValidatePaymentResponseSchema,
 } from "#/services/nilauth/types";
 import { NilauthUrl } from "#/services/nilauth/urls";
@@ -43,8 +38,6 @@ export type BlindModule = "nilai" | "nildb";
 /**
  * Performs a request and handles standardized logging, parsing, and error handling.
  * @internal
- *
- *
  */
 async function performRequest<T>(
   url: string,
@@ -92,18 +85,6 @@ async function performRequest<T>(
   }
 }
 
-function createSignedRequest(
-  payload: Record<string, unknown>,
-  keypair: Keypair,
-) {
-  const stringifiedPayload = JSON.stringify(payload);
-  return {
-    public_key: keypair.publicKey(),
-    signature: keypair.sign(stringifiedPayload),
-    payload: textToHex(stringifiedPayload),
-  };
-}
-
 /**
  * Options required to construct a NilauthClient.
  */
@@ -112,6 +93,7 @@ export type NilauthClientOptions = {
   nilauth: {
     baseUrl: string;
     publicKey: string;
+    did: Did;
   };
 };
 
@@ -139,8 +121,47 @@ export class NilauthClient {
       nilauth: {
         baseUrl,
         publicKey: about.publicKey,
+        did: Did.fromPublicKey(about.publicKey, "key"),
       },
     });
+  }
+
+  readonly #options: NilauthClientOptions;
+
+  private constructor(options: NilauthClientOptions) {
+    this.#options = options;
+  }
+
+  get payer(): Payer | undefined {
+    return this.#options.payer;
+  }
+
+  get nilauthPublicKey(): string {
+    return this.#options.nilauth.publicKey;
+  }
+
+  get nilauthDid(): Did {
+    return this.#options.nilauth.did;
+  }
+
+  get nilauthBaseUrl(): string {
+    return this.#options.nilauth.baseUrl;
+  }
+
+  /**
+   * Creates a self-signed identity NUC for authenticating a request.
+   * @internal
+   */
+  private async createIdentityNuc(
+    signer: Signer,
+    command: string,
+  ): Promise<string> {
+    const subject = await signer.getDid();
+    return Builder.invocation()
+      .subject(subject)
+      .audience(this.nilauthDid)
+      .command(command)
+      .signAndSerialize(signer);
   }
 
   /**
@@ -197,24 +218,6 @@ export class NilauthClient {
     });
   }
 
-  readonly #options: NilauthClientOptions;
-
-  private constructor(options: NilauthClientOptions) {
-    this.#options = options;
-  }
-
-  get payer(): Payer | undefined {
-    return this.#options.payer;
-  }
-
-  get nilauthPublicKey(): string {
-    return this.#options.nilauth.publicKey;
-  }
-
-  get nilauthBaseUrl(): string {
-    return this.#options.nilauth.baseUrl;
-  }
-
   /**
    * Gets the subscription cost for a specific blind module.
    * @param blindModule - The module to check pricing for ("nilai" or "nildb")
@@ -229,203 +232,198 @@ export class NilauthClient {
   }
 
   /**
-   * Checks the subscription status for a public key and blind module.
-   * @param publicKey - The public key to check subscription for
+   * Checks the subscription status for a Did and blind module.
+   * @param did - The Did to check subscription for
    * @param blindModule - The module to check subscription for ("nilai" or "nildb")
    * @returns Subscription status information
-   * @throws {NilauthErrorResponse} If an unexpected error occurs (NOT_SUBSCRIBED errors are handled gracefully)
+   * @throws {NilauthErrorResponse} If an unexpected error occurs
    */
   async subscriptionStatus(
-    publicKey: string,
+    did: Did,
     blindModule: BlindModule,
   ): Promise<SubscriptionStatusResponse> {
     const url = NilauthUrl.subscriptions.status(
       this.nilauthBaseUrl,
-      publicKey,
+      Did.serialize(did),
       blindModule,
     );
-    try {
-      return await performRequest(url, SubscriptionStatusResponseSchema);
-    } catch (error) {
-      if (error instanceof NilauthErrorResponse) {
-        if (
-          error.code === NilauthErrorCodeSchema.enum.NOT_SUBSCRIBED ||
-          error.code === NilauthErrorCodeSchema.enum.TRANSACTION_LOOKUP
-        ) {
-          return { subscribed: false, details: null };
-        }
-      }
-      throw error;
-    }
+    return performRequest(url, SubscriptionStatusResponseSchema);
   }
 
   /**
-   * Performs a subscription payment and validates it with the service.
-   * @param publicKey - The public key to subscribe
-   * @param blindModule - The module to subscribe to ("nilai" or "nildb")
-   * @throws {PaymentTxFailed} If the payment transaction fails
-   * @throws {NilauthErrorResponse} If validation fails
+   * Creates the payload for a subscription payment and its corresponding resource hash.
+   * This is the first step in the decoupled payment flow. The returned `resourceHash`
+   * is sent on-chain, and the `payload` object is used for validation.
+   * @param subscriberDid - The Did of the identity receiving the subscription.
+   * @param blindModule - The module to subscribe to ("nilai" or "nildb").
+   * @param payerDid - The Did of the identity paying for the subscription.
+   * @returns An object containing the payload and its SHA-256 hash.
    */
-  async payAndValidate(publicKey: string, blindModule: BlindModule) {
-    const cost = await this.subscriptionCost(blindModule);
-    const { txHash, payloadHex } = await this.pay(cost, blindModule);
-    await this.validatePayment({ publicKey, txHash, payloadHex });
-    Log.info({ publicKey, blindModule }, "Subscription payment validated");
-  }
-
-  /**
-   * Initiates a payment for blind module subscription.
-   *
-   * Creates and executes a blockchain payment transaction for
-   * subscribing to the specified module. Requires a Payer instance.
-   *
-   * @param amount - The payment amount in the blockchain's native currency
-   * @param blindModule - The module to subscribe to ("nilai" or "nildb")
-   * @returns Transaction hash and signed payload for validation
-   * @throws {Error} "A Payer instance is required" - Payer not configured
-   * @throws {PaymentTxFailed} Payment transaction fails on blockchain
-   * @example
-   * ```typescript
-   * const { txHash, payloadHex } = await client.pay(100, "nildb");
-   * console.log(`Payment sent: ${txHash}`);
-   * ```
-   */
-  async pay(
-    amount: number,
+  createPaymentResource(
+    subscriberDid: Did,
     blindModule: BlindModule,
-  ): Promise<{ txHash: string; payloadHex: string }> {
-    if (!this.payer) {
-      throw new Error(
-        "A Payer instance is required for this operation. Please provide it during NilauthClient creation.",
-      );
-    }
-    const payload = JSON.stringify({
-      nonce: bytesToHex(randomBytes(DEFAULT_NONCE_LENGTH)),
+    payerDid: Did,
+  ): { resourceHash: Uint8Array; payload: object } {
+    // Key ordering must match what nilauth expects. A more robust canonical JSON
+    // serialization should be used in the future.
+    // See: https://github.com/NillionNetwork/nilauth/issues/50
+    const payload = {
       service_public_key: this.nilauthPublicKey,
+      nonce: bytesToHex(randomBytes(16)),
       blind_module: blindModule,
-    });
-    const payloadHex = textToHex(payload);
-    const payloadDigest = sha256(new TextEncoder().encode(payload));
+      payer_did: Did.serialize(payerDid),
+      subscriber_did: Did.serialize(subscriberDid),
+    };
+
+    const payloadStr = JSON.stringify(payload);
+    const resourceHash = sha256(new TextEncoder().encode(payloadStr));
     Log.debug(
-      `Making payment with payload=${payloadHex}, digest=${bytesToHex(
-        payloadDigest,
+      `Created payment resource with payload=${payloadStr}, digest=${bytesToHex(
+        resourceHash,
       )}`,
     );
 
-    try {
-      const txHash = await this.payer.pay(
-        sha256(new TextEncoder().encode(payload)),
-        amount,
-      );
-      return { txHash, payloadHex };
-    } catch (cause) {
-      throw new PaymentTxFailed(cause);
-    }
+    return { resourceHash, payload };
   }
 
   /**
-   * Validates a payment with the Nilauth service.
-   * @param config - Payment validation configuration
-   * @param config.publicKey - The public key that made the payment
-   * @param config.txHash - The transaction hash from the payment
-   * @param config.payloadHex - The hex-encoded payment payload
-   * @returns Payment validation response
-   * @throws {NilauthErrorResponse} If validation fails
-   * @remarks This endpoint has built-in retry logic (3 attempts with exponential backoff)
-   * to handle potential transaction propagation delays on the blockchain.
+   * Validates a payment transaction with the nilauth service.
+   * This is the final step in the decoupled payment flow.
+   * @param txHash - The transaction hash from the on-chain payment.
+   * @param payload - The original payload object returned by `createPaymentResource`.
+   * @param payerSigner - The signer of the identity that paid for the subscription.
+   * @throws {NilauthErrorResponse} If payment validation fails.
    */
-  async validatePayment(config: {
-    publicKey: string;
-    txHash: string;
-    payloadHex: string;
-  }): Promise<ValidatePaymentResponse> {
+  async validatePayment(
+    txHash: string,
+    payload: object,
+    payerSigner: Signer,
+  ): Promise<void> {
+    const identityNuc = await this.createIdentityNuc(
+      payerSigner,
+      "/nil/auth/payments/validate",
+    );
+
     const url = NilauthUrl.payments.validate(this.nilauthBaseUrl);
     const json = {
-      tx_hash: config.txHash,
-      payload: config.payloadHex,
-      public_key: config.publicKey,
+      tx_hash: txHash,
+      payload: payload,
     };
 
-    return performRequest(url, ValidatePaymentResponseSchema, {
+    await performRequest(url, ValidatePaymentResponseSchema, {
       method: "POST",
       json,
+      headers: {
+        Authorization: `Bearer ${identityNuc}`,
+      },
       retry: {
         limit: 3,
         methods: ["post"],
         delay: (attemptCount) => 0.2 * 2 ** attemptCount * 1000,
       },
     });
+
+    Log.info({ txHash }, "Subscription payment validated");
   }
 
   /**
-   * Requests an authentication token from the Nilauth service.
-   * @param keypair - The keypair to sign the request with
-   * @param blindModule - The module to request access for ("nilai" or "nildb")
-   * @returns The created token response
-   * @throws {NilauthErrorResponse} If token creation fails
-   * @example
-   * ```typescript
-   * const keypair = Keypair.generate();
-   * const response = await client.requestToken(keypair, "nildb");
-   * const authToken = decodeBase64Url(response.nuc);
-   * ```
+   * Performs a subscription payment and validates it with the service.
+   * @deprecated This method will be removed in a future version. Use the decoupled flow: `createPaymentResource`, `payer.pay`, and `validatePayment`.
+   * @param payerSigner - The signer of the identity paying for the subscription.
+   * @param subscriberDid - The Did of the identity receiving the subscription.
+   * @param blindModule - The module to subscribe to ("nilai" or "nildb").
+   * @throws {Error} If a Payer instance is not configured on the client.
+   * @throws {PaymentTxFailed} If the on-chain payment transaction fails.
+   * @throws {NilauthErrorResponse} If payment validation fails.
    */
-  requestToken(
-    keypair: Keypair,
+  async payAndValidate(
+    payerSigner: Signer,
+    subscriberDid: Did,
+    blindModule: BlindModule,
+  ): Promise<void> {
+    if (!this.payer) {
+      throw new Error(
+        "A Payer instance is required for this operation. Please provide it during NilauthClient creation.",
+      );
+    }
+
+    const costUnil = await this.subscriptionCost(blindModule);
+    const payerDid = await payerSigner.getDid();
+
+    const { resourceHash, payload } = this.createPaymentResource(
+      subscriberDid,
+      blindModule,
+      payerDid,
+    );
+
+    let txHash: string;
+    try {
+      txHash = await this.payer.pay(resourceHash, costUnil);
+    } catch (cause) {
+      throw new PaymentTxFailed(cause);
+    }
+
+    await this.validatePayment(txHash, payload, payerSigner);
+  }
+
+  /**
+   * Requests a root NUC from the Nilauth service for an active subscription.
+   * This must be performed by the **Subscriber**.
+   * @param subscriberSigner - The signer of the subscribed identity.
+   * @param blindModule - The module to request a token for ("nilai" or "nildb").
+   * @returns The created token response.
+   * @throws {NilauthErrorResponse} If token creation fails (e.g., no active subscription).
+   */
+  async requestToken(
+    subscriberSigner: Signer,
     blindModule: BlindModule,
   ): Promise<CreateTokenResponse> {
-    const url = NilauthUrl.nucs.create(this.nilauthBaseUrl);
-    const json = createSignedRequest(
-      {
-        nonce: bytesToHex(randomBytes(DEFAULT_NONCE_LENGTH)),
-        target_public_key: this.nilauthPublicKey,
-        expires_at: Math.floor((Date.now() + 60_000) / 1000),
-        blind_module: blindModule,
-      },
-      keypair,
+    const identityNuc = await this.createIdentityNuc(
+      subscriberSigner,
+      "/nil/auth/nucs/create",
     );
-    return performRequest(url, CreateTokenResponseSchema, {
+
+    const url = NilauthUrl.nucs.create(this.nilauthBaseUrl);
+    const json = { blind_module: blindModule };
+
+    const response = await performRequest(url, CreateTokenResponseSchema, {
       method: "POST",
       json,
-    }).then((response) => {
-      Log.info({ blindModule }, "Auth token successfully requested");
-      return response;
+      headers: {
+        Authorization: `Bearer ${identityNuc}`,
+      },
     });
+
+    Log.info({ blindModule }, "Root token successfully requested");
+    return response;
   }
 
   /**
    * Revokes a previously issued token.
    * @param config - Revocation configuration
-   * @param config.keypair - The keypair to sign the revocation with
+   * @param config.signer - The signer to authorize the revocation
    * @param config.authToken - The authentication token granting revocation permission
    * @param config.tokenToRevoke - The token to revoke
    * @throws {NilauthErrorResponse} If revocation fails
-   * @example
-   * ```typescript
-   * await client.revokeToken({
-   *   keypair: adminKeypair,
-   *   authToken: adminAuthToken,
-   *   tokenToRevoke: userToken
-   * });
-   * ```
    */
   async revokeToken(config: {
-    keypair: Keypair;
+    signer: Signer;
     authToken: Envelope;
     tokenToRevoke: Envelope;
   }): Promise<void> {
-    const { keypair, authToken, tokenToRevoke } = config;
+    const { signer, authToken, tokenToRevoke } = config;
 
-    const revokeTokenEnvelope = await Builder.invocation()
+    const issuer = await signer.getDid();
+
+    const revokeTokenEnvelope = await Builder.invocationFrom(authToken)
       .arguments({
         token: Codec.serializeBase64Url(tokenToRevoke),
       })
       .command(REVOKE_COMMAND)
-      .audience(Did.parse(`did:nil:${this.nilauthPublicKey}`))
-      .issuer(keypair.toDid("nil"))
-      .subject(authToken.nuc.payload.sub)
-      .proof(authToken)
-      .build(Signer.fromLegacyKeypair(keypair));
+      .audience(this.nilauthDid)
+      .issuer(issuer)
+      // Subject is inherited from authToken
+      .sign(signer);
 
     const revokeTokenString = Codec.serializeBase64Url(revokeTokenEnvelope);
     const url = NilauthUrl.nucs.revoke(this.nilauthBaseUrl);
