@@ -1,16 +1,16 @@
-import {secp256k1} from "@noble/curves/secp256k1.js";
-import {bytesToHex, hexToBytes} from "@noble/hashes/utils.js";
-import type {TypedDataDomain} from "ethers";
+import { secp256k1 } from "@noble/curves/secp256k1.js";
+import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
+import type { TypedDataDomain } from "ethers";
 import {
   NUC_EIP712_DOMAIN,
   type NucHeader,
   NucHeaderSchema,
   NucHeaders,
 } from "#/nuc/header";
-import {Payload} from "#/nuc/payload";
-import {Did} from "./did/did";
+import { Payload } from "#/nuc/payload";
+import { Did } from "./did/did";
 import * as ethr from "./did/ethr";
-import {base64UrlDecode} from "./encoding";
+import { base64UrlDecode } from "./encoding";
 
 /**
  * An abstract signer that can be used to sign Nucs.
@@ -91,7 +91,7 @@ export namespace Signer {
       header: NucHeaders.v1,
       getDid: async () => Did.fromPublicKey(publicKeyHex, "key"),
       sign: async (data) =>
-        secp256k1.sign(data, privateKeyBytes, {prehash: true}) as Uint8Array,
+        secp256k1.sign(data, privateKeyBytes, { prehash: true }) as Uint8Array,
     };
   }
 
@@ -103,7 +103,7 @@ export namespace Signer {
   export function fromWeb3(signer: Eip712Signer): Signer {
     return {
       // The Builder constructs the correct header and passes it into `sign`, so here we return a placeholder header
-      header: NucHeaders.v1_eip712(NUC_EIP712_DOMAIN),
+      header: NucHeaders.v1_eip712_delegation(NUC_EIP712_DOMAIN),
       getDid: async () => ethr.fromAddress(await signer.getAddress()),
       sign: async (data: Uint8Array): Promise<Uint8Array> => {
         // The `data` is `rawHeader.rawPayload`. We must parse the header from it.
@@ -120,7 +120,7 @@ export namespace Signer {
         const header = NucHeaderSchema.parse(
           JSON.parse(base64UrlDecode(rawHeader)),
         );
-        const {meta} = header;
+        const { meta } = header;
 
         if (!meta || !meta.domain || !meta.types || !meta.primaryType) {
           throw new SigningError(
@@ -146,7 +146,7 @@ export namespace Signer {
         const primaryType = meta.primaryType as string;
         const signatureHex = await signer.signTypedData(
           domain,
-          {[primaryType]: types[primaryType]},
+          { [primaryType]: types[primaryType] },
           valueToSign,
         );
 
@@ -160,12 +160,23 @@ export namespace Signer {
   }
 }
 
-type Eip712NucPayload = {
+type Eip712DelegationPayload = {
   iss: string;
   aud: string;
   sub: string;
   cmd: string;
   pol: string;
+  nbf: number;
+  exp: number;
+  nonce: string;
+  prf: string[];
+};
+
+type Eip712InvocationPayload = {
+  iss: string;
+  aud: string;
+  sub: string;
+  cmd: string;
   args: string;
   nbf: number;
   exp: number;
@@ -177,21 +188,27 @@ type Eip712NucPayload = {
  * Converts a standard Nuc Payload into an EIP-712 compatible format.
  * @internal
  */
-export function toEip712Payload(payload: Payload): Eip712NucPayload {
-  return {
+export function toEip712Payload(
+  payload: Payload,
+): Eip712DelegationPayload | Eip712InvocationPayload {
+  const common = {
     iss: Did.serialize(payload.iss),
     aud: Did.serialize(payload.aud),
     sub: Did.serialize(payload.sub),
     cmd: payload.cmd,
-    pol: Payload.isDelegationPayload(payload)
-      ? JSON.stringify(payload.pol)
-      : "[]",
-    args: Payload.isInvocationPayload(payload)
-      ? JSON.stringify(payload.args)
-      : "{}",
-    nbf: payload.nbf || 0,
-    exp: payload.exp || 0,
+    nbf: payload.nbf ?? 0,
+    exp: payload.exp ?? 0,
     nonce: payload.nonce,
-    prf: payload.prf || [],
+    prf: payload.prf ?? [],
+  };
+  if (Payload.isDelegationPayload(payload)) {
+    return {
+      ...common,
+      pol: JSON.stringify(payload.pol),
+    };
+  }
+  return {
+    ...common,
+    args: JSON.stringify(payload.args),
   };
 }
