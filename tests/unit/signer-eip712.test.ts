@@ -6,7 +6,6 @@ import { Builder } from "#/nuc/builder";
 import { validateNucSignature } from "#/validator/signatures";
 
 describe("EIP-712 Signer (`did:ethr`)", () => {
-  const domain = { name: "NUC", version: "1", chainId: 1 };
   const wallet = Wallet.createRandom();
   const audience = ethr.fromAddress(
     "0x742d35cc6634c0532925A3B844bc9E7095ED4E40",
@@ -18,7 +17,7 @@ describe("EIP-712 Signer (`did:ethr`)", () => {
   };
 
   it("should build and successfully validate an EIP-712 signed delegation", async () => {
-    const signer = Signer.fromWeb3(eip712Signer, domain);
+    const signer = Signer.fromWeb3(eip712Signer);
     const envelope = await Builder.delegation()
       .audience(audience)
       .subject(audience)
@@ -29,7 +28,7 @@ describe("EIP-712 Signer (`did:ethr`)", () => {
   });
 
   it("should build and successfully validate an EIP-712 signed invocation", async () => {
-    const signer = Signer.fromWeb3(eip712Signer, domain);
+    const signer = Signer.fromWeb3(eip712Signer);
     const envelope = await Builder.invocation()
       .audience(audience)
       .subject(audience)

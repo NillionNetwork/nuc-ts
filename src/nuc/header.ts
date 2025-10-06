@@ -51,7 +51,7 @@ export const NucHeaderSchema = z
       .describe(
         "**Optional.** The semantic version of the Nuc payload specification.",
       ),
-    met: z
+    meta: z
       .record(z.string(), z.unknown())
       .optional()
       .describe(

@@ -1,19 +1,18 @@
-import { type HDNodeWallet, type TypedDataDomain, Wallet } from "ethers";
+import { type HDNodeWallet, Wallet } from "ethers";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Signer as NucSigner } from "#/core/signer";
 import { Signer } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
+import { Codec } from "#/nuc/codec";
 import { validateNucSignature } from "#/validator/signatures";
 
 describe("Web3 Signer (EIP-712)", () => {
   let wallet: HDNodeWallet;
-  let domain: TypedDataDomain;
   let web3Signer: NucSigner;
 
   beforeEach(async () => {
     wallet = Wallet.createRandom();
-    domain = { name: "NUC", version: "1", chainId: 1 };
-    web3Signer = Signer.fromWeb3(wallet, domain);
+    web3Signer = Signer.fromWeb3(wallet);
   });
 
   it("should instantiate from an ethers signer using Signer.fromWeb3", () => {
@@ -49,7 +48,7 @@ describe("Web3 Signer (EIP-712)", () => {
       .sign(web3Signer);
 
     expect(envelope.nuc.payload.iss.method).toBe("ethr");
-    expect(validateNucSignature(envelope.nuc)).toBeUndefined();
+    expect(() => validateNucSignature(envelope.nuc)).not.toThrow();
   });
 
   it("should sign and verify a complex delegation chain", async () => {
@@ -73,7 +72,14 @@ describe("Web3 Signer (EIP-712)", () => {
     expect(invocation.proofs).toHaveLength(1);
     expect(invocation.nuc.payload.iss.method).toBe("key");
     expect(invocation.proofs[0].payload.iss.method).toBe("ethr");
-    expect(validateNucSignature(invocation.nuc)).toBeUndefined();
-    expect(validateNucSignature(invocation.proofs[0])).toBeUndefined();
+    expect(() => validateNucSignature(invocation.nuc)).not.toThrow();
+    expect(() => validateNucSignature(invocation.proofs[0])).not.toThrow();
+  });
+
+  it("can validate a metamask nuc", async () => {
+    const rawToken =
+      "eyJ0eXAiOiJudWMrZWlwNzEyIiwiYWxnIjoiRVMyNTZLIiwidmVyIjoiMS4wLjAiLCJtZXRhIjp7ImRvbWFpbiI6eyJuYW1lIjoiTlVDIiwidmVyc2lvbiI6IjEiLCJjaGFpbklkIjoxfSwicHJpbWFyeVR5cGUiOiJOdWNQYXlsb2FkIiwidHlwZXMiOnsiTnVjUGF5bG9hZCI6W3sibmFtZSI6ImlzcyIsInR5cGUiOiJzdHJpbmcifSx7Im5hbWUiOiJhdWQiLCJ0eXBlIjoic3RyaW5nIn0seyJuYW1lIjoic3ViIiwidHlwZSI6InN0cmluZyJ9LHsibmFtZSI6ImNtZCIsInR5cGUiOiJzdHJpbmcifSx7Im5hbWUiOiJwb2wiLCJ0eXBlIjoic3RyaW5nIn0seyJuYW1lIjoiYXJncyIsInR5cGUiOiJzdHJpbmcifSx7Im5hbWUiOiJuYmYiLCJ0eXBlIjoidWludDI1NiJ9LHsibmFtZSI6ImV4cCIsInR5cGUiOiJ1aW50MjU2In0seyJuYW1lIjoibm9uY2UiLCJ0eXBlIjoic3RyaW5nIn0seyJuYW1lIjoicHJmIiwidHlwZSI6InN0cmluZ1tdIn1dfX19.eyJpc3MiOiJkaWQ6ZXRocjoweGRGYjc2RUQzNzg5ZkI5ZTRkNjc2YmU0YzA2MDgzOTVhNDczMzdDZDkiLCJhdWQiOiJkaWQ6a2V5OnpRM3Noa0FSTDVKQUVCYkxmOGNxUEtwazNzVUFmYUhzMkZhTXoyaWtKZ3VhNk1qR3ciLCJzdWIiOiJkaWQ6ZXRocjoweGRGYjc2RUQzNzg5ZkI5ZTRkNjc2YmU0YzA2MDgzOTVhNDczMzdDZDkiLCJjbWQiOiIvbmlsL2F1dGgvcGF5bWVudHMvdmFsaWRhdGUiLCJhcmdzIjp7fSwibm9uY2UiOiI2OTQ0ODQyYTY4ZTQxNWI5ZDliNWVjZDRlMjVlYmQwZSIsInByZiI6W119.8axgm1t_x0XubgltP8PsptKnXmUGctlc60gpSxw8N_N3Vr742tvtKb8iNlbhMvv-P7ShiBnpgvc6gmVASDyi0xw";
+    const envelope = Codec.decodeBase64Url(rawToken);
+    expect(() => validateNucSignature(envelope.nuc)).not.toThrow();
   });
 });

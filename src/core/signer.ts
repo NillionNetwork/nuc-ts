@@ -1,11 +1,16 @@
-import { secp256k1 } from "@noble/curves/secp256k1.js";
-import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
-import type { TypedDataDomain } from "ethers";
-import { NUC_EIP712_DOMAIN, type NucHeader, NucHeaders } from "#/nuc/header";
-import { Payload } from "#/nuc/payload";
-import { Did } from "./did/did";
+import {secp256k1} from "@noble/curves/secp256k1.js";
+import {bytesToHex, hexToBytes} from "@noble/hashes/utils.js";
+import type {TypedDataDomain} from "ethers";
+import {
+  NUC_EIP712_DOMAIN,
+  type NucHeader,
+  NucHeaderSchema,
+  NucHeaders,
+} from "#/nuc/header";
+import {Payload} from "#/nuc/payload";
+import {Did} from "./did/did";
 import * as ethr from "./did/ethr";
-import { base64UrlDecode } from "./encoding";
+import {base64UrlDecode} from "./encoding";
 
 /**
  * An abstract signer that can be used to sign Nucs.
@@ -86,26 +91,44 @@ export namespace Signer {
       header: NucHeaders.v1,
       getDid: async () => Did.fromPublicKey(publicKeyHex, "key"),
       sign: async (data) =>
-        secp256k1.sign(data, privateKeyBytes, { prehash: true }) as Uint8Array,
+        secp256k1.sign(data, privateKeyBytes, {prehash: true}) as Uint8Array,
     };
   }
 
   /**
    * Creates an EIP-712 Signer for Ethereum wallet signing.
    * @param signer The EIP-712 compatible signer (e.g., ethers Wallet)
-   * @param domain The optional EIP-712 domain parameters
    * @returns A Signer instance that uses EIP-712 signing
    */
-  export function fromWeb3(
-    signer: Eip712Signer,
-    domain: TypedDataDomain = NUC_EIP712_DOMAIN,
-  ): Signer {
-    const eip712Header = NucHeaders.v1_eip712(domain);
+  export function fromWeb3(signer: Eip712Signer): Signer {
     return {
-      header: eip712Header,
+      // The Builder constructs the correct header and passes it into `sign`, so here we return a placeholder header
+      header: NucHeaders.v1_eip712(NUC_EIP712_DOMAIN),
       getDid: async () => ethr.fromAddress(await signer.getAddress()),
       sign: async (data: Uint8Array): Promise<Uint8Array> => {
-        const payloadString = new TextDecoder().decode(data).split(".")[1];
+        // The `data` is `rawHeader.rawPayload`. We must parse the header from it.
+        const [rawHeader, payloadString] = new TextDecoder()
+          .decode(data)
+          .split(".");
+        if (!rawHeader || !payloadString) {
+          throw new SigningError(
+            "Invalid data format for EIP-712 signing",
+            "ES256K",
+          );
+        }
+
+        const header = NucHeaderSchema.parse(
+          JSON.parse(base64UrlDecode(rawHeader)),
+        );
+        const {meta} = header;
+
+        if (!meta || !meta.domain || !meta.types || !meta.primaryType) {
+          throw new SigningError(
+            "EIP-712 metadata missing from header",
+            "ES256K",
+          );
+        }
+
         const decodedPayload = JSON.parse(base64UrlDecode(payloadString));
 
         // Parse the payload to ensure it has proper DID objects
@@ -114,10 +137,16 @@ export namespace Signer {
         // Use the canonical conversion function
         const valueToSign = toEip712Payload(parsedPayload);
 
-        const { types, primaryType } = eip712Header.meta;
+        // Use the domain, types, and primaryType from the parsed header.
+        const domain = meta.domain as TypedDataDomain;
+        const types = meta.types as Record<
+          string,
+          Array<{ name: string; type: string }>
+        >;
+        const primaryType = meta.primaryType as string;
         const signatureHex = await signer.signTypedData(
           domain,
-          { [primaryType]: types.NucPayload },
+          {[primaryType]: types[primaryType]},
           valueToSign,
         );
 
