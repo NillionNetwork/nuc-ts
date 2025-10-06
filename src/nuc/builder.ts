@@ -5,6 +5,7 @@ import { base64UrlEncode } from "#/core/encoding";
 import type { Signer } from "#/core/signer";
 import { Codec } from "#/nuc/codec";
 import { Envelope, type Nuc } from "#/nuc/envelope";
+import { getEip712Header, NucHeaderType } from "#/nuc/header";
 import { type Command, type DelegationPayload, Payload } from "#/nuc/payload";
 import type { Policy, PolicyRule } from "#/nuc/policy";
 
@@ -200,7 +201,12 @@ abstract class AbstractBuilder {
     const issuer = this._issuer ?? (await signer.getDid());
     const payloadData = this._getPayloadData(issuer);
 
-    const header = signer.header;
+    // Generate the correct EIP-712 header based on payload type.
+    const header =
+      signer.header.typ === NucHeaderType.EIP712
+        ? getEip712Header(payloadData)
+        : signer.header;
+
     const rawHeader = base64UrlEncode(
       new TextEncoder().encode(JSON.stringify(header)),
     );

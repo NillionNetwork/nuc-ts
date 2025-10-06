@@ -72,7 +72,7 @@ export function validateEip712Signature(nuc: Nuc): void {
 
   const hash = TypedDataEncoder.hash(
     domain,
-    { [primaryType]: types.NucPayload },
+    { [primaryType]: types[primaryType] },
     valueToHash,
   );
   const recoveredAddress = recoverAddress(hash, hexlify(signature));

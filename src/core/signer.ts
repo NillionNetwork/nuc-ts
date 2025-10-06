@@ -1,7 +1,12 @@
 import { secp256k1 } from "@noble/curves/secp256k1.js";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
 import type { TypedDataDomain } from "ethers";
-import { NUC_EIP712_DOMAIN, type NucHeader, NucHeaders } from "#/nuc/header";
+import {
+  NUC_EIP712_DOMAIN,
+  type NucHeader,
+  NucHeaderSchema,
+  NucHeaders,
+} from "#/nuc/header";
 import { Payload } from "#/nuc/payload";
 import { Did } from "./did/did";
 import * as ethr from "./did/ethr";
@@ -93,19 +98,37 @@ export namespace Signer {
   /**
    * Creates an EIP-712 Signer for Ethereum wallet signing.
    * @param signer The EIP-712 compatible signer (e.g., ethers Wallet)
-   * @param domain The optional EIP-712 domain parameters
    * @returns A Signer instance that uses EIP-712 signing
    */
-  export function fromWeb3(
-    signer: Eip712Signer,
-    domain: TypedDataDomain = NUC_EIP712_DOMAIN,
-  ): Signer {
-    const eip712Header = NucHeaders.v1_eip712(domain);
+  export function fromWeb3(signer: Eip712Signer): Signer {
     return {
-      header: eip712Header,
+      // The Builder constructs the correct header and passes it into `sign`, so here we return a placeholder header
+      header: NucHeaders.v1_eip712_delegation(NUC_EIP712_DOMAIN),
       getDid: async () => ethr.fromAddress(await signer.getAddress()),
       sign: async (data: Uint8Array): Promise<Uint8Array> => {
-        const payloadString = new TextDecoder().decode(data).split(".")[1];
+        // The `data` is `rawHeader.rawPayload`. We must parse the header from it.
+        const [rawHeader, payloadString] = new TextDecoder()
+          .decode(data)
+          .split(".");
+        if (!rawHeader || !payloadString) {
+          throw new SigningError(
+            "Invalid data format for EIP-712 signing",
+            "ES256K",
+          );
+        }
+
+        const header = NucHeaderSchema.parse(
+          JSON.parse(base64UrlDecode(rawHeader)),
+        );
+        const { meta } = header;
+
+        if (!meta || !meta.domain || !meta.types || !meta.primaryType) {
+          throw new SigningError(
+            "EIP-712 metadata missing from header",
+            "ES256K",
+          );
+        }
+
         const decodedPayload = JSON.parse(base64UrlDecode(payloadString));
 
         // Parse the payload to ensure it has proper DID objects
@@ -114,10 +137,16 @@ export namespace Signer {
         // Use the canonical conversion function
         const valueToSign = toEip712Payload(parsedPayload);
 
-        const { types, primaryType } = eip712Header.meta;
+        // Use the domain, types, and primaryType from the parsed header.
+        const domain = meta.domain as TypedDataDomain;
+        const types = meta.types as Record<
+          string,
+          Array<{ name: string; type: string }>
+        >;
+        const primaryType = meta.primaryType as string;
         const signatureHex = await signer.signTypedData(
           domain,
-          { [primaryType]: types.NucPayload },
+          { [primaryType]: types[primaryType] },
           valueToSign,
         );
 
@@ -131,12 +160,23 @@ export namespace Signer {
   }
 }
 
-type Eip712NucPayload = {
+type Eip712DelegationPayload = {
   iss: string;
   aud: string;
   sub: string;
   cmd: string;
   pol: string;
+  nbf: number;
+  exp: number;
+  nonce: string;
+  prf: string[];
+};
+
+type Eip712InvocationPayload = {
+  iss: string;
+  aud: string;
+  sub: string;
+  cmd: string;
   args: string;
   nbf: number;
   exp: number;
@@ -148,21 +188,27 @@ type Eip712NucPayload = {
  * Converts a standard Nuc Payload into an EIP-712 compatible format.
  * @internal
  */
-export function toEip712Payload(payload: Payload): Eip712NucPayload {
-  return {
+export function toEip712Payload(
+  payload: Payload,
+): Eip712DelegationPayload | Eip712InvocationPayload {
+  const common = {
     iss: Did.serialize(payload.iss),
     aud: Did.serialize(payload.aud),
     sub: Did.serialize(payload.sub),
     cmd: payload.cmd,
-    pol: Payload.isDelegationPayload(payload)
-      ? JSON.stringify(payload.pol)
-      : "[]",
-    args: Payload.isInvocationPayload(payload)
-      ? JSON.stringify(payload.args)
-      : "{}",
-    nbf: payload.nbf || 0,
-    exp: payload.exp || 0,
+    nbf: payload.nbf ?? 0,
+    exp: payload.exp ?? 0,
     nonce: payload.nonce,
-    prf: payload.prf || [],
+    prf: payload.prf ?? [],
+  };
+  if (Payload.isDelegationPayload(payload)) {
+    return {
+      ...common,
+      pol: JSON.stringify(payload.pol),
+    };
+  }
+  return {
+    ...common,
+    args: JSON.stringify(payload.args),
   };
 }

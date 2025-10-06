@@ -1,5 +1,6 @@
 import type { TypedDataDomain } from "ethers";
 import { z } from "zod";
+import { Payload } from "#/nuc/payload";
 
 /**
  * Nuc encoding types.
@@ -51,7 +52,7 @@ export const NucHeaderSchema = z
       .describe(
         "**Optional.** The semantic version of the Nuc payload specification.",
       ),
-    met: z
+    meta: z
       .record(z.string(), z.unknown())
       .optional()
       .describe(
@@ -73,6 +74,40 @@ export const NUC_EIP712_DOMAIN: TypedDataDomain = {
 };
 
 /**
+ * Type definitions for EIP-712 delegation payloads.
+ */
+const EIP712_DELEGATION_TYPES = {
+  NucDelegationPayload: [
+    { name: "iss", type: "string" },
+    { name: "aud", type: "string" },
+    { name: "sub", type: "string" },
+    { name: "cmd", type: "string" },
+    { name: "pol", type: "string" },
+    { name: "nbf", type: "uint256" },
+    { name: "exp", type: "uint256" },
+    { name: "nonce", type: "string" },
+    { name: "prf", type: "string[]" },
+  ],
+};
+
+/**
+ * Type definitions for EIP-712 invocation payloads.
+ */
+const EIP712_INVOCATION_TYPES = {
+  NucInvocationPayload: [
+    { name: "iss", type: "string" },
+    { name: "aud", type: "string" },
+    { name: "sub", type: "string" },
+    { name: "cmd", type: "string" },
+    { name: "args", type: "string" },
+    { name: "nbf", type: "uint256" },
+    { name: "exp", type: "uint256" },
+    { name: "nonce", type: "string" },
+    { name: "prf", type: "string[]" },
+  ],
+};
+
+/**
  * Predefined header configurations.
  */
 export const NucHeaders = {
@@ -84,28 +119,39 @@ export const NucHeaders = {
     alg: NucHeaderAlgorithm.Es256k,
     ver: "1.0.0",
   },
-  /** The EIP-712 format for Ethereum wallet signing. */
-  v1_eip712: (domain: TypedDataDomain) => ({
+  /** The EIP-712 format for delegation tokens. */
+  v1_eip712_delegation: (domain: TypedDataDomain) => ({
     typ: NucHeaderType.EIP712,
     alg: NucHeaderAlgorithm.Es256k,
     ver: "1.0.0",
     meta: {
       domain,
-      primaryType: "NucPayload",
-      types: {
-        NucPayload: [
-          { name: "iss", type: "string" },
-          { name: "aud", type: "string" },
-          { name: "sub", type: "string" },
-          { name: "cmd", type: "string" },
-          { name: "pol", type: "string" },
-          { name: "args", type: "string" },
-          { name: "nbf", type: "uint256" },
-          { name: "exp", type: "uint256" },
-          { name: "nonce", type: "string" },
-          { name: "prf", type: "string[]" },
-        ],
-      },
+      primaryType: "NucDelegationPayload",
+      types: EIP712_DELEGATION_TYPES,
+    },
+  }),
+  /** The EIP-712 format for invocation tokens. */
+  v1_eip712_invocation: (domain: TypedDataDomain) => ({
+    typ: NucHeaderType.EIP712,
+    alg: NucHeaderAlgorithm.Es256k,
+    ver: "1.0.0",
+    meta: {
+      domain,
+      primaryType: "NucInvocationPayload",
+      types: EIP712_INVOCATION_TYPES,
     },
   }),
 } as const;
+
+/**
+ * Helper to get the correct EIP-712 header based on payload type.
+ */
+export function getEip712Header(
+  payload: Payload,
+  domain: TypedDataDomain = NUC_EIP712_DOMAIN,
+): NucHeader {
+  if (Payload.isDelegationPayload(payload)) {
+    return NucHeaders.v1_eip712_delegation(domain);
+  }
+  return NucHeaders.v1_eip712_invocation(domain);
+}
