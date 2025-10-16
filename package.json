@@ -38,6 +38,7 @@
     "http-status-codes": "^2.3.0",
     "ky": "^1.11.0",
     "multiformats": "^13.4.1",
+    "viem": "^2.37.13",
     "zod": "^4.1.11"
   },
   "devDependencies": {
