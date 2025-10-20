@@ -2,6 +2,14 @@ import { secp256k1 } from "@noble/curves/secp256k1.js";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
 import type { TypedDataDomain } from "ethers";
 import {
+  createWalletClient,
+  custom,
+  type EIP1193Provider,
+  type SignTypedDataParameters,
+  type WalletClient,
+} from "viem";
+import { mainnet } from "viem/chains";
+import {
   NUC_EIP712_DOMAIN,
   type NucHeader,
   NucHeaderSchema,
@@ -157,6 +165,53 @@ export namespace Signer {
         return hexToBytes(hexString);
       },
     };
+  }
+
+  /**
+   * Creates a Signer instance from a browser-based Eip-1193 provider (e.g., window.ethereum).
+   *
+   * This simplifies integration with browser wallets by wrapping a viem WalletClient and adapting
+   * it to the Signer interface.
+   *
+   * @param provider The Eip-1193 compatible provider, typically `window.ethereum`.
+   * @param options Optional account address to use. If not provided, it will be requested from the wallet.
+   * @returns A Promise that resolves to a new `Signer` instance.
+   * @throws If the provider is not available or the user rejects the connection request.
+   */
+  export async function fromEip1193Provider(
+    provider: EIP1193Provider,
+    options?: { account?: `0x${string}` },
+  ): Promise<Signer> {
+    const client: WalletClient = createWalletClient({
+      chain: mainnet, // Nuc Eip-712 signatures are chain-agnostic but viem requires one. Mainnet is a safe default.
+      transport: custom(provider),
+    });
+
+    const [account] = options?.account
+      ? [options.account]
+      : await client.requestAddresses();
+
+    if (!account) {
+      throw new Error(
+        "Failed to get address from provider. User may have rejected the request.",
+      );
+    }
+
+    const eip712SignerAdapter: Eip712Signer = {
+      getAddress: async () => account,
+      signTypedData: async (domain, types, value) => {
+        const primaryType = Object.keys(types)[0];
+        return client.signTypedData({
+          account,
+          domain: domain as SignTypedDataParameters["domain"],
+          types,
+          primaryType,
+          message: value as Record<string, unknown>,
+        });
+      },
+    };
+
+    return Signer.fromWeb3(eip712SignerAdapter);
   }
 }
 
