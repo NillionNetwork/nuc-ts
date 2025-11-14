@@ -2,15 +2,18 @@
 // @generated from file tx.proto (package nillion.meta.v1, syntax proto3)
 /* eslint-disable */
 
+import type { Message } from "@bufbuild/protobuf";
 import type { GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
 import { fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
-import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file tx.proto.
  */
-export const file_tx: GenFile = /*@__PURE__*/
-  fileDesc("Cgh0eC5wcm90bxIPbmlsbGlvbi5tZXRhLnYxIlwKCU1zZ1BheUZvchIQCghyZXNvdXJjZRgBIAEoDBIUCgxmcm9tX2FkZHJlc3MYAiABKAkSJwoGYW1vdW50GAMgAygLMhcubmlsbGlvbi5tZXRhLnYxLkFtb3VudCInCgZBbW91bnQSDQoFZGVub20YASABKAkSDgoGYW1vdW50GAIgASgJQnwKE2NvbS5uaWxsaW9uLm1ldGEudjFCB1R4UHJvdG9QAaICA05NWKoCD05pbGxpb24uTWV0YS5WMcoCD05pbGxpb25cTWV0YVxWMeICG05pbGxpb25cTWV0YVxWMVxHUEJNZXRhZGF0YeoCEU5pbGxpb246Ok1ldGE6OlYxYgZwcm90bzM");
+export const file_tx: GenFile =
+  /*@__PURE__*/
+  fileDesc(
+    "Cgh0eC5wcm90bxIPbmlsbGlvbi5tZXRhLnYxIlwKCU1zZ1BheUZvchIQCghyZXNvdXJjZRgBIAEoDBIUCgxmcm9tX2FkZHJlc3MYAiABKAkSJwoGYW1vdW50GAMgAygLMhcubmlsbGlvbi5tZXRhLnYxLkFtb3VudCInCgZBbW91bnQSDQoFZGVub20YASABKAkSDgoGYW1vdW50GAIgASgJQnwKE2NvbS5uaWxsaW9uLm1ldGEudjFCB1R4UHJvdG9QAaICA05NWKoCD05pbGxpb24uTWV0YS5WMcoCD05pbGxpb25cTWV0YVxWMeICG05pbGxpb25cTWV0YVxWMVxHUEJNZXRhZGF0YeoCEU5pbGxpb246Ok1ldGE6OlYxYgZwcm90bzM",
+  );
 
 /**
  * @generated from message nillion.meta.v1.MsgPayFor
@@ -36,7 +39,8 @@ export type MsgPayFor = Message<"nillion.meta.v1.MsgPayFor"> & {
  * Describes the message nillion.meta.v1.MsgPayFor.
  * Use `create(MsgPayForSchema)` to create a new message.
  */
-export const MsgPayForSchema: GenMessage<MsgPayFor> = /*@__PURE__*/
+export const MsgPayForSchema: GenMessage<MsgPayFor> =
+  /*@__PURE__*/
   messageDesc(file_tx, 0);
 
 /**
@@ -58,6 +62,6 @@ export type Amount = Message<"nillion.meta.v1.Amount"> & {
  * Describes the message nillion.meta.v1.Amount.
  * Use `create(AmountSchema)` to create a new message.
  */
-export const AmountSchema: GenMessage<Amount> = /*@__PURE__*/
+export const AmountSchema: GenMessage<Amount> =
+  /*@__PURE__*/
   messageDesc(file_tx, 1);
-
