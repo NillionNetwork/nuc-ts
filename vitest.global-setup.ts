@@ -1,7 +1,11 @@
 import dockerCompose from "docker-compose";
-import * as dotenv from "dotenv";
 import type { TestProject } from "vitest/node";
 import { NilauthClient } from "./src/services/nilauth/client";
+
+const NILLION_NILAUTH_URL = "http://localhost:30921";
+const NILLION_NILCHAIN_JSON_RPC = "http://localhost:30648";
+const NILLION_NILCHAIN_PRIVATE_KEY_0 =
+  "7c5c8d3114ac2410249ca2baae7dec86ac2950a389ac44a5fdca8941b92b6c86";
 
 const MAX_RETRIES = 300;
 const composeOptions = {
@@ -9,7 +13,10 @@ const composeOptions = {
 };
 
 export async function setup(_project: TestProject) {
-  dotenv.config({ path: ".env.test" });
+  process.env.NILLION_NILAUTH_URL = NILLION_NILAUTH_URL;
+  process.env.NILLION_NILCHAIN_JSON_RPC = NILLION_NILCHAIN_JSON_RPC;
+  process.env.NILLION_NILCHAIN_PRIVATE_KEY_0 = NILLION_NILCHAIN_PRIVATE_KEY_0;
+
   console.log("🚀 Starting containers...");
   try {
     // Check if containers are already running
@@ -35,8 +42,7 @@ export async function setup(_project: TestProject) {
 
     // Although Docker is active, nilauth could be initializing. We'll wait for it to respond to our requests.
     const isNilauthUp = () =>
-      // biome-ignore lint/style/noNonNullAssertion: its a test
-      NilauthClient.health(process.env.NILLION_NILAUTH_URL!)
+      NilauthClient.health(NILLION_NILAUTH_URL)
         .then((response) => response === "OK")
         .catch(() => false);
 

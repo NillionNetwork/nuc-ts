@@ -1,5 +1,5 @@
 import { bytesToHex, randomBytes } from "@noble/hashes/utils.js";
-import { DEFAULT_NONCE_LENGTH } from "#/constants";
+import { DEFAULT_MAX_LIFETIME_MS, DEFAULT_NONCE_LENGTH } from "#/constants";
 import type { Did } from "#/core/did/types";
 import { base64UrlEncode } from "#/core/encoding";
 import type { Signer } from "#/core/signer";
@@ -23,6 +23,7 @@ abstract class AbstractBuilder {
   protected _meta?: Record<string, unknown>;
   protected _nonce?: string;
   protected _proof?: Envelope;
+  protected _maxLifetimeMs: number = DEFAULT_MAX_LIFETIME_MS;
 
   protected abstract _getPayloadData(issuer: Did): Payload;
 
@@ -80,6 +81,21 @@ abstract class AbstractBuilder {
    */
   public expiresAt(date: number): this {
     this._expiresAt = date;
+    return this;
+  }
+
+  /**
+   * Specifies the token's expiration as a duration from now.
+   *
+   * @param ms - The number of milliseconds from now when the token should expire.
+   * @returns This builder instance for method chaining.
+   * @example
+   * ```typescript
+   * builder.expiresIn(3600 * 1000); // Expires in 1 hour
+   * ```
+   */
+  public expiresIn(ms: number): this {
+    this._expiresAt = Date.now() + ms;
     return this;
   }
 
@@ -142,6 +158,26 @@ abstract class AbstractBuilder {
   }
 
   /**
+   * Sets the maximum lifetime for the token being built.
+   *
+   * This value cannot exceed the default maximum lifetime or the remaining
+   * lifetime of a parent proof token.
+   *
+   * @param ms - The maximum lifetime in milliseconds.
+   * @returns This builder instance for method chaining.
+   * @throws {Error} If the provided lifetime exceeds the allowed maximum.
+   */
+  public maxLifetime(ms: number): this {
+    if (ms > this._maxLifetimeMs) {
+      throw new Error(
+        `Custom max lifetime of ${ms}ms exceeds the allowed maximum of ${this._maxLifetimeMs}ms.`,
+      );
+    }
+    this._maxLifetimeMs = ms;
+    return this;
+  }
+
+  /**
    * Links this token to a previous token in a delegation chain.
    *
    * The proof establishes the authority for this token based on
@@ -197,6 +233,24 @@ abstract class AbstractBuilder {
    * ```
    */
   public async sign(signer: Signer): Promise<Envelope> {
+    // Validate expiration properties before signing.
+    if (!this._expiresAt) {
+      throw new Error(
+        "Expiration is a required field. Use `expiresAt(timestamp)` or `expiresIn(duration)`.",
+      );
+    }
+    if (this._expiresAt <= Date.now()) {
+      throw new Error("Expiration date must be in the future.");
+    }
+    const maxExpiry = Date.now() + this._maxLifetimeMs;
+    if (this._expiresAt > maxExpiry) {
+      const asConfigured = new Date(this._expiresAt).toISOString();
+      const maxAllowed = new Date(maxExpiry).toISOString();
+      throw new Error(
+        `Expiration of ${asConfigured} exceeds the maximum lifetime. Max expiry is ${maxAllowed}.`,
+      );
+    }
+
     // The issuer is now authoritatively derived from the signer.
     const issuer = this._issuer ?? (await signer.getDid());
     const payloadData = this._getPayloadData(issuer);
@@ -330,8 +384,8 @@ export class DelegationBuilder extends AbstractBuilder {
       sub: this._subject,
       cmd: this._command,
       pol: this._policy,
-      nbf: this._notBefore,
-      exp: this._expiresAt,
+      nbf: this._notBefore ? Math.floor(this._notBefore / 1000) : undefined,
+      exp: this._expiresAt ? Math.floor(this._expiresAt / 1000) : undefined,
       meta: this._meta,
       nonce: this._nonce || bytesToHex(randomBytes(DEFAULT_NONCE_LENGTH)),
       prf: this._proof
@@ -415,8 +469,8 @@ export class InvocationBuilder extends AbstractBuilder {
       sub: this._subject,
       cmd: this._command,
       args: this._args,
-      nbf: this._notBefore,
-      exp: this._expiresAt,
+      nbf: this._notBefore ? Math.floor(this._notBefore / 1000) : undefined,
+      exp: this._expiresAt ? Math.floor(this._expiresAt / 1000) : undefined,
       meta: this._meta,
       nonce: this._nonce || bytesToHex(randomBytes(DEFAULT_NONCE_LENGTH)),
       prf: this._proof
@@ -536,6 +590,15 @@ export const Builder = {
     builder.command(proofPayload.cmd);
     builder.proof(proof);
 
+    // Cap the new token's lifetime by its parent's remaining validity.
+    if (proofPayload.exp) {
+      const remainingLifetimeMs = proofPayload.exp * 1000 - Date.now();
+      if (remainingLifetimeMs <= 0) {
+        throw new Error("Cannot create a chained token from an expired proof.");
+      }
+      builder.maxLifetime(remainingLifetimeMs);
+    }
+
     return builder;
   },
 
@@ -577,6 +640,15 @@ export const Builder = {
     builder.command(proofPayload.cmd);
     builder.proof(proof);
 
+    // Cap the new token's lifetime by its parent's remaining validity.
+    if (proofPayload.exp) {
+      const remainingLifetimeMs = proofPayload.exp * 1000 - Date.now();
+      if (remainingLifetimeMs <= 0) {
+        throw new Error("Cannot create a chained token from an expired proof.");
+      }
+      builder.maxLifetime(remainingLifetimeMs);
+    }
+
     return builder;
   },
 
@@ -584,7 +656,7 @@ export const Builder = {
    * Creates a delegation builder from a serialized token string.
    * @param proofString - The base64url encoded delegation token string.
    * @returns A pre-configured DelegationBuilder.
-   * @throws {Error} Decoding errors from {@link Codec.decodeBase64Url}
+   * @throws {Error} Decoding errors from {@link Codec._unsafeDecodeBase64Url}
    * @throws {Error} "Cannot create a delegation from a proof that is not a delegation" - If decoded token is not a delegation
    * @example
    * ```typescript
@@ -594,7 +666,7 @@ export const Builder = {
    * ```
    */
   delegationFromString(proofString: string): DelegationBuilder {
-    const proof = Codec.decodeBase64Url(proofString);
+    const proof = Codec._unsafeDecodeBase64Url(proofString);
     return this.delegationFrom(proof);
   },
 
@@ -602,7 +674,7 @@ export const Builder = {
    * Creates an invocation builder from a serialized token string.
    * @param proofString - The base64url encoded delegation token string.
    * @returns A pre-configured InvocationBuilder.
-   * @throws {Error} Decoding errors from {@link Codec.decodeBase64Url}
+   * @throws {Error} Decoding errors from {@link Codec._unsafeDecodeBase64Url}
    * @throws {Error} "Cannot invoke a capability from a proof that is not a delegation" - If decoded token is not a delegation
    * @example
    * ```typescript
@@ -613,7 +685,7 @@ export const Builder = {
    * ```
    */
   invocationFromString(proofString: string): InvocationBuilder {
-    const proof = Codec.decodeBase64Url(proofString);
+    const proof = Codec._unsafeDecodeBase64Url(proofString);
     return this.invocationFrom(proof);
   },
 } as const;

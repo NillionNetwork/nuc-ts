@@ -1,5 +1,6 @@
-import { Wallet } from "ethers";
+import { privateKeyToAccount } from "viem/accounts";
 import { describe, it } from "vitest";
+import { ONE_HOUR_MS } from "#/constants";
 import * as ethr from "#/core/did/ethr";
 import { Signer } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
@@ -16,9 +17,11 @@ describe("heterogeneous nuc chain", () => {
     const rootDid = await rootSigner.getDid();
 
     // B. An intermediate user with an Ethereum wallet
-    const userWallet = Wallet.createRandom();
-    const userDid = ethr.fromAddress(userWallet.address);
-    const userSigner = createNativeEthrSigner(userWallet);
+    const userAccount = privateKeyToAccount(
+      "0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a",
+    );
+    const userDid = ethr.fromAddress(userAccount.address);
+    const userSigner = createNativeEthrSigner(userAccount);
 
     // C. A legacy service that the user delegates a sub-capability to
     const legacySvcSigner = Signer.generate("nil");
@@ -33,6 +36,7 @@ describe("heterogeneous nuc chain", () => {
       .audience(userDid)
       .subject(userDid)
       .command("/nil/db/data")
+      .expiresIn(ONE_HOUR_MS)
       .sign(rootSigner);
 
     // 2. User (did:ethr) delegates to LegacySvc (did:nil)
@@ -41,12 +45,14 @@ describe("heterogeneous nuc chain", () => {
     )
       .audience(legacySvcDid)
       .command("/nil/db/data/find")
+      .expiresIn(ONE_HOUR_MS / 2)
       .sign(userSigner);
 
     // 3. LegacySvc (did:nil) invokes the command for the FinalSvc
     const invocation = await Builder.invocationFrom(userToLegacySvcDelegation)
       .audience(finalSvcDid)
       .arguments({ id: 123 })
+      .expiresIn(ONE_HOUR_MS / 4)
       .sign(legacySvcSigner);
 
     // Phase 3 - Validation

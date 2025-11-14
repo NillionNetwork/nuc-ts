@@ -1,4 +1,4 @@
-import type { TypedDataDomain } from "ethers";
+import type { TypedDataDomain } from "abitype";
 import { z } from "zod";
 import { Payload } from "#/nuc/payload";
 

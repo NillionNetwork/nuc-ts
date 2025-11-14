@@ -1,6 +1,6 @@
 import { create } from "@bufbuild/protobuf";
 import { type BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
-import type { TsProtoGeneratedType } from "@cosmjs/proto-signing/build/registry";
+import type { TsProtoGeneratedType } from "@cosmjs/proto-signing";
 import { type MsgPayFor, MsgPayForSchema } from "#/services/payer/gen/tx_pb";
 
 /**

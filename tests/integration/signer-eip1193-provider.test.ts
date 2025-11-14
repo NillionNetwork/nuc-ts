@@ -1,5 +1,6 @@
 import type { EIP1193Provider } from "viem";
 import { describe, expect, it, vi } from "vitest";
+import { ONE_HOUR_MS } from "#/constants";
 import { Signer } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
 
@@ -41,6 +42,7 @@ describe("Signer.fromEip1193Provider", () => {
       .audience(audience)
       .subject(did)
       .command("/test")
+      .expiresIn(ONE_HOUR_MS)
       .sign(nucSigner);
 
     // Assert that the signer produced a signature
