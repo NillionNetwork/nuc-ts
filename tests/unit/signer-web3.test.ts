@@ -1,5 +1,6 @@
 import { type HDNodeWallet, Wallet } from "ethers";
 import { beforeEach, describe, expect, it } from "vitest";
+import { ONE_HOUR_MS } from "#/constants";
 import type { Signer as NucSigner } from "#/core/signer";
 import { Signer } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
@@ -45,6 +46,7 @@ describe("Web3 Signer (EIP-712)", () => {
       .audience(audience)
       .subject(subject)
       .command("/test")
+      .expiresIn(ONE_HOUR_MS)
       .sign(web3Signer);
 
     expect(envelope.nuc.payload.iss.method).toBe("ethr");
@@ -61,12 +63,14 @@ describe("Web3 Signer (EIP-712)", () => {
       .audience(userDid)
       .subject(userDid)
       .command("/test/data")
+      .expiresIn(ONE_HOUR_MS)
       .sign(web3Signer);
 
     // User creates an invocation
     const invocation = await Builder.invocationFrom(rootDelegation)
       .audience(serviceDid)
       .arguments({ action: "read" })
+      .expiresIn(ONE_HOUR_MS / 2)
       .sign(userSigner);
 
     expect(invocation.proofs).toHaveLength(1);

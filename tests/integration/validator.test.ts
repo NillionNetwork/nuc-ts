@@ -1,4 +1,5 @@
 import { describe, it } from "vitest";
+import { ONE_HOUR_MS } from "#/constants";
 import { Signer } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
 import { REVOKE_COMMAND } from "#/nuc/payload";
@@ -23,11 +24,13 @@ describe("Validator", () => {
       .audience(userDid)
       .command("/nil")
       .subject(userDid)
+      .expiresIn(ONE_HOUR_MS)
       .sign(rootSigner);
 
     // Create a chained delegation from the base
     envelope = await Builder.delegationFrom(envelope)
       .audience(await Signer.generate().getDid())
+      .expiresIn(ONE_HOUR_MS / 2)
       .sign(userSigner);
 
     // Create an unrelated token and push it into the proofs
@@ -35,6 +38,7 @@ describe("Validator", () => {
       .audience(userDid)
       .command("/nil")
       .subject(userDid)
+      .expiresIn(ONE_HOUR_MS)
       .sign(rootSigner);
 
     envelope.proofs.push(unlinkedToken.nuc);
@@ -51,17 +55,21 @@ describe("Validator", () => {
       .audience(userDid)
       .subject(userDid)
       .command("/nil")
+      .expiresIn(ONE_HOUR_MS)
       .sign(rootSigner);
 
     // Chain the delegations, setting the audience for each new link
     envelope = await Builder.delegationFrom(envelope)
       .audience(userDid)
+      .expiresIn(ONE_HOUR_MS / 2)
       .sign(userSigner);
     envelope = await Builder.delegationFrom(envelope)
       .audience(userDid)
+      .expiresIn(ONE_HOUR_MS / 4)
       .sign(userSigner);
     envelope = await Builder.delegationFrom(envelope)
       .audience(userDid)
+      .expiresIn(ONE_HOUR_MS / 8)
       .sign(userSigner);
 
     // Set max chain length to 2 (the chain has 4 tokens)
@@ -78,11 +86,13 @@ describe("Validator", () => {
       .audience(userDid)
       .subject(userDid)
       .command("/nil")
+      .expiresIn(ONE_HOUR_MS)
       .sign(rootSigner);
 
     const chainedEnvelope = await Builder.delegationFrom(rootEnvelope)
       .command("/bar") // Invalid: "/bar" is not a sub-path of "/nil"
       .audience(userDid) // A new audience is still required
+      .expiresIn(ONE_HOUR_MS / 2)
       .sign(userSigner);
 
     assertFailure(chainedEnvelope, Validator.COMMAND_NOT_ATTENUATED);
@@ -98,11 +108,13 @@ describe("Validator", () => {
       .audience(userDid2)
       .subject(userDid1)
       .command("/nil")
+      .expiresIn(ONE_HOUR_MS)
       .sign(rootSigner);
 
     const chainedEnvelope = await Builder.delegationFrom(rootEnvelope)
       .subject(userDid2) // Invalid: subject changes mid-chain
       .audience(await Signer.generate().getDid())
+      .expiresIn(ONE_HOUR_MS / 2)
       .sign(userSigner2);
 
     assertFailure(chainedEnvelope, Validator.DIFFERENT_SUBJECTS);
@@ -117,10 +129,12 @@ describe("Validator", () => {
       .audience(userDid)
       .subject(userDid)
       .command("/nil")
+      .expiresIn(ONE_HOUR_MS)
       .sign(rootSigner);
 
     const chainedEnvelope = await Builder.delegationFrom(rootEnvelope)
       .audience(await Signer.generate().getDid())
+      .expiresIn(ONE_HOUR_MS / 2)
       .sign(anotherSigner); // Invalid: signed by a party that was not the audience
 
     assertFailure(chainedEnvelope, Validator.ISSUER_AUDIENCE_MISMATCH);
@@ -137,10 +151,12 @@ describe("Validator", () => {
       .audience(userDid)
       .subject(userDid)
       .command("/nil")
+      .expiresIn(ONE_HOUR_MS)
       .sign(rootSigner);
 
     const invocationEnvelope = await Builder.invocationFrom(delegationEnvelope)
       .audience(actualAudienceDid)
+      .expiresIn(ONE_HOUR_MS / 2)
       .sign(userSigner);
 
     assertFailure(invocationEnvelope, Validator.INVALID_AUDIENCE, {
@@ -161,10 +177,12 @@ describe("Validator", () => {
       .audience(userDid)
       .subject(userDid)
       .command("/nil")
+      .expiresIn(ONE_HOUR_MS)
       .sign(rootSigner);
 
     const chainedEnvelope = await Builder.delegationFrom(rootEnvelope)
       .audience(userDid)
+      .expiresIn(ONE_HOUR_MS / 2)
       .sign(userSigner);
 
     chainedEnvelope.proofs = []; // Manually remove the proof
@@ -180,11 +198,13 @@ describe("Validator", () => {
       .subject(userDid)
       .command("/nil")
       .audience(userDid)
+      .expiresIn(ONE_HOUR_MS)
       .sign(rootSigner);
 
     const invocationEnvelope = await Builder.invocationFrom(rootEnvelope)
       .arguments({ bar: 1337 }) // Does not satisfy the policy
       .audience(await Signer.generate().getDid())
+      .expiresIn(ONE_HOUR_MS / 2)
       .sign(userSigner);
     assertFailure(invocationEnvelope, Validator.POLICY_NOT_MET);
   });
@@ -198,10 +218,12 @@ describe("Validator", () => {
       .audience(userDid)
       .subject(userDid)
       .command("/nil")
+      .expiresIn(ONE_HOUR_MS)
       .sign(anotherUserSigner); // Signed by a non-root key
 
     const chainedEnvelope = await Builder.delegationFrom(rootEnvelope)
       .audience(userDid)
+      .expiresIn(ONE_HOUR_MS / 2)
       .sign(userSigner);
 
     assertFailure(chainedEnvelope, Validator.ROOT_KEY_SIGNATURE_MISSING, {
@@ -223,18 +245,21 @@ describe("Validator", () => {
       .subject(userDid)
       .command("/nil")
       .audience(userDid)
+      .expiresIn(ONE_HOUR_MS)
       .sign(rootSigner);
 
     const intermediateDelegation = await Builder.delegationFrom(rootDelegation)
       .policy([["==", ".args.bar", 1337]])
       .command("/nil/bar")
       .audience(userDid)
+      .expiresIn(ONE_HOUR_MS / 2)
       .sign(userSigner);
 
     const invocation = await Builder.invocationFrom(intermediateDelegation)
       .arguments({ foo: 42, bar: 1337 })
       .audience(serviceDid)
       .command("/nil/bar/foo")
+      .expiresIn(ONE_HOUR_MS / 4)
       .sign(userSigner);
 
     assertSuccess(invocation, {
@@ -259,6 +284,7 @@ describe("Validator", () => {
       .audience(userDid)
       .subject(userDid)
       .command("/nil/db/data")
+      .expiresIn(ONE_HOUR_MS)
       .sign(testRootSigner);
 
     // 2. User creates an invocation that "jumps" from the /db/data/read
@@ -267,6 +293,7 @@ describe("Validator", () => {
       .command(REVOKE_COMMAND)
       .audience(await Signer.generate().getDid()) // Fake revocation service
       .arguments({ token_hash: "any_hash_will_do_for_this_test" })
+      .expiresIn(ONE_HOUR_MS / 2)
       .sign(userSigner);
 
     // 3. Assert that this envelope passes validation.

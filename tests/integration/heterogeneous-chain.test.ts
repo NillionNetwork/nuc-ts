@@ -1,5 +1,6 @@
 import { Wallet } from "ethers";
 import { describe, it } from "vitest";
+import { ONE_HOUR_MS } from "#/constants";
 import * as ethr from "#/core/did/ethr";
 import { Signer } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
@@ -33,6 +34,7 @@ describe("heterogeneous nuc chain", () => {
       .audience(userDid)
       .subject(userDid)
       .command("/nil/db/data")
+      .expiresIn(ONE_HOUR_MS)
       .sign(rootSigner);
 
     // 2. User (did:ethr) delegates to LegacySvc (did:nil)
@@ -41,12 +43,14 @@ describe("heterogeneous nuc chain", () => {
     )
       .audience(legacySvcDid)
       .command("/nil/db/data/find")
+      .expiresIn(ONE_HOUR_MS / 2)
       .sign(userSigner);
 
     // 3. LegacySvc (did:nil) invokes the command for the FinalSvc
     const invocation = await Builder.invocationFrom(userToLegacySvcDelegation)
       .audience(finalSvcDid)
       .arguments({ id: 123 })
+      .expiresIn(ONE_HOUR_MS / 4)
       .sign(legacySvcSigner);
 
     // Phase 3 - Validation

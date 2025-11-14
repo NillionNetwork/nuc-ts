@@ -56,7 +56,7 @@ const rootDelegation = await Builder.delegation()
     ["==", ".command", "/nil/db/collections"], // Command must be an attenuation
     ["!=", ".args.collection", "secrets"]
   ])
-  .expiresAt(Date.now() + 3600 * 1000)    // Expires in 1 hour
+  .expiresIn(3600 * 1000)                 // Expires in 1 hour
   .sign(rootSigner);
 
 // Step 4: Build an invocation token from the delegation

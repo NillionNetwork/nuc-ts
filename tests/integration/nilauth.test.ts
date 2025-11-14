@@ -1,5 +1,6 @@
 import { bytesToHex } from "@noble/hashes/utils.js";
 import { beforeAll, describe, expect, it } from "vitest";
+import { ONE_HOUR_MS } from "#/constants";
 import { Did } from "#/core/did/did";
 import { Signer } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
@@ -88,15 +89,22 @@ describe("nilauth client", () => {
     // 2. Delegate root token to a user.
     const userSigner = Signer.generate();
     const userDid = await userSigner.getDid();
+
+    // Calculate parent's remaining lifetime and use a fraction of it
+    const parentExp = rootToken.nuc.payload.exp;
+    const remainingLifetimeMs = (parentExp as number) * 1000 - Date.now();
+
     const userDelegation = await Builder.delegationFrom(rootToken)
       .audience(userDid)
       .subject(userDid)
       .command("/some/specific/capability")
+      .expiresIn(remainingLifetimeMs * 0.8)
       .sign(signer);
 
     // 3. The user invokes their delegation.
     const finalInvocation = await Builder.invocationFrom(userDelegation)
       .audience(await Signer.generate().getDid()) // Some final service
+      .expiresIn(remainingLifetimeMs * 0.5)
       .sign(userSigner); // Signed by the user
 
     // Phase 2: Revoke the intermediate token (userDelegation)
@@ -151,6 +159,7 @@ describe("NilauthClient without a Payer", () => {
       .audience(testDid)
       .subject(testDid)
       .command("/test")
+      .expiresIn(ONE_HOUR_MS)
       .sign(Signer.generate());
 
     // This should succeed as it doesn't require a payer

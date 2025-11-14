@@ -2,6 +2,7 @@ import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex, randomBytes } from "@noble/hashes/utils.js";
 import ky, { HTTPError, type Options } from "ky";
 import { z } from "zod";
+import { ONE_MINUTE_MS } from "#/constants";
 import { Did } from "#/core/did/did";
 import {
   NilauthErrorResponse,
@@ -161,6 +162,7 @@ export class NilauthClient {
       .subject(subject)
       .audience(this.nilauthDid)
       .command(command)
+      .expiresIn(ONE_MINUTE_MS)
       .signAndSerialize(signer);
   }
 
@@ -415,6 +417,10 @@ export class NilauthClient {
 
     const issuer = await signer.getDid();
 
+    // Calculate auth token's remaining lifetime
+    const authTokenExp = authToken.nuc.payload.exp;
+    const remainingLifetimeMs = (authTokenExp as number) * 1000 - Date.now();
+
     const revokeTokenEnvelope = await Builder.invocationFrom(authToken)
       .arguments({
         token: Codec.serializeBase64Url(tokenToRevoke),
@@ -422,7 +428,8 @@ export class NilauthClient {
       .command(REVOKE_COMMAND)
       .audience(this.nilauthDid)
       .issuer(issuer)
-      // Subject is inherited from authToken
+      // Use most of parent's remaining lifetime (builder will cap if needed)
+      .expiresIn(Math.min(ONE_MINUTE_MS, remainingLifetimeMs * 0.9))
       .sign(signer);
 
     const revokeTokenString = Codec.serializeBase64Url(revokeTokenEnvelope);

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { ONE_HOUR_MS } from "#/constants";
 import { base64UrlDecode } from "#/core/encoding";
 import { Signer } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
@@ -14,6 +15,7 @@ describe("Legacy Signer (`did:nil`)", () => {
       .audience(audience)
       .subject(audience)
       .command("/test")
+      .expiresIn(ONE_HOUR_MS)
       .sign(signer);
 
     expect(() => validateNucSignature(envelope.nuc)).not.toThrow();

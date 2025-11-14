@@ -1,4 +1,5 @@
 import { describe, it } from "vitest";
+import { FOUR_WEEKS_MS, ONE_HOUR_MS } from "#/constants";
 import { Signer } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
 import { Codec } from "#/nuc/codec";
@@ -19,6 +20,7 @@ describe("Builder", () => {
       .audience(aud)
       .subject(sub)
       .command(REVOKE_COMMAND)
+      .expiresIn(ONE_HOUR_MS)
       .sign(signer);
 
     const payload = envelope.nuc.payload;
@@ -39,6 +41,7 @@ describe("Builder", () => {
       .audience(aud)
       .subject(sub)
       .command("/db/read")
+      .expiresIn(ONE_HOUR_MS)
       .sign(signer);
 
     const payload = envelope.nuc.payload;
@@ -60,10 +63,12 @@ describe("Builder", () => {
       .audience(userDid)
       .subject(userDid)
       .command("/db/read")
+      .expiresIn(ONE_HOUR_MS)
       .sign(rootSigner);
 
     const chainedEnvelope = await Builder.delegationFrom(rootEnvelope)
       .audience(aud) // new audience
+      .expiresIn(ONE_HOUR_MS / 2)
       .sign(userSigner); // signed by user
 
     expect(chainedEnvelope.proofs).toHaveLength(1);
@@ -89,6 +94,7 @@ describe("Builder", () => {
       .audience(userDid)
       .subject(userDid)
       .command("/db/read")
+      .expiresIn(ONE_HOUR_MS)
       .sign(rootSigner);
 
     // Create an invocation from the delegation
@@ -96,6 +102,7 @@ describe("Builder", () => {
       .audience(aud) // new audience
       .addArgument("action", "read")
       .addArgument("resourceId", 456)
+      .expiresIn(ONE_HOUR_MS / 2)
       .sign(userSigner); // signed by user
 
     expect(invocationEnvelope.proofs).toHaveLength(1);
@@ -129,6 +136,7 @@ describe("Builder Ergonomics", () => {
       .audience(userDid)
       .subject(userDid)
       .command("/test")
+      .expiresIn(ONE_HOUR_MS)
       .signAndSerialize(rootSigner);
 
     expect(typeof serializedToken).toBe("string");
@@ -145,12 +153,14 @@ describe("Builder Ergonomics", () => {
       .audience(userDid)
       .subject(userDid)
       .command("/test/delegate")
+      .expiresIn(ONE_HOUR_MS)
       .signAndSerialize(rootSigner);
 
     const chainedDelegationString = await Builder.delegationFromString(
       rootDelegationString,
     )
       .audience(serviceDid)
+      .expiresIn(ONE_HOUR_MS / 2)
       .signAndSerialize(userSigner);
 
     const decoded = Codec.decodeBase64Url(chainedDelegationString);
@@ -167,6 +177,7 @@ describe("Builder Ergonomics", () => {
       .audience(userDid)
       .subject(userDid)
       .command("/test/invoke")
+      .expiresIn(ONE_HOUR_MS)
       .signAndSerialize(rootSigner);
 
     const invocationString = await Builder.invocationFromString(
@@ -174,6 +185,7 @@ describe("Builder Ergonomics", () => {
     )
       .audience(serviceDid)
       .arguments({ foo: "bar" })
+      .expiresIn(ONE_HOUR_MS / 2)
       .signAndSerialize(userSigner);
 
     const decoded = Codec.decodeBase64Url(invocationString);
@@ -183,5 +195,176 @@ describe("Builder Ergonomics", () => {
     if (Payload.isInvocationPayload(decoded.nuc.payload)) {
       expect(decoded.nuc.payload.args).toEqual({ foo: "bar" });
     }
+  });
+});
+
+describe("Builder Expiration and Lifetime", () => {
+  const signer = Signer.generate();
+  const aud = Signer.generate();
+  const sub = Signer.generate();
+
+  it("should throw an error if expiration is not set", async ({ expect }) => {
+    const audDid = await aud.getDid();
+    const subDid = await sub.getDid();
+
+    const builder = Builder.delegation()
+      .audience(audDid)
+      .subject(subDid)
+      .command("/test");
+
+    await expect(builder.sign(signer)).rejects.toThrow(
+      "Expiration is a required field.",
+    );
+  });
+
+  it("should throw an error if expiration is in the past", async ({
+    expect,
+  }) => {
+    const audDid = await aud.getDid();
+    const subDid = await sub.getDid();
+
+    const builder = Builder.delegation()
+      .audience(audDid)
+      .subject(subDid)
+      .command("/test")
+      .expiresAt(Date.now() - 1000);
+
+    await expect(builder.sign(signer)).rejects.toThrow(
+      "Expiration date must be in the future.",
+    );
+  });
+
+  it("should correctly set expiration using expiresIn", async ({ expect }) => {
+    const audDid = await aud.getDid();
+    const subDid = await sub.getDid();
+    const now = Date.now();
+    const lifetime = 5 * 60 * 1000; // 5 minutes
+
+    const envelope = await Builder.delegation()
+      .audience(audDid)
+      .subject(subDid)
+      .command("/test")
+      .expiresIn(lifetime)
+      .sign(signer);
+
+    const expectedExp = Math.floor((now + lifetime) / 1000);
+    // Allow for a 1-second clock skew during test run
+    expect(envelope.nuc.payload.exp).toBeGreaterThanOrEqual(expectedExp - 1);
+    expect(envelope.nuc.payload.exp).toBeLessThanOrEqual(expectedExp + 1);
+  });
+
+  it("should throw if expiration exceeds the default max lifetime", async ({
+    expect,
+  }) => {
+    const audDid = await aud.getDid();
+    const subDid = await sub.getDid();
+    const longLifetime = FOUR_WEEKS_MS + 1000;
+
+    const builder = Builder.delegation()
+      .audience(audDid)
+      .subject(subDid)
+      .command("/test")
+      .expiresIn(longLifetime);
+
+    await expect(builder.sign(signer)).rejects.toThrow(
+      "exceeds the maximum lifetime",
+    );
+  });
+
+  it("should allow setting a shorter max lifetime", async ({ expect }) => {
+    const audDid = await aud.getDid();
+    const subDid = await sub.getDid();
+    const shortMaxLifetime = 60 * 1000; // 1 minute
+
+    // This should succeed
+    const envelope = await Builder.delegation()
+      .audience(audDid)
+      .subject(subDid)
+      .command("/test")
+      .maxLifetime(shortMaxLifetime)
+      .expiresIn(shortMaxLifetime - 1)
+      .sign(signer);
+    expect(envelope).toBeDefined();
+
+    // This should fail
+    const builder = Builder.delegation()
+      .audience(audDid)
+      .subject(subDid)
+      .command("/test")
+      .maxLifetime(shortMaxLifetime)
+      .expiresIn(shortMaxLifetime + 1);
+
+    await expect(builder.sign(signer)).rejects.toThrow(
+      "exceeds the maximum lifetime. Max expiry is",
+    );
+  });
+
+  it("should throw when trying to set a max lifetime longer than allowed", async ({
+    expect,
+  }) => {
+    const audDid = await aud.getDid();
+    const subDid = await sub.getDid();
+    const builder = Builder.delegation()
+      .audience(audDid)
+      .subject(subDid)
+      .command("/test");
+
+    expect(() => builder.maxLifetime(FOUR_WEEKS_MS + 1000)).toThrow(
+      "exceeds the allowed maximum",
+    );
+  });
+
+  it("should cap a chained token's lifetime by its parent's", async ({
+    expect,
+  }) => {
+    const userSigner = Signer.generate();
+    const userDid = await userSigner.getDid();
+    const serviceDid = await Signer.generate().getDid();
+    const rootSigner = Signer.generate();
+
+    const parentLifetime = 5 * 60 * 1000; // 5 minutes
+
+    const rootDelegation = await Builder.delegation()
+      .audience(userDid)
+      .subject(userDid)
+      .command("/test")
+      .expiresIn(parentLifetime)
+      .sign(rootSigner);
+
+    // This should fail because child tries to live longer than parent's remaining life
+    const childBuilder = Builder.delegationFrom(rootDelegation)
+      .audience(serviceDid)
+      .expiresIn(parentLifetime + 1000);
+
+    await expect(childBuilder.sign(userSigner)).rejects.toThrow(
+      "exceeds the maximum lifetime",
+    );
+
+    // This should succeed
+    const validChild = await Builder.delegationFrom(rootDelegation)
+      .audience(serviceDid)
+      .expiresIn(parentLifetime / 2)
+      .sign(userSigner);
+    expect(validChild).toBeDefined();
+  });
+
+  it("should correctly convert ms to seconds in payload for exp and nbf", async ({
+    expect,
+  }) => {
+    const audDid = await aud.getDid();
+    const subDid = await sub.getDid();
+    const now = Date.now();
+
+    const envelope = await Builder.delegation()
+      .audience(audDid)
+      .subject(subDid)
+      .command("/test")
+      .notBefore(now - 10000)
+      .expiresAt(now + ONE_HOUR_MS)
+      .sign(signer);
+
+    const payload = envelope.nuc.payload;
+    expect(payload.nbf).toBe(Math.floor((now - 10000) / 1000));
+    expect(payload.exp).toBe(Math.floor((now + ONE_HOUR_MS) / 1000));
   });
 });

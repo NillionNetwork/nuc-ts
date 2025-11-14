@@ -1,5 +1,6 @@
 import { Wallet } from "ethers";
 import { describe, expect, it } from "vitest";
+import { ONE_HOUR_MS } from "#/constants";
 import * as ethr from "#/core/did/ethr";
 import { type Eip712Signer, Signer } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
@@ -22,6 +23,7 @@ describe("EIP-712 Signer (`did:ethr`)", () => {
       .audience(audience)
       .subject(audience)
       .command("/test/delegate")
+      .expiresIn(ONE_HOUR_MS)
       .sign(signer);
 
     expect(() => validateNucSignature(envelope.nuc)).not.toThrow();
@@ -34,6 +36,7 @@ describe("EIP-712 Signer (`did:ethr`)", () => {
       .subject(audience)
       .command("/test/invoke")
       .arguments({ test: true })
+      .expiresIn(ONE_HOUR_MS)
       .sign(signer);
 
     expect(() => validateNucSignature(envelope.nuc)).not.toThrow();

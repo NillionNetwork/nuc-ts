@@ -1,5 +1,6 @@
 import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
+import { ONE_HOUR_MS } from "#/constants";
 import { Signer } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
 import { Codec } from "#/nuc/codec";
@@ -17,11 +18,13 @@ describe("Codec Module", () => {
           .audience(userDid)
           .subject(userDid)
           .command("/test")
+          .expiresIn(ONE_HOUR_MS)
           .sign(rootSigner);
 
         const finalEnvelope = isChained
           ? await Builder.delegationFrom(rootEnvelope)
               .audience(await Signer.generate().getDid())
+              .expiresIn(ONE_HOUR_MS / 2)
               .sign(userSigner)
           : rootEnvelope;
 
@@ -59,6 +62,7 @@ describe("Codec Module", () => {
         .audience(userDid)
         .subject(userDid)
         .command("/test")
+        .expiresIn(ONE_HOUR_MS)
         .sign(rootSigner);
       const validSerialized = Codec.serializeBase64Url(rootEnvelope);
       const invalidChain = `${validSerialized}//${validSerialized}`;

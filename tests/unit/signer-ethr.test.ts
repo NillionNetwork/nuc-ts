@@ -1,5 +1,6 @@
 import { Wallet } from "ethers";
 import { describe, expect, it } from "vitest";
+import { ONE_HOUR_MS } from "#/constants";
 import { Signer } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
 import { validateNucSignature } from "#/validator/signatures";
@@ -17,6 +18,7 @@ describe("Native Signer (`did:ethr`)", () => {
       .audience(audience)
       .subject(audience)
       .command("/test")
+      .expiresIn(ONE_HOUR_MS)
       .sign(nativeEthrSigner);
 
     expect(() => validateNucSignature(envelope.nuc)).not.toThrow();
