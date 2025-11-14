@@ -79,7 +79,7 @@ export async function validateSignature(
   const messageHash = hashMessage({ raw: message });
   const recoveredAddress = await recoverAddress({
     hash: messageHash,
-    signature: bytesToHex(signature) as `0x${string}`,
+    signature: `0x${bytesToHex(signature)}` as `0x${string}`,
   });
   return getAddress(recoveredAddress) === did.address;
 }

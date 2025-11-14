@@ -83,7 +83,7 @@ export async function validateEip712Signature(nuc: Nuc): Promise<void> {
 
   const recoveredAddress = await recoverAddress({
     hash,
-    signature: bytesToHex(signature) as `0x${string}`,
+    signature: `0x${bytesToHex(signature)}` as `0x${string}`,
   });
 
   if (
