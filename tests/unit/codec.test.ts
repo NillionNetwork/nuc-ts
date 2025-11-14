@@ -4,13 +4,13 @@ import { ONE_HOUR_MS } from "#/constants";
 import { Signer } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
 import { Codec } from "#/nuc/codec";
+import { Validator } from "#/validator/validator";
 
-describe("Codec Module", () => {
+describe("Codec and Validator.parse", () => {
   const rootSigner = Signer.generate();
   const userSigner = Signer.generate();
 
-  // Property-Based Test: Serialization and decoding should be inverses.
-  it("should serialize and decode any token without data loss", async () => {
+  it("should serialize and then parse+validate any token without data loss", async () => {
     await fc.assert(
       fc.asyncProperty(fc.boolean(), async (isChained) => {
         const userDid = await userSigner.getDid();
@@ -29,20 +29,25 @@ describe("Codec Module", () => {
           : rootEnvelope;
 
         const serialized = Codec.serializeBase64Url(finalEnvelope);
-        const decoded = Codec.decodeBase64Url(serialized);
+        const rootDid = await rootSigner.getDid();
+
+        // The new safe way to parse
+        const parsed = Validator.parse(serialized, {
+          rootIssuers: [rootDid.didString],
+        });
 
         // Compare the serialized forms to ensure they produce the same output
-        const reserialized = Codec.serializeBase64Url(decoded);
+        const reserialized = Codec.serializeBase64Url(parsed);
         expect(reserialized).toBe(serialized);
       }),
     );
   });
 
-  // Keep specific error path tests
-  describe("error paths", () => {
+  // Keep specific error path tests, now testing _unsafeDecodeBase64Url
+  describe("error paths for _unsafeDecodeBase64Url", () => {
     it("should throw for an invalid Nuc structure", () => {
       const invalidToken = "a.b";
-      expect(() => Codec.decodeBase64Url(invalidToken)).toThrow(
+      expect(() => Codec._unsafeDecodeBase64Url(invalidToken)).toThrow(
         "invalid Nuc structure",
       );
     });
@@ -51,7 +56,7 @@ describe("Codec Module", () => {
       // Create a header with invalid version format
       const invalidHeader =
         "eyJhbGciOiJFUzI1NksiLCJ2ZXIiOiJpbnZhbGlkIn0.e30.e30"; // {"alg":"ES256K","ver":"invalid"}
-      expect(() => Codec.decodeBase64Url(invalidHeader)).toThrow(
+      expect(() => Codec._unsafeDecodeBase64Url(invalidHeader)).toThrow(
         "invalid Nuc header",
       );
     });
@@ -66,11 +71,13 @@ describe("Codec Module", () => {
         .sign(rootSigner);
       const validSerialized = Codec.serializeBase64Url(rootEnvelope);
       const invalidChain = `${validSerialized}//${validSerialized}`;
-      expect(() => Codec.decodeBase64Url(invalidChain)).toThrow("empty token");
+      expect(() => Codec._unsafeDecodeBase64Url(invalidChain)).toThrow(
+        "empty token",
+      );
     });
 
     it("should throw for an empty input string", () => {
-      expect(() => Codec.decodeBase64Url("")).toThrow("empty token");
+      expect(() => Codec._unsafeDecodeBase64Url("")).toThrow("empty token");
     });
   });
 });

@@ -46,7 +46,7 @@ const ValidationParamsSchema = z
 // Schema for parsing the entire `input` object from the text file.
 const InputSchema = z
   .object({
-    token: z.string().transform(Codec.decodeBase64Url),
+    token: z.string().transform(Codec._unsafeDecodeBase64Url),
     root_keys: z.array(z.string()),
     current_time: z.number(),
     context: z.record(z.string(), z.unknown()),

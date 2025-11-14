@@ -4,6 +4,7 @@ import {
   base64UrlDecodeToBytes,
   base64UrlEncode,
 } from "#/core/encoding";
+import { Log } from "#/core/logger";
 import { Envelope, type Nuc } from "#/nuc/envelope";
 import { NucHeaderSchema } from "./header";
 
@@ -69,33 +70,30 @@ function serializeToken(nuc: Nuc): string {
  *
  * const tokenString = Codec.serializeBase64Url(envelope);
  *
- * // Later, decode it back
- * const decoded = Codec.decodeBase64Url(tokenString);
+ * // Later, parse and validate it
+ * const decoded = Validator.parse(tokenString, {
+ *   rootIssuers: ["did:key:..."]
+ * });
  * ```
  */
 export namespace Codec {
   /**
-   * Decodes a base64url-encoded token string into an Envelope.
+   * [UNSAFE] Decodes a base64url-encoded token string into an Envelope without
+   * performing any signature or structural validation.
    *
-   * Supports both single tokens and chained tokens (separated by '/').
-   * Validates the token structure and header format during decoding.
+   * @internal
+   * @private
+   * @warning This function is for internal use and testing only. It does NOT
+   *   validate the token's signature, expiration, or chain of trust.
+   *   Always use `Validator.parse()` to securely parse and validate tokens.
    *
    * @param nucString - The base64url-encoded token string
-   * @returns The decoded and validated Envelope
-   * @throws {z.ZodError} Token string is empty or contains empty segments
-   * @throws {Error} INVALID_NUC_STRUCTURE - Token lacks three-part structure (header.payload.signature)
-   * @throws {Error} INVALID_NUC_HEADER - Header algorithm is not "ES256K"
-   * @throws {z.ZodError} Decoded structure doesn't match EnvelopeSchema
-   * @example
-   * ```typescript
-   * // Decode a single token
-   * const envelope = Codec.decodeBase64Url("eyJhbGc...");
-   *
-   * // Decode a chained token
-   * const chainedEnvelope = Codec.decodeBase64Url("eyJhbGc.../eyJhbGc...");
-   * ```
+   * @returns The decoded but **unvalidated** Envelope
    */
-  export function decodeBase64Url(nucString: string): Envelope {
+  export function _unsafeDecodeBase64Url(nucString: string): Envelope {
+    Log.warn(
+      "Using Codec._unsafeDecodeBase64Url. The decoded token is NOT validated. Use Validator.parse() for safe token processing.",
+    );
     const parts = nucString.split("/");
 
     if (!parts.every(Boolean)) {

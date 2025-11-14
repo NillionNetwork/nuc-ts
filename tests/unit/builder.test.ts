@@ -140,7 +140,7 @@ describe("Builder Ergonomics", () => {
       .signAndSerialize(rootSigner);
 
     expect(typeof serializedToken).toBe("string");
-    const decoded = Codec.decodeBase64Url(serializedToken);
+    const decoded = Codec._unsafeDecodeBase64Url(serializedToken);
     expect(decoded.nuc.payload.aud.didString).toBe(userDid.didString);
   });
 
@@ -163,7 +163,7 @@ describe("Builder Ergonomics", () => {
       .expiresIn(ONE_HOUR_MS / 2)
       .signAndSerialize(userSigner);
 
-    const decoded = Codec.decodeBase64Url(chainedDelegationString);
+    const decoded = Codec._unsafeDecodeBase64Url(chainedDelegationString);
     expect(decoded.proofs).toHaveLength(1);
     expect(decoded.nuc.payload.iss.didString).toBe(userDid.didString);
     expect(decoded.proofs[0].payload.iss.didString).toBe(rootDid.didString);
@@ -188,7 +188,7 @@ describe("Builder Ergonomics", () => {
       .expiresIn(ONE_HOUR_MS / 2)
       .signAndSerialize(userSigner);
 
-    const decoded = Codec.decodeBase64Url(invocationString);
+    const decoded = Codec._unsafeDecodeBase64Url(invocationString);
     expect(decoded.proofs).toHaveLength(1);
     expect(decoded.nuc.payload.iss.didString).toBe(userDid.didString);
     expect(Payload.isInvocationPayload(decoded.nuc.payload)).toBe(true);

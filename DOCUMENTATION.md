@@ -71,13 +71,12 @@ const invocation = await Builder.invocationFrom(rootDelegation)
 const tokenString = Codec.serializeBase64Url(invocation);
 console.log("Token to send:", tokenString);
 
-// Step 6: (Optional) Decode and validate the token
-// This would typically happen on the receiving service
-const decoded = Codec.decodeBase64Url(tokenString);
+// Step 6: (Optional) Parse and validate the token
+// This would typically happen on the receiving service.
 const rootDid = await rootSigner.getDid();
 
 try {
-  Validator.validate(decoded, {
+  const decoded = Validator.parse(tokenString, {
     rootIssuers: [rootDid.didString], // Use the Did string for validation
     params: {
       tokenRequirements: {
@@ -90,7 +89,7 @@ try {
       environment: "production"
     }
   });
-  console.log("Token is valid!");
+  console.log("Token is valid!", decoded);
 } catch (error) {
   // It's safer to check the error message against exported constants
   // to avoid breaking changes if the message text is updated.

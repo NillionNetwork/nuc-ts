@@ -1,5 +1,6 @@
 import { Did } from "#/core/did/did";
 import { Log } from "#/core/logger";
+import { Codec } from "#/nuc/codec";
 import type { Envelope } from "#/nuc/envelope";
 import { Payload } from "#/nuc/payload";
 import { Policy } from "#/nuc/policy";
@@ -53,6 +54,31 @@ export namespace Validator {
   export const NEED_DELEGATION = "token must be a delegation";
   export const NEED_INVOCATION = "token must be an invocation";
   export const POLICY_NOT_MET = "policy not met";
+
+  /**
+   * Parses and validates a NUC token string in a single, secure operation.
+   *
+   * This is the recommended method for consuming NUC tokens. It performs all
+   * necessary checks, including signature verification, chain validation, temporal
+   * checks, and policy evaluation.
+   *
+   * @param tokenString - The base64url-encoded token string to parse and validate.
+   * @param options - The validation options, identical to `Validator.validate`.
+   * @returns A validated `Envelope` object.
+   * @throws Throws an error if any part of the validation fails. See `Validator.validate` for a full list of possible errors.
+   */
+  export function parse(
+    tokenString: string,
+    options: ValidationOptions,
+  ): Envelope {
+    // The internal Codec function is "unsafe" because it doesn't validate.
+    // We immediately pass its output to the validator to ensure no unvalidated
+    // data is ever returned to the user from this function.
+    const envelope = Codec._unsafeDecodeBase64Url(tokenString);
+    validate(envelope, options);
+    return envelope;
+  }
+
   /**
    * Validates a NUC token envelope against requirements and policies.
    *
@@ -94,10 +120,23 @@ export namespace Validator {
    * ```typescript
    * import { Validator, Codec } from "@nillion/nuc";
    *
-   * const envelope = Codec.decodeBase64Url(tokenString);
+   * // Parse and validate a token in a single call
+   * const envelope = Validator.parse(tokenString, {
+   *   rootIssuers: ["did:key:zDnae..."],
+   *   params: {
+   *     maxChainLength: 10,
+   *     tokenRequirements: {
+   *       type: "invocation",
+   *       audience: "did:key:zDnae..."
+   *     }
+   *   },
+   *   context: { resource: "users", action: "read" }
+   * });
    *
+   * // Or decode first, then validate separately
+   * const decoded = Codec._unsafeDecodeBase64Url(tokenString);
    * try {
-   *   Validator.validate(envelope, {
+   *   Validator.validate(decoded, {
    *     rootIssuers: ["did:key:zDnae..."],
    *     params: {
    *       maxChainLength: 10,
@@ -109,7 +148,7 @@ export namespace Validator {
    *     context: { resource: "users", action: "read" }
    *   });
    * } catch (error) {
-   *   if (error.message === Validator.TOKEN_EXPIRED) {
+   *   if (error instanceof Error && error.message === Validator.TOKEN_EXPIRED) {
    *     console.error("Token has expired");
    *   }
    * }

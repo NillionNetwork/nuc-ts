@@ -656,7 +656,7 @@ export const Builder = {
    * Creates a delegation builder from a serialized token string.
    * @param proofString - The base64url encoded delegation token string.
    * @returns A pre-configured DelegationBuilder.
-   * @throws {Error} Decoding errors from {@link Codec.decodeBase64Url}
+   * @throws {Error} Decoding errors from {@link Codec._unsafeDecodeBase64Url}
    * @throws {Error} "Cannot create a delegation from a proof that is not a delegation" - If decoded token is not a delegation
    * @example
    * ```typescript
@@ -666,7 +666,7 @@ export const Builder = {
    * ```
    */
   delegationFromString(proofString: string): DelegationBuilder {
-    const proof = Codec.decodeBase64Url(proofString);
+    const proof = Codec._unsafeDecodeBase64Url(proofString);
     return this.delegationFrom(proof);
   },
 
@@ -674,7 +674,7 @@ export const Builder = {
    * Creates an invocation builder from a serialized token string.
    * @param proofString - The base64url encoded delegation token string.
    * @returns A pre-configured InvocationBuilder.
-   * @throws {Error} Decoding errors from {@link Codec.decodeBase64Url}
+   * @throws {Error} Decoding errors from {@link Codec._unsafeDecodeBase64Url}
    * @throws {Error} "Cannot invoke a capability from a proof that is not a delegation" - If decoded token is not a delegation
    * @example
    * ```typescript
@@ -685,7 +685,7 @@ export const Builder = {
    * ```
    */
   invocationFromString(proofString: string): InvocationBuilder {
-    const proof = Codec.decodeBase64Url(proofString);
+    const proof = Codec._unsafeDecodeBase64Url(proofString);
     return this.invocationFrom(proof);
   },
 } as const;
