@@ -1,4 +1,6 @@
-import { getAddress, hashMessage, hexlify, recoverAddress } from "ethers";
+import { bytesToHex } from "@noble/hashes/utils.js";
+import { getAddress } from "viem";
+import { hashMessage, recoverAddress } from "viem/utils";
 import type { DidEthr } from "#/core/did/types";
 
 /**
@@ -69,12 +71,15 @@ export function parse(didString: string): DidEthr {
  * @param signature The signature to validate
  * @returns True if the message was signed by the provided did.
  */
-export function validateSignature(
+export async function validateSignature(
   did: DidEthr,
   message: Uint8Array,
   signature: Uint8Array,
-): boolean {
-  const messageHash = hashMessage(message);
-  const recoveredAddress = recoverAddress(messageHash, hexlify(signature));
+): Promise<boolean> {
+  const messageHash = hashMessage({ raw: message });
+  const recoveredAddress = await recoverAddress({
+    hash: messageHash,
+    signature: bytesToHex(signature) as `0x${string}`,
+  });
   return getAddress(recoveredAddress) === did.address;
 }

@@ -9,3 +9,5 @@ node_modules
 dist
 **/coverage
 docs
+dist/**
+node_modules/**

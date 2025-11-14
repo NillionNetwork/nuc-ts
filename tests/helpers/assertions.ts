@@ -15,14 +15,21 @@ export type AsserterConfiguration = {
   currentTime?: number;
 };
 
-export function assertSuccess(
+export async function assertSuccess(
   envelope: Envelope,
   config: AsserterConfiguration = {},
-) {
+): Promise<void> {
   const timeProvider =
-    config.currentTime !== undefined ? () => config.currentTime! : undefined;
+    config.currentTime === undefined
+      ? undefined
+      : () => {
+          if (config.currentTime === undefined) {
+            throw new Error("currentTime unexpectedly undefined");
+          }
+          return config.currentTime;
+        };
 
-  Validator.validate(envelope, {
+  await Validator.validate(envelope, {
     rootIssuers: config.rootDids ?? ROOT_DIDS,
     params: config.parameters,
     context: config.context,
@@ -30,16 +37,23 @@ export function assertSuccess(
   });
 }
 
-export function assertFailure(
+export async function assertFailure(
   envelope: Envelope,
   expectedMessage: string,
   config: AsserterConfiguration = {},
 ) {
   const timeProvider =
-    config.currentTime !== undefined ? () => config.currentTime! : undefined;
+    config.currentTime !== undefined
+      ? () => {
+          if (config.currentTime === undefined) {
+            throw new Error("currentTime unexpectedly undefined");
+          }
+          return config.currentTime;
+        }
+      : undefined;
 
   try {
-    Validator.validate(envelope, {
+    await Validator.validate(envelope, {
       rootIssuers: config.rootDids ?? ROOT_DIDS,
       params: config.parameters,
       context: config.context,

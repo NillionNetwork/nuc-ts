@@ -1,4 +1,4 @@
-import { Wallet } from "ethers";
+import { privateKeyToAccount } from "viem/accounts";
 import { describe, it } from "vitest";
 import { ONE_HOUR_MS } from "#/constants";
 import * as ethr from "#/core/did/ethr";
@@ -17,9 +17,11 @@ describe("heterogeneous nuc chain", () => {
     const rootDid = await rootSigner.getDid();
 
     // B. An intermediate user with an Ethereum wallet
-    const userWallet = Wallet.createRandom();
-    const userDid = ethr.fromAddress(userWallet.address);
-    const userSigner = createNativeEthrSigner(userWallet);
+    const userAccount = privateKeyToAccount(
+      "0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a",
+    );
+    const userDid = ethr.fromAddress(userAccount.address);
+    const userSigner = createNativeEthrSigner(userAccount);
 
     // C. A legacy service that the user delegates a sub-capability to
     const legacySvcSigner = Signer.generate("nil");

@@ -32,7 +32,7 @@ describe("Codec and Validator.parse", () => {
         const rootDid = await rootSigner.getDid();
 
         // The new safe way to parse
-        const parsed = Validator.parse(serialized, {
+        const parsed = await Validator.parse(serialized, {
           rootIssuers: [rootDid.didString],
         });
 

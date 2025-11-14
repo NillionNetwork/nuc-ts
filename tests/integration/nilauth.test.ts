@@ -220,8 +220,11 @@ describe("nilauth client - decoupled payment flow", () => {
     );
 
     // 4. Pay on-chain
-    const txHash = await nilauthClient.payer!.pay(resourceHash, costUnil);
+    const txHash = await nilauthClient.payer?.pay(resourceHash, costUnil);
     expect(txHash).toBeDefined();
+    if (!txHash) {
+      throw new Error("txHash is undefined");
+    }
 
     // 5. Validate with nilauth
     await expect(

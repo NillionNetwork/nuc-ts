@@ -3,7 +3,21 @@ import { ONE_HOUR_MS } from "#/constants";
 import { base64UrlDecode } from "#/core/encoding";
 import { Signer } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
-import { validateNucSignature } from "#/validator/signatures";
+import { Codec } from "#/nuc/codec";
+import { Validator } from "#/validator/validator";
+
+async function assertValidParse(
+  envelope: Awaited<
+    ReturnType<(typeof Builder.delegation)["prototype"]["sign"]>
+  >,
+  rootDidString: string,
+) {
+  const serialized = Codec.serializeBase64Url(envelope);
+  const parsed = await Validator.parse(serialized, {
+    rootIssuers: [rootDidString],
+  });
+  expect(parsed).toBeDefined();
+}
 
 describe("Legacy Signer (`did:nil`)", () => {
   it("should build and successfully validate a legacy signed Nuc", async () => {
@@ -18,7 +32,8 @@ describe("Legacy Signer (`did:nil`)", () => {
       .expiresIn(ONE_HOUR_MS)
       .sign(signer);
 
-    expect(() => validateNucSignature(envelope.nuc)).not.toThrow();
+    const did = await signer.getDid();
+    await assertValidParse(envelope, did.didString);
 
     const header = JSON.parse(base64UrlDecode(envelope.nuc.rawHeader));
     expect(header.typ).toBeUndefined();

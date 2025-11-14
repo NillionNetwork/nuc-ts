@@ -67,15 +67,15 @@ export namespace Validator {
    * @returns A validated `Envelope` object.
    * @throws Throws an error if any part of the validation fails. See `Validator.validate` for a full list of possible errors.
    */
-  export function parse(
+  export async function parse(
     tokenString: string,
     options: ValidationOptions,
-  ): Envelope {
+  ): Promise<Envelope> {
     // The internal Codec function is "unsafe" because it doesn't validate.
     // We immediately pass its output to the validator to ensure no unvalidated
     // data is ever returned to the user from this function.
     const envelope = Codec._unsafeDecodeBase64Url(tokenString);
-    validate(envelope, options);
+    await validate(envelope, options);
     return envelope;
   }
 
@@ -154,10 +154,10 @@ export namespace Validator {
    * }
    * ```
    */
-  export function validate(
+  export async function validate(
     envelope: Envelope,
     options: ValidationOptions,
-  ): void {
+  ): Promise<void> {
     const {
       rootIssuers,
       params = {},
@@ -197,7 +197,7 @@ export namespace Validator {
     validatePayload(payload, proofs, context, config.tokenRequirements);
 
     try {
-      validateEnvelopeSignature(envelope);
+      await validateEnvelopeSignature(envelope);
     } catch (error) {
       Log.debug({ error }, Validator.INVALID_SIGNATURES);
       throw new Error(Validator.INVALID_SIGNATURES);

@@ -1,6 +1,5 @@
 import { secp256k1 } from "@noble/curves/secp256k1.js";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
-import type { TypedDataDomain } from "ethers";
 import {
   createWalletClient,
   custom,
@@ -34,11 +33,12 @@ export type Signer = {
  */
 export interface Eip712Signer {
   readonly getAddress: () => Promise<string>;
-  readonly signTypedData: (
-    domain: TypedDataDomain,
-    types: Record<string, Array<{ name: string; type: string }>>,
-    value: Record<string, unknown>,
-  ) => Promise<string>;
+  readonly signTypedData: (params: {
+    domain: SignTypedDataParameters["domain"];
+    types: SignTypedDataParameters["types"];
+    primaryType: string;
+    message: Record<string, unknown>;
+  }) => Promise<`0x${string}`>;
 }
 
 /**
@@ -146,17 +146,13 @@ export namespace Signer {
         const valueToSign = toEip712Payload(parsedPayload);
 
         // Use the domain, types, and primaryType from the parsed header.
-        const domain = meta.domain as TypedDataDomain;
-        const types = meta.types as Record<
-          string,
-          Array<{ name: string; type: string }>
-        >;
         const primaryType = meta.primaryType as string;
-        const signatureHex = await signer.signTypedData(
-          domain,
-          { [primaryType]: types[primaryType] },
-          valueToSign,
-        );
+        const signatureHex = await signer.signTypedData({
+          domain: meta.domain as SignTypedDataParameters["domain"],
+          types: meta.types as SignTypedDataParameters["types"],
+          primaryType,
+          message: valueToSign,
+        });
 
         // Remove 0x prefix if present and convert to bytes
         const hexString = signatureHex.startsWith("0x")
@@ -199,14 +195,10 @@ export namespace Signer {
 
     const eip712SignerAdapter: Eip712Signer = {
       getAddress: async () => account,
-      signTypedData: async (domain, types, value) => {
-        const primaryType = Object.keys(types)[0];
+      signTypedData: async (params) => {
         return client.signTypedData({
+          ...params,
           account,
-          domain: domain as SignTypedDataParameters["domain"],
-          types,
-          primaryType,
-          message: value as Record<string, unknown>,
         });
       },
     };
