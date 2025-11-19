@@ -46,17 +46,3 @@ jobs:
       - env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: pnpm publish --tag ${{ needs.check-version.outputs.tag }} --no-git-checks
-
-      - name: Create GH Release
-        id: create-release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          [[ "${{ needs.check-version.outputs.tag }}" == "next" ]] && PRERELEASE="-p" || PRERELEASE=""
-          gh release create 'nuc-ts-v${{ needs.check-version.outputs.version }}' --generate-notes $PRERELEASE --title "nuc-ts-v${{ needs.check-version.outputs.version }}"
-
-      - name: Upload artifact to GH Release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: >-
-          gh release upload 'nuc-ts-v${{ needs.check-version.outputs.version }}' *.tgz
