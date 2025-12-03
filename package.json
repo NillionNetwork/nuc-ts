@@ -23,7 +23,7 @@
     "build": "pnpm build:proto && tsdown"
   },
   "peerDependencies": {
-    "pino": "^9.7.0"
+    "pino": "^10.1.0"
   },
   "dependencies": {
     "@bufbuild/protobuf": "^2.10.1",
