@@ -66,6 +66,11 @@ const CommonPayloadSchema = z.object({
  */
 export namespace Payload {
   /**
+   * The command string used for token revocation.
+   */
+  export const REVOKE_COMMAND: Command = "/nuc/revoke";
+
+  /**
    * Zod schema for validating delegation payloads.
    *
    * Ensures the payload contains all required delegation fields
