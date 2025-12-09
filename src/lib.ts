@@ -38,9 +38,6 @@ export { Policy } from "#/nuc/policy";
 export type { BlindModule } from "#/services/nilauth/client";
 export { NilauthClient } from "#/services/nilauth/client";
 export * as NilauthTypes from "#/services/nilauth/types";
-export { PayerBuilder } from "#/services/payer/builder";
-export { Payer } from "#/services/payer/client";
-export * as PayerTypes from "#/services/payer/types";
 export type {
   TokenRequirement,
   ValidationOptions,

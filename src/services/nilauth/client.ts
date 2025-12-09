@@ -1,5 +1,6 @@
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex, randomBytes } from "@noble/hashes/utils.js";
+import canonicalize from "canonicalize";
 import ky, { HTTPError, type Options } from "ky";
 import { z } from "zod";
 import { ONE_MINUTE_MS } from "#/constants";
@@ -8,7 +9,6 @@ import {
   NilauthErrorResponse,
   NilauthErrorResponseBodySchema,
   NilauthUnreachable,
-  PaymentTxFailed,
 } from "#/core/errors";
 import { Log } from "#/core/logger";
 import type { Signer } from "#/core/signer";
@@ -32,7 +32,6 @@ import {
   ValidatePaymentResponseSchema,
 } from "#/services/nilauth/types";
 import { NilauthUrl } from "#/services/nilauth/urls";
-import type { Payer } from "#/services/payer/client";
 
 export type BlindModule = "nilai" | "nildb";
 
@@ -90,12 +89,13 @@ async function performRequest<T>(
  * Options required to construct a NilauthClient.
  */
 export type NilauthClientOptions = {
-  payer?: Payer;
   nilauth: {
     baseUrl: string;
     publicKey: string;
     did: Did;
   };
+  /** The Ethereum chain ID for payment validation. */
+  chainId: number;
 };
 
 /**
@@ -105,25 +105,26 @@ export type NilauthClientOptions = {
 export class NilauthClient {
   /**
    * Creates a NilauthClient instance by automatically fetching the service's public key.
-   * @param options - An object containing the Nilauth's baseUrl and an optional payer
+   * @param options - Configuration options including baseUrl and chainId
    * @returns A configured NilauthClient instance
    * @throws {NilauthUnreachable} If the service cannot be reached
    * @throws {z.ZodError} If the service response is invalid
    */
   static async create(options: {
     baseUrl: string;
-    payer?: Payer;
+    /** The Ethereum chain ID for payment validation. */
+    chainId: number;
   }): Promise<NilauthClient> {
-    const { baseUrl, payer } = options;
+    const { baseUrl, chainId } = options;
     const url = NilauthUrl.about(baseUrl);
     const about = await performRequest(url, NilauthAboutResponseSchema);
     return new NilauthClient({
-      payer,
       nilauth: {
         baseUrl,
         publicKey: about.publicKey,
         did: Did.fromPublicKey(about.publicKey, "key"),
       },
+      chainId,
     });
   }
 
@@ -131,10 +132,6 @@ export class NilauthClient {
 
   private constructor(options: NilauthClientOptions) {
     this.#options = options;
-  }
-
-  get payer(): Payer | undefined {
-    return this.#options.payer;
   }
 
   get nilauthPublicKey(): string {
@@ -147,6 +144,11 @@ export class NilauthClient {
 
   get nilauthBaseUrl(): string {
     return this.#options.nilauth.baseUrl;
+  }
+
+  /** The Ethereum chain ID for payment validation. */
+  get chainId(): number {
+    return this.#options.chainId;
   }
 
   /**
@@ -255,29 +257,32 @@ export class NilauthClient {
   /**
    * Creates the payload for a subscription payment and its corresponding resource hash.
    * This is the first step in the decoupled payment flow. The returned `resourceHash`
-   * is sent on-chain, and the `payload` object is used for validation.
+   * is sent on-chain as the digest parameter to BurnWithDigest, and the `payload` object
+   * is used for validation.
    * @param subscriberDid - The Did of the identity receiving the subscription.
    * @param blindModule - The module to subscribe to ("nilai" or "nildb").
    * @param payerDid - The Did of the identity paying for the subscription.
-   * @returns An object containing the payload and its SHA-256 hash.
+   * @returns An object containing the payload and its SHA-256 hash (digest).
    */
   createPaymentResource(
     subscriberDid: Did,
     blindModule: BlindModule,
     payerDid: Did,
   ): { resourceHash: Uint8Array; payload: object } {
-    // Key ordering must match what nilauth expects. A more robust canonical JSON
-    // serialization should be used in the future.
-    // See: https://github.com/NillionNetwork/nilauth/issues/50
     const payload = {
       service_public_key: this.nilauthPublicKey,
       nonce: bytesToHex(randomBytes(16)),
       blind_module: blindModule,
       payer_did: Did.serialize(payerDid),
       subscriber_did: Did.serialize(subscriberDid),
+      chain_id: this.chainId,
     };
 
-    const payloadStr = JSON.stringify(payload);
+    // Use RFC 8785 canonical JSON serialization for consistent hashing
+    const payloadStr = canonicalize(payload);
+    if (!payloadStr) {
+      throw new Error("Failed to canonicalize payment payload");
+    }
     const resourceHash = sha256(new TextEncoder().encode(payloadStr));
     Log.debug(
       `Created payment resource with payload=${payloadStr}, digest=${bytesToHex(
@@ -326,46 +331,6 @@ export class NilauthClient {
     });
 
     Log.info({ txHash }, "Subscription payment validated");
-  }
-
-  /**
-   * Performs a subscription payment and validates it with the service.
-   * @deprecated This method will be removed in a future version. Use the decoupled flow: `createPaymentResource`, `payer.pay`, and `validatePayment`.
-   * @param payerSigner - The signer of the identity paying for the subscription.
-   * @param subscriberDid - The Did of the identity receiving the subscription.
-   * @param blindModule - The module to subscribe to ("nilai" or "nildb").
-   * @throws {Error} If a Payer instance is not configured on the client.
-   * @throws {PaymentTxFailed} If the on-chain payment transaction fails.
-   * @throws {NilauthErrorResponse} If payment validation fails.
-   */
-  async payAndValidate(
-    payerSigner: Signer,
-    subscriberDid: Did,
-    blindModule: BlindModule,
-  ): Promise<void> {
-    if (!this.payer) {
-      throw new Error(
-        "A Payer instance is required for this operation. Please provide it during NilauthClient creation.",
-      );
-    }
-
-    const costUnil = await this.subscriptionCost(blindModule);
-    const payerDid = await payerSigner.getDid();
-
-    const { resourceHash, payload } = this.createPaymentResource(
-      subscriberDid,
-      blindModule,
-      payerDid,
-    );
-
-    let txHash: string;
-    try {
-      txHash = await this.payer.pay(resourceHash, costUnil);
-    } catch (cause) {
-      throw new PaymentTxFailed(cause);
-    }
-
-    await this.validatePayment(txHash, payload, payerSigner);
   }
 
   /**
