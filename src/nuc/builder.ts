@@ -1,4 +1,5 @@
 import { bytesToHex, randomBytes } from "@noble/hashes/utils.js";
+import type { TypedDataDomain } from "abitype";
 import { DEFAULT_MAX_LIFETIME_MS, DEFAULT_NONCE_LENGTH } from "#/constants";
 import type { Did } from "#/core/did/types";
 import { base64UrlEncode } from "#/core/encoding";
@@ -256,9 +257,13 @@ abstract class AbstractBuilder {
     const payloadData = this._getPayloadData(issuer);
 
     // Generate the correct EIP-712 header based on payload type.
+    // Use the domain from the signer's header to preserve chainId.
     const header =
       signer.header.typ === NucHeaderType.EIP712
-        ? getEip712Header(payloadData)
+        ? getEip712Header(
+            payloadData,
+            signer.header.meta?.domain as TypedDataDomain | undefined,
+          )
         : signer.header;
 
     const rawHeader = base64UrlEncode(
