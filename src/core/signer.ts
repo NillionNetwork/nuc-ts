@@ -1,6 +1,7 @@
 import { secp256k1 } from "@noble/curves/secp256k1.js";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
 import {
+  type Chain,
   createWalletClient,
   custom,
   type EIP1193Provider,
@@ -8,12 +9,7 @@ import {
   type WalletClient,
 } from "viem";
 import { mainnet } from "viem/chains";
-import {
-  NUC_EIP712_DOMAIN,
-  type NucHeader,
-  NucHeaderSchema,
-  NucHeaders,
-} from "#/nuc/header";
+import { type NucHeader, NucHeaderSchema, NucHeaders } from "#/nuc/header";
 import { Payload } from "#/nuc/payload";
 import { Did } from "./did/did";
 import * as ethr from "./did/ethr";
@@ -106,12 +102,21 @@ export namespace Signer {
   /**
    * Creates an EIP-712 Signer for Ethereum wallet signing.
    * @param signer The EIP-712 compatible signer (e.g., ethers Wallet)
+   * @param options.chainId Optional chainId for the EIP-712 domain. Defaults to 1 (mainnet).
    * @returns A Signer instance that uses EIP-712 signing
    */
-  export function fromWeb3(signer: Eip712Signer): Signer {
+  export function fromWeb3(
+    signer: Eip712Signer,
+    options?: { chainId?: number },
+  ): Signer {
+    const domain = {
+      name: "NUC",
+      version: "1",
+      chainId: options?.chainId ?? 1,
+    };
     return {
       // The Builder constructs the correct header and passes it into `sign`, so here we return a placeholder header
-      header: NucHeaders.v1_eip712_delegation(NUC_EIP712_DOMAIN),
+      header: NucHeaders.v1_eip712_delegation(domain),
       getDid: async () => ethr.fromAddress(await signer.getAddress()),
       sign: async (data: Uint8Array): Promise<Uint8Array> => {
         // The `data` is `rawHeader.rawPayload`. We must parse the header from it.
@@ -170,16 +175,17 @@ export namespace Signer {
    * it to the Signer interface.
    *
    * @param provider The Eip-1193 compatible provider, typically `window.ethereum`.
-   * @param options Optional account address to use. If not provided, it will be requested from the wallet.
+   * @param options.account Optional account address to use. If not provided, it will be requested from the wallet.
+   * @param options.chain Optional chain to use. Defaults to mainnet. Must match the wallet's active chain.
    * @returns A Promise that resolves to a new `Signer` instance.
    * @throws If the provider is not available or the user rejects the connection request.
    */
   export async function fromEip1193Provider(
     provider: EIP1193Provider,
-    options?: { account?: `0x${string}` },
+    options?: { account?: `0x${string}`; chain?: Chain },
   ): Promise<Signer> {
     const client: WalletClient = createWalletClient({
-      chain: mainnet, // Nuc Eip-712 signatures are chain-agnostic but viem requires one. Mainnet is a safe default.
+      chain: options?.chain ?? mainnet,
       transport: custom(provider),
     });
 
@@ -203,7 +209,9 @@ export namespace Signer {
       },
     };
 
-    return Signer.fromWeb3(eip712SignerAdapter);
+    // Use the chain's ID from the options, or default to mainnet (1)
+    const chainId = options?.chain?.id ?? 1;
+    return Signer.fromWeb3(eip712SignerAdapter, { chainId });
   }
 }
 
