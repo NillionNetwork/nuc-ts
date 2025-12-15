@@ -5,8 +5,6 @@ import { defineConfig } from "vitest/config";
 export default defineConfig(({ mode }) => ({
   plugins: [tsconfigPaths()],
   test: {
-    testTimeout: 0,
-    globalSetup: "./vitest.global-setup.ts",
     env: loadEnv(mode, process.cwd(), ""),
     coverage: {
       reporter: ["text", "json-summary", "json"],
