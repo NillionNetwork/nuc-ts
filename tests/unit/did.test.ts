@@ -1,7 +1,7 @@
-import { describe, expect, it } from "vitest";
 import { Did } from "#/core/did/did";
 import type { DidKey, DidNil } from "#/core/did/types";
 import { Signer } from "#/core/signer";
+import { describe, expect, it } from "vitest";
 
 describe("Dids", () => {
   // Generate a single signer to create both nil and key DIDs from
@@ -35,9 +35,7 @@ describe("Dids", () => {
   });
 
   it("throws on unsupported method", () => {
-    expect(() => Did.parse("did:unsupported:123")).toThrow(
-      "Unsupported Did method",
-    );
+    expect(() => Did.parse("did:unsupported:123")).toThrow("Unsupported Did method");
   });
 
   it("correctly compares Dids for equality", async () => {

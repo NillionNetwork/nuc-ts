@@ -1,7 +1,7 @@
-import { sha256 } from "@noble/hashes/sha2.js";
-import { z } from "zod";
 import { base64UrlEncode } from "#/core/encoding";
 import { Payload } from "#/nuc/payload";
+import { sha256 } from "@noble/hashes/sha2.js";
+import { z } from "zod";
 
 const NucSchema = z.object({
   rawHeader: z.string(),

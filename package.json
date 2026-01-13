@@ -3,9 +3,13 @@
   "version": "2.0.0-rc.1",
   "license": "MIT",
   "repository": "https://github.com/NillionNetwork/nuc-ts",
-  "engines": {
-    "node": ">=23"
-  },
+  "files": [
+    "CONTRIBUTING.md",
+    "dist",
+    "DOCUMENTATION.md",
+    "LICENSE",
+    "README.md"
+  ],
   "type": "module",
   "exports": {
     ".": {
@@ -15,14 +19,12 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "fix": "pnpm exec biome check --fix --unsafe && tsc --noEmit",
-    "fmt": "pnpm exec biome format --fix",
+    "check": "pnpm exec oxfmt --check && pnpm exec oxlint --type-aware && pnpm exec tsgo -b",
+    "fix": "pnpm exec oxfmt && pnpm exec oxlint --fix --type-aware && pnpm exec tsgo -b",
+    "fmt": "pnpm exec oxfmt",
     "install-hooks": "lefthook install",
     "test": "vitest --run",
     "build": "tsdown"
-  },
-  "peerDependencies": {
-    "pino": "^10.1.0"
   },
   "dependencies": {
     "@noble/curves": "^2.0.1",
@@ -34,17 +36,20 @@
     "zod": "^4.1.13"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.3.5",
     "@commitlint/cli": "^20.2.0",
     "@commitlint/config-conventional": "^20.2.0",
     "@commitlint/types": "^20.2.0",
     "@types/debug": "^4.1.12",
     "@types/node": "^24.10.1",
     "@types/semver": "^7.7.1",
+    "@typescript/native-preview": "7.0.0-dev.20260113.1",
     "@vitest/coverage-v8": "^4.0.15",
     "abitype": "^1.2.1",
     "fast-check": "^4.3.0",
     "lefthook": "^2.0.8",
+    "oxfmt": "^0.23.0",
+    "oxlint": "^1.38.0",
+    "oxlint-tsgolint": "^0.10.1",
     "semver": "^7.7.3",
     "tsdown": "^0.16.8",
     "tsx": "^4.21.0",
@@ -55,21 +60,20 @@
     "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^4.0.15"
   },
-  "packageManager": "pnpm@10.22.0",
-  "files": [
-    "dist",
-    "LICENSE",
-    "README.md",
-    "DOCUMENTATION.md",
-    "CONTRIBUTING.md"
-  ],
+  "peerDependencies": {
+    "pino": "^10.1.0"
+  },
   "tsdown": {
-    "entry": "./src/lib.ts",
-    "format": "esm",
-    "clean": true,
     "alias": {
       "#": "./src",
       "#tests": "./tests"
-    }
-  }
+    },
+    "clean": true,
+    "entry": "./src/lib.ts",
+    "format": "esm"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "packageManager": "pnpm@10.22.0"
 }

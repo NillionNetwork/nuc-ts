@@ -1,9 +1,9 @@
-import { describe, it } from "vitest";
 import { FOUR_WEEKS_MS, ONE_HOUR_MS } from "#/constants";
 import { Signer } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
 import { Codec } from "#/nuc/codec";
 import { Payload, REVOKE_COMMAND } from "#/nuc/payload";
+import { describe, it } from "vitest";
 
 describe("Builder", () => {
   const signer = Signer.generate();
@@ -80,9 +80,7 @@ describe("Builder", () => {
     expect(payload.cmd).toBe("/db/read"); // Inherited
   });
 
-  it("builds an invocation token from a delegation using invoking()", async ({
-    expect,
-  }) => {
+  it("builds an invocation token from a delegation using invoking()", async ({ expect }) => {
     const rootSigner = Signer.generate();
     const userSigner = Signer.generate();
     const userDid = await userSigner.getDid();
@@ -127,9 +125,7 @@ describe("Builder Ergonomics", () => {
   const userSigner = Signer.generate();
   const serviceSigner = Signer.generate();
 
-  it("should sign and serialize a delegation in one step", async ({
-    expect,
-  }) => {
+  it("should sign and serialize a delegation in one step", async ({ expect }) => {
     const userDid = await userSigner.getDid();
 
     const serializedToken = await Builder.delegation()
@@ -156,9 +152,7 @@ describe("Builder Ergonomics", () => {
       .expiresIn(ONE_HOUR_MS)
       .signAndSerialize(rootSigner);
 
-    const chainedDelegationString = await Builder.delegationFromString(
-      rootDelegationString,
-    )
+    const chainedDelegationString = await Builder.delegationFromString(rootDelegationString)
       .audience(serviceDid)
       .expiresIn(ONE_HOUR_MS / 2)
       .signAndSerialize(userSigner);
@@ -180,9 +174,7 @@ describe("Builder Ergonomics", () => {
       .expiresIn(ONE_HOUR_MS)
       .signAndSerialize(rootSigner);
 
-    const invocationString = await Builder.invocationFromString(
-      rootDelegationString,
-    )
+    const invocationString = await Builder.invocationFromString(rootDelegationString)
       .audience(serviceDid)
       .arguments({ foo: "bar" })
       .expiresIn(ONE_HOUR_MS / 2)
@@ -207,19 +199,12 @@ describe("Builder Expiration and Lifetime", () => {
     const audDid = await aud.getDid();
     const subDid = await sub.getDid();
 
-    const builder = Builder.delegation()
-      .audience(audDid)
-      .subject(subDid)
-      .command("/test");
+    const builder = Builder.delegation().audience(audDid).subject(subDid).command("/test");
 
-    await expect(builder.sign(signer)).rejects.toThrow(
-      "Expiration is a required field.",
-    );
+    await expect(builder.sign(signer)).rejects.toThrow("Expiration is a required field.");
   });
 
-  it("should throw an error if expiration is in the past", async ({
-    expect,
-  }) => {
+  it("should throw an error if expiration is in the past", async ({ expect }) => {
     const audDid = await aud.getDid();
     const subDid = await sub.getDid();
 
@@ -229,9 +214,7 @@ describe("Builder Expiration and Lifetime", () => {
       .command("/test")
       .expiresAt(Date.now() - 1000);
 
-    await expect(builder.sign(signer)).rejects.toThrow(
-      "Expiration date must be in the future.",
-    );
+    await expect(builder.sign(signer)).rejects.toThrow("Expiration date must be in the future.");
   });
 
   it("should correctly set expiration using expiresIn", async ({ expect }) => {
@@ -253,22 +236,14 @@ describe("Builder Expiration and Lifetime", () => {
     expect(envelope.nuc.payload.exp).toBeLessThanOrEqual(expectedExp + 1);
   });
 
-  it("should throw if expiration exceeds the default max lifetime", async ({
-    expect,
-  }) => {
+  it("should throw if expiration exceeds the default max lifetime", async ({ expect }) => {
     const audDid = await aud.getDid();
     const subDid = await sub.getDid();
     const longLifetime = FOUR_WEEKS_MS + 1000;
 
-    const builder = Builder.delegation()
-      .audience(audDid)
-      .subject(subDid)
-      .command("/test")
-      .expiresIn(longLifetime);
+    const builder = Builder.delegation().audience(audDid).subject(subDid).command("/test").expiresIn(longLifetime);
 
-    await expect(builder.sign(signer)).rejects.toThrow(
-      "exceeds the maximum lifetime",
-    );
+    await expect(builder.sign(signer)).rejects.toThrow("exceeds the maximum lifetime");
   });
 
   it("should allow setting a shorter max lifetime", async ({ expect }) => {
@@ -294,29 +269,18 @@ describe("Builder Expiration and Lifetime", () => {
       .maxLifetime(shortMaxLifetime)
       .expiresIn(shortMaxLifetime + 1);
 
-    await expect(builder.sign(signer)).rejects.toThrow(
-      "exceeds the maximum lifetime. Max expiry is",
-    );
+    await expect(builder.sign(signer)).rejects.toThrow("exceeds the maximum lifetime. Max expiry is");
   });
 
-  it("should throw when trying to set a max lifetime longer than allowed", async ({
-    expect,
-  }) => {
+  it("should throw when trying to set a max lifetime longer than allowed", async ({ expect }) => {
     const audDid = await aud.getDid();
     const subDid = await sub.getDid();
-    const builder = Builder.delegation()
-      .audience(audDid)
-      .subject(subDid)
-      .command("/test");
+    const builder = Builder.delegation().audience(audDid).subject(subDid).command("/test");
 
-    expect(() => builder.maxLifetime(FOUR_WEEKS_MS + 1000)).toThrow(
-      "exceeds the allowed maximum",
-    );
+    expect(() => builder.maxLifetime(FOUR_WEEKS_MS + 1000)).toThrow("exceeds the allowed maximum");
   });
 
-  it("should cap a chained token's lifetime by its parent's", async ({
-    expect,
-  }) => {
+  it("should cap a chained token's lifetime by its parent's", async ({ expect }) => {
     const userSigner = Signer.generate();
     const userDid = await userSigner.getDid();
     const serviceDid = await Signer.generate().getDid();
@@ -336,9 +300,7 @@ describe("Builder Expiration and Lifetime", () => {
       .audience(serviceDid)
       .expiresIn(parentLifetime + 1000);
 
-    await expect(childBuilder.sign(userSigner)).rejects.toThrow(
-      "exceeds the maximum lifetime",
-    );
+    await expect(childBuilder.sign(userSigner)).rejects.toThrow("exceeds the maximum lifetime");
 
     // This should succeed
     const validChild = await Builder.delegationFrom(rootDelegation)
@@ -348,9 +310,7 @@ describe("Builder Expiration and Lifetime", () => {
     expect(validChild).toBeDefined();
   });
 
-  it("should correctly convert ms to seconds in payload for exp and nbf", async ({
-    expect,
-  }) => {
+  it("should correctly convert ms to seconds in payload for exp and nbf", async ({ expect }) => {
     const audDid = await aud.getDid();
     const subDid = await sub.getDid();
     const now = Date.now();

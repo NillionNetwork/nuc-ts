@@ -1,8 +1,8 @@
+import { Did } from "#/core/did/did";
+import { Policy } from "#/nuc/policy";
 import { hexToBytes } from "@noble/hashes/utils.js";
 import _ from "es-toolkit/compat";
 import { z } from "zod";
-import { Did } from "#/core/did/did";
-import { Policy } from "#/nuc/policy";
 
 export const CommandSchema = z.string().startsWith("/");
 export type Command = z.infer<typeof CommandSchema>;
@@ -155,10 +155,7 @@ export namespace Payload {
    * Payload.isCommandAttenuationOf("/nil/db/data", "/nil/db/write"); // false
    * ```
    */
-  export function isCommandAttenuationOf(
-    command: Command,
-    parent: Command,
-  ): boolean {
+  export function isCommandAttenuationOf(command: Command, parent: Command): boolean {
     const commandSegments = command.slice(1).split("/").filter(Boolean);
     const parentSegments = parent.slice(1).split("/").filter(Boolean);
 
@@ -199,9 +196,7 @@ export namespace Payload {
    * }
    * ```
    */
-  export function isInvocationPayload(
-    payload: Payload,
-  ): payload is InvocationPayload {
+  export function isInvocationPayload(payload: Payload): payload is InvocationPayload {
     return (payload as InvocationPayload).args !== undefined;
   }
 
@@ -220,14 +215,7 @@ export namespace Payload {
    * }
    * ```
    */
-  export function isDelegationPayload(
-    value: unknown,
-  ): value is DelegationPayload {
-    return (
-      value !== null &&
-      value !== undefined &&
-      typeof value === "object" &&
-      "pol" in value
-    );
+  export function isDelegationPayload(value: unknown): value is DelegationPayload {
+    return value !== null && value !== undefined && typeof value === "object" && "pol" in value;
   }
 }

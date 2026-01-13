@@ -1,11 +1,8 @@
-import z from "zod";
-import {
-  base64UrlDecode,
-  base64UrlDecodeToBytes,
-  base64UrlEncode,
-} from "#/core/encoding";
+import { base64UrlDecode, base64UrlDecodeToBytes, base64UrlEncode } from "#/core/encoding";
 import { Log } from "#/core/logger";
 import { Envelope, type Nuc } from "#/nuc/envelope";
+import z from "zod";
+
 import { NucHeaderSchema } from "./header";
 
 const INVALID_NUC_STRUCTURE = "invalid Nuc structure";
@@ -15,7 +12,12 @@ const INVALID_NUC_HEADER = "invalid Nuc header";
  * Parses a single Nuc token string (the `header.payload.signature` format) into a raw object.
  * @internal
  */
-function parseToken(tokenString: string) {
+function parseToken(tokenString: string): {
+  rawHeader: string;
+  rawPayload: string;
+  signature: Uint8Array;
+  payload: unknown;
+} {
   const parts = tokenString.split(".");
   if (parts.length !== 3) {
     throw new Error(INVALID_NUC_STRUCTURE);

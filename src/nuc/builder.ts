@@ -1,5 +1,3 @@
-import { bytesToHex, randomBytes } from "@noble/hashes/utils.js";
-import type { TypedDataDomain } from "abitype";
 import { DEFAULT_MAX_LIFETIME_MS, DEFAULT_NONCE_LENGTH } from "#/constants";
 import type { Did } from "#/core/did/types";
 import { base64UrlEncode } from "#/core/encoding";
@@ -9,6 +7,8 @@ import { Envelope, type Nuc } from "#/nuc/envelope";
 import { getEip712Header, NucHeaderType } from "#/nuc/header";
 import { type Command, type DelegationPayload, Payload } from "#/nuc/payload";
 import type { Policy, PolicyRule } from "#/nuc/policy";
+import { bytesToHex, randomBytes } from "@noble/hashes/utils.js";
+import type { TypedDataDomain } from "abitype";
 
 /**
  * `Nuc` token builder base class.
@@ -170,9 +170,7 @@ abstract class AbstractBuilder {
    */
   public maxLifetime(ms: number): this {
     if (ms > this._maxLifetimeMs) {
-      throw new Error(
-        `Custom max lifetime of ${ms}ms exceeds the allowed maximum of ${this._maxLifetimeMs}ms.`,
-      );
+      throw new Error(`Custom max lifetime of ${ms}ms exceeds the allowed maximum of ${this._maxLifetimeMs}ms.`);
     }
     this._maxLifetimeMs = ms;
     return this;
@@ -236,9 +234,7 @@ abstract class AbstractBuilder {
   public async sign(signer: Signer): Promise<Envelope> {
     // Validate expiration properties before signing.
     if (!this._expiresAt) {
-      throw new Error(
-        "Expiration is a required field. Use `expiresAt(timestamp)` or `expiresIn(duration)`.",
-      );
+      throw new Error("Expiration is a required field. Use `expiresAt(timestamp)` or `expiresIn(duration)`.");
     }
     if (this._expiresAt <= Date.now()) {
       throw new Error("Expiration date must be in the future.");
@@ -247,9 +243,7 @@ abstract class AbstractBuilder {
     if (this._expiresAt > maxExpiry) {
       const asConfigured = new Date(this._expiresAt).toISOString();
       const maxAllowed = new Date(maxExpiry).toISOString();
-      throw new Error(
-        `Expiration of ${asConfigured} exceeds the maximum lifetime. Max expiry is ${maxAllowed}.`,
-      );
+      throw new Error(`Expiration of ${asConfigured} exceeds the maximum lifetime. Max expiry is ${maxAllowed}.`);
     }
 
     // The issuer is now authoritatively derived from the signer.
@@ -260,23 +254,14 @@ abstract class AbstractBuilder {
     // Use the domain from the signer's header to preserve chainId.
     const header =
       signer.header.typ === NucHeaderType.EIP712
-        ? getEip712Header(
-            payloadData,
-            signer.header.meta?.domain as TypedDataDomain | undefined,
-          )
+        ? getEip712Header(payloadData, signer.header.meta?.domain as TypedDataDomain | undefined)
         : signer.header;
 
-    const rawHeader = base64UrlEncode(
-      new TextEncoder().encode(JSON.stringify(header)),
-    );
+    const rawHeader = base64UrlEncode(new TextEncoder().encode(JSON.stringify(header)));
 
-    const rawPayload = base64UrlEncode(
-      new TextEncoder().encode(JSON.stringify(payloadData)),
-    );
+    const rawPayload = base64UrlEncode(new TextEncoder().encode(JSON.stringify(payloadData)));
 
-    const messageToSign = new TextEncoder().encode(
-      `${rawHeader}.${rawPayload}`,
-    );
+    const messageToSign = new TextEncoder().encode(`${rawHeader}.${rawPayload}`);
     const signature = await signer.sign(messageToSign);
 
     const nuc: Nuc = {
@@ -393,9 +378,7 @@ export class DelegationBuilder extends AbstractBuilder {
       exp: this._expiresAt ? Math.floor(this._expiresAt / 1000) : undefined,
       meta: this._meta,
       nonce: this._nonce || bytesToHex(randomBytes(DEFAULT_NONCE_LENGTH)),
-      prf: this._proof
-        ? [bytesToHex(Envelope.computeHash(this._proof.nuc))]
-        : [],
+      prf: this._proof ? [bytesToHex(Envelope.computeHash(this._proof.nuc))] : [],
     };
   }
 }
@@ -478,9 +461,7 @@ export class InvocationBuilder extends AbstractBuilder {
       exp: this._expiresAt ? Math.floor(this._expiresAt / 1000) : undefined,
       meta: this._meta,
       nonce: this._nonce || bytesToHex(randomBytes(DEFAULT_NONCE_LENGTH)),
-      prf: this._proof
-        ? [bytesToHex(Envelope.computeHash(this._proof.nuc))]
-        : [],
+      prf: this._proof ? [bytesToHex(Envelope.computeHash(this._proof.nuc))] : [],
     };
   }
 }
@@ -585,9 +566,7 @@ export const Builder = {
   delegationFrom(proof: Envelope): DelegationBuilder {
     const proofPayload = proof.nuc.payload;
     if (!Payload.isDelegationPayload(proofPayload)) {
-      throw new Error(
-        "Cannot create a delegation from a proof that is not a delegation.",
-      );
+      throw new Error("Cannot create a delegation from a proof that is not a delegation.");
     }
 
     const builder = new DelegationBuilder();
@@ -635,9 +614,7 @@ export const Builder = {
   invocationFrom(proof: Envelope): InvocationBuilder {
     const proofPayload = proof.nuc.payload;
     if (!Payload.isDelegationPayload(proofPayload)) {
-      throw new Error(
-        "Cannot invoke a capability from a proof that is not a delegation.",
-      );
+      throw new Error("Cannot invoke a capability from a proof that is not a delegation.");
     }
 
     const builder = new InvocationBuilder();

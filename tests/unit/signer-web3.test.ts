@@ -1,19 +1,17 @@
-import type { PrivateKeyAccount } from "viem/accounts";
-import { privateKeyToAccount } from "viem/accounts";
-import { beforeEach, describe, expect, it } from "vitest";
 import { ONE_HOUR_MS } from "#/constants";
 import type { Signer as NucSigner } from "#/core/signer";
 import { Signer } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
 import { Codec } from "#/nuc/codec";
 import { Validator } from "#/validator/validator";
+import type { PrivateKeyAccount } from "viem/accounts";
+import { privateKeyToAccount } from "viem/accounts";
+import { beforeEach, describe, expect, it } from "vitest";
 
 async function assertValidParse(
-  envelope: Awaited<
-    ReturnType<(typeof Builder.delegation)["prototype"]["sign"]>
-  >,
+  envelope: Awaited<ReturnType<(typeof Builder.delegation)["prototype"]["sign"]>>,
   rootDidString: string,
-) {
+): Promise<void> {
   const serialized = Codec.serializeBase64Url(envelope);
   const parsed = await Validator.parse(serialized, {
     rootIssuers: [rootDidString],
@@ -26,14 +24,11 @@ describe("Web3 Signer (EIP-712)", () => {
   let web3Signer: NucSigner;
 
   beforeEach(async () => {
-    account = privateKeyToAccount(
-      "0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a",
-    );
+    account = privateKeyToAccount("0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a");
     const eip712Adapter = {
-      getAddress: async () => account.address,
-      signTypedData: async (
-        params: Parameters<typeof account.signTypedData>[0],
-      ) => account.signTypedData(params),
+      getAddress: async (): Promise<`0x${string}`> => account.address,
+      signTypedData: async (params: Parameters<typeof account.signTypedData>[0]): Promise<`0x${string}`> =>
+        account.signTypedData(params),
     };
     web3Signer = Signer.fromWeb3(eip712Adapter);
   });

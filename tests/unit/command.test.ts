@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
 import { type Command, Payload } from "#/nuc/payload";
+import { describe, expect, it } from "vitest";
 
 describe("isCommandAttenuationOf", () => {
   it.each([
@@ -8,12 +8,7 @@ describe("isCommandAttenuationOf", () => {
     ["/a/b", "/a/b", true],
     ["/a", "/a/b", false],
     ["/x", "/y", false],
-  ])(
-    'should return %s for command "%s" and parent "%s"',
-    (cmd, parent, expected) => {
-      expect(
-        Payload.isCommandAttenuationOf(cmd as Command, parent as Command),
-      ).toBe(expected);
-    },
-  );
+  ])('should return %s for command "%s" and parent "%s"', (cmd, parent, expected) => {
+    expect(Payload.isCommandAttenuationOf(cmd as Command, parent as Command)).toBe(expected);
+  });
 });

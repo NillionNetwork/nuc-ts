@@ -2,7 +2,7 @@ name: CD
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   workflow_dispatch:
 
 concurrency:
@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  id-token: write  # Required for NPM Trusted Publisher
+  id-token: write # Required for NPM Trusted Publisher
   contents: read
 
 jobs:
@@ -37,13 +37,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          submodules: 'recursive'
+          submodules: "recursive"
       - uses: actions/setup-node@v4
         with:
-          node-version: "23"
+          node-version: "24"
           registry-url: "https://registry.npmjs.org"
       - uses: pnpm/action-setup@v4
       - run: pnpm install
       - run: pnpm build
-      - run: pnpm exec biome ci
-      - run: tsc
+      - run: pnpm check

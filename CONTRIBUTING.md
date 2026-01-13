@@ -17,12 +17,14 @@ This project is managed via [pnpm](https://pnpm.io/). To install dependencies ru
 The library uses [pino](https://github.com/pinojs/pino) for structured logging. You can control the log level to help debug issues:
 
 1. **Node.js**: Set the `NILLION_LOG_LEVEL` environment variable
+
    ```bash
    NILLION_LOG_LEVEL=debug pnpm test
    NILLION_LOG_LEVEL=trace node your-script.js
    ```
 
 2. **Browser**: Use the developer console to configure logging
+
    ```javascript
    // Set log level via localStorage
    localStorage.setItem("NILLION_LOG_LEVEL", "debug");
@@ -32,12 +34,12 @@ The library uses [pino](https://github.com/pinojs/pino) for structured logging. 
    ```
 
 3. **Available log levels** (from most to least verbose):
-    - `trace` - Extremely detailed debugging information
-    - `debug` - Detailed debugging information
-    - `info` - General informational messages
-    - `warn` - Warning messages
-    - `error` - Error messages only
-    - `silent` - Disable all logging
+   - `trace` - Extremely detailed debugging information
+   - `debug` - Detailed debugging information
+   - `info` - General informational messages
+   - `warn` - Warning messages
+   - `error` - Error messages only
+   - `silent` - Disable all logging
 
 ## Documentation
 
@@ -49,7 +51,7 @@ The documentation can be generated automatically from the source files using [Ty
 All unit tests are executed and their coverage is measured when using [vitest](https://vitest.dev/):
 `pnpm test --coverage`
 
-Style conventions are enforced using [Biome](https://biomejs.dev/): `biome check`
+Style conventions are enforced using [oxlint](https://oxc.rs/docs/guide/usage/linter) and [oxfmt](https://oxc.rs/docs/guide/usage/formatter): `pnpm check`
 
 ## Versioning
 

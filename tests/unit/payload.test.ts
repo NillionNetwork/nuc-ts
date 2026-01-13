@@ -1,7 +1,7 @@
-import { describe, expect, it } from "vitest";
 import { Did } from "#/core/did/did";
 import { Signer } from "#/core/signer";
 import { CommandSchema, Payload } from "#/nuc/payload";
+import { describe, expect, it } from "vitest";
 
 describe("Token Module", () => {
   // Generate signer for reuse

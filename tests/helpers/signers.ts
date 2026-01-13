@@ -1,8 +1,8 @@
-import { hexToBytes } from "@noble/hashes/utils.js";
-import type { PrivateKeyAccount } from "viem/accounts";
 import * as ethr from "#/core/did/ethr";
 import type { Signer } from "#/core/signer";
 import { NucHeaders } from "#/nuc/header";
+import { hexToBytes } from "@noble/hashes/utils.js";
+import type { PrivateKeyAccount } from "viem/accounts";
 
 /**
  * Creates a native `did:ethr` signer from a viem PrivateKeyAccount instance.
@@ -18,9 +18,7 @@ export function createNativeEthrSigner(account: PrivateKeyAccount): Signer {
         message: { raw: data },
       });
       // Remove 0x prefix if present
-      const cleanHex = signatureHex.startsWith("0x")
-        ? signatureHex.slice(2)
-        : signatureHex;
+      const cleanHex = signatureHex.startsWith("0x") ? signatureHex.slice(2) : signatureHex;
       return hexToBytes(cleanHex);
     },
   };

@@ -1,25 +1,21 @@
-import { privateKeyToAccount } from "viem/accounts";
-import { describe, it } from "vitest";
 import { ONE_HOUR_MS } from "#/constants";
 import * as ethr from "#/core/did/ethr";
 import { Signer } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
 import { assertSuccess } from "#tests/helpers/assertions";
 import { createNativeEthrSigner } from "#tests/helpers/signers";
+import { privateKeyToAccount } from "viem/accounts";
+import { describe, it } from "vitest";
 
 describe("heterogeneous nuc chain", () => {
-  it("should validate a heterogeneous chain: did:key -> did:ethr -> did:nil", async ({
-    expect,
-  }) => {
+  it("should validate a heterogeneous chain: did:key -> did:ethr -> did:nil", async ({ expect }) => {
     // Phase 1 - Actors
     // A. The root of trust, using did:key
     const rootSigner = Signer.generate();
     const rootDid = await rootSigner.getDid();
 
     // B. An intermediate user with an Ethereum wallet
-    const userAccount = privateKeyToAccount(
-      "0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a",
-    );
+    const userAccount = privateKeyToAccount("0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a");
     const userDid = ethr.fromAddress(userAccount.address);
     const userSigner = createNativeEthrSigner(userAccount);
 
@@ -40,9 +36,7 @@ describe("heterogeneous nuc chain", () => {
       .sign(rootSigner);
 
     // 2. User (did:ethr) delegates to LegacySvc (did:nil)
-    const userToLegacySvcDelegation = await Builder.delegationFrom(
-      rootToUserDelegation,
-    )
+    const userToLegacySvcDelegation = await Builder.delegationFrom(rootToUserDelegation)
       .audience(legacySvcDid)
       .command("/nil/db/data/find")
       .expiresIn(ONE_HOUR_MS / 2)

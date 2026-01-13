@@ -1,17 +1,15 @@
-import { describe, expect, it } from "vitest";
 import { ONE_HOUR_MS } from "#/constants";
 import { base64UrlDecode } from "#/core/encoding";
 import { Signer } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
 import { Codec } from "#/nuc/codec";
 import { Validator } from "#/validator/validator";
+import { describe, expect, it } from "vitest";
 
 async function assertValidParse(
-  envelope: Awaited<
-    ReturnType<(typeof Builder.delegation)["prototype"]["sign"]>
-  >,
+  envelope: Awaited<ReturnType<(typeof Builder.delegation)["prototype"]["sign"]>>,
   rootDidString: string,
-) {
+): Promise<void> {
   const serialized = Codec.serializeBase64Url(envelope);
   const parsed = await Validator.parse(serialized, {
     rootIssuers: [rootDidString],

@@ -1,9 +1,10 @@
-import { bytesToHex } from "@noble/hashes/utils.js";
 import { Did } from "#/core/did/did";
 import { Log } from "#/core/logger";
 import type { Nuc } from "#/nuc/envelope";
 import { Envelope } from "#/nuc/envelope";
 import { Payload, REVOKE_COMMAND } from "#/nuc/payload";
+import { bytesToHex } from "@noble/hashes/utils.js";
+
 import { validatePolicyProperties } from "./policy";
 import { validateTemporalProperties } from "./temporal";
 import type { ValidationParameters } from "./types";
@@ -15,8 +16,7 @@ export const ISSUER_AUDIENCE_MISMATCH = "issuer/audience mismatch";
 export const MISSING_PROOF = "proof is missing";
 export const NOT_BEFORE_BACKWARDS = "`not before` cannot move backwards";
 export const PROOFS_MUST_BE_DELEGATIONS = "proofs must be delegations";
-export const ROOT_KEY_SIGNATURE_MISSING =
-  "root NUC is not signed by a root issuer";
+export const ROOT_KEY_SIGNATURE_MISSING = "root NUC is not signed by a root issuer";
 export const SUBJECT_NOT_IN_CHAIN = "subject not in chain";
 export const TOO_MANY_PROOFS = "up to one `prf` in a token is allowed";
 export const UNCHAINED_PROOFS = "extra proofs not part of chain provided";
@@ -24,20 +24,11 @@ export const UNCHAINED_PROOFS = "extra proofs not part of chain provided";
 /**
  * Validate proof chain
  */
-export function validateProofs(
-  payload: Payload,
-  proofs: Payload[],
-  rootIssuers: string[],
-): void {
+export function validateProofs(payload: Payload, proofs: Payload[], rootIssuers: string[]): void {
   if (rootIssuers.length > 0) {
     const root = proofs.length > 0 ? proofs[proofs.length - 1] : payload;
-    if (
-      !rootIssuers.some((issuer) => Did.areEqual(Did.parse(issuer), root.iss))
-    ) {
-      Log.debug(
-        { rootIssuer: root.iss, expectedIssuers: rootIssuers },
-        ROOT_KEY_SIGNATURE_MISSING,
-      );
+    if (!rootIssuers.some((issuer) => Did.areEqual(Did.parse(issuer), root.iss))) {
+      Log.debug({ rootIssuer: root.iss, expectedIssuers: rootIssuers }, ROOT_KEY_SIGNATURE_MISSING);
       throw new Error(ROOT_KEY_SIGNATURE_MISSING);
     }
   }
@@ -76,10 +67,7 @@ export function validatePayloadChain(
   if (payloads.length >= 2) {
     const payload = payloads[1];
     if (!Did.areEqual(payload.iss, payload.sub)) {
-      Log.debug(
-        { issuer: payload.iss, subject: payload.sub },
-        SUBJECT_NOT_IN_CHAIN,
-      );
+      Log.debug({ issuer: payload.iss, subject: payload.sub }, SUBJECT_NOT_IN_CHAIN);
       throw new Error(SUBJECT_NOT_IN_CHAIN);
     }
   }
@@ -88,42 +76,24 @@ export function validatePayloadChain(
 /**
  * Validate relationship between consecutive tokens
  */
-export function validateRelationshipProperties(
-  previous: Payload,
-  current: Payload,
-): void {
+export function validateRelationshipProperties(previous: Payload, current: Payload): void {
   if (!Did.areEqual(previous.aud, current.iss)) {
-    Log.debug(
-      { expected: previous.aud, actual: current.iss },
-      ISSUER_AUDIENCE_MISMATCH,
-    );
+    Log.debug({ expected: previous.aud, actual: current.iss }, ISSUER_AUDIENCE_MISMATCH);
     throw new Error(ISSUER_AUDIENCE_MISMATCH);
   }
 
   if (!Did.areEqual(previous.sub, current.sub)) {
-    Log.debug(
-      { previousSubject: previous.sub, currentSubject: current.sub },
-      DIFFERENT_SUBJECTS,
-    );
+    Log.debug({ previousSubject: previous.sub, currentSubject: current.sub }, DIFFERENT_SUBJECTS);
     throw new Error(DIFFERENT_SUBJECTS);
   }
 
-  if (
-    !Payload.isCommandAttenuationOf(current.cmd, previous.cmd) &&
-    current.cmd !== REVOKE_COMMAND
-  ) {
-    Log.debug(
-      { previousCommand: previous.cmd, currentCommand: current.cmd },
-      COMMAND_NOT_ATTENUATED,
-    );
+  if (!Payload.isCommandAttenuationOf(current.cmd, previous.cmd) && current.cmd !== REVOKE_COMMAND) {
+    Log.debug({ previousCommand: previous.cmd, currentCommand: current.cmd }, COMMAND_NOT_ATTENUATED);
     throw new Error(COMMAND_NOT_ATTENUATED);
   }
 
   if (previous.nbf && current.nbf && previous.nbf > current.nbf) {
-    Log.debug(
-      { previousNbf: previous.nbf, currentNbf: current.nbf },
-      NOT_BEFORE_BACKWARDS,
-    );
+    Log.debug({ previousNbf: previous.nbf, currentNbf: current.nbf }, NOT_BEFORE_BACKWARDS);
     throw new Error(NOT_BEFORE_BACKWARDS);
   }
 }
@@ -159,9 +129,7 @@ export function sortProofs(hash: Uint8Array, proofs: Nuc[]): Payload[] {
   let nextHash: string | null = bytesToHex(hash);
 
   while (nextHash) {
-    const nextProofIndex = indexedProofs.findIndex(
-      ([hash, _]) => hash === nextHash,
-    );
+    const nextProofIndex = indexedProofs.findIndex(([hash, _]) => hash === nextHash);
 
     if (nextProofIndex < 0) {
       Log.debug({ missingHash: nextHash }, MISSING_PROOF);
