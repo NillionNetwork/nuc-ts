@@ -1,10 +1,10 @@
-import * as fc from "fast-check";
-import { describe, expect, it } from "vitest";
 import { ONE_HOUR_MS } from "#/constants";
 import { Signer } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
 import { Codec } from "#/nuc/codec";
 import { Validator } from "#/validator/validator";
+import * as fc from "fast-check";
+import { describe, expect, it } from "vitest";
 
 describe("Codec and Validator.parse", () => {
   const rootSigner = Signer.generate();
@@ -47,18 +47,13 @@ describe("Codec and Validator.parse", () => {
   describe("error paths for _unsafeDecodeBase64Url", () => {
     it("should throw for an invalid Nuc structure", () => {
       const invalidToken = "a.b";
-      expect(() => Codec._unsafeDecodeBase64Url(invalidToken)).toThrow(
-        "invalid Nuc structure",
-      );
+      expect(() => Codec._unsafeDecodeBase64Url(invalidToken)).toThrow("invalid Nuc structure");
     });
 
     it("should throw for an invalid header", () => {
       // Create a header with invalid version format
-      const invalidHeader =
-        "eyJhbGciOiJFUzI1NksiLCJ2ZXIiOiJpbnZhbGlkIn0.e30.e30"; // {"alg":"ES256K","ver":"invalid"}
-      expect(() => Codec._unsafeDecodeBase64Url(invalidHeader)).toThrow(
-        "invalid Nuc header",
-      );
+      const invalidHeader = "eyJhbGciOiJFUzI1NksiLCJ2ZXIiOiJpbnZhbGlkIn0.e30.e30"; // {"alg":"ES256K","ver":"invalid"}
+      expect(() => Codec._unsafeDecodeBase64Url(invalidHeader)).toThrow("invalid Nuc header");
     });
 
     it("should throw for empty tokens in a chain", async () => {
@@ -71,9 +66,7 @@ describe("Codec and Validator.parse", () => {
         .sign(rootSigner);
       const validSerialized = Codec.serializeBase64Url(rootEnvelope);
       const invalidChain = `${validSerialized}//${validSerialized}`;
-      expect(() => Codec._unsafeDecodeBase64Url(invalidChain)).toThrow(
-        "empty token",
-      );
+      expect(() => Codec._unsafeDecodeBase64Url(invalidChain)).toThrow("empty token");
     });
 
     it("should throw for an empty input string", () => {

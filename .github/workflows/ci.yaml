@@ -12,15 +12,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          submodules: 'recursive'
+          submodules: "recursive"
       - uses: actions/setup-node@v4
         with:
-          node-version: "23"
+          node-version: "24"
       - uses: pnpm/action-setup@v4
       - run: pnpm install
       - run: pnpm build
-      - run: pnpm exec biome ci
-      - run: tsc
+      - run: pnpm check
 
   test:
     needs: check
@@ -29,7 +28,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: "23"
+          node-version: "24"
       - uses: pnpm/action-setup@v4
       - run: pnpm install
       - run: pnpm vitest --coverage

@@ -1,7 +1,7 @@
+import type { DidEthr } from "#/core/did/types";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import { getAddress } from "viem";
 import { hashMessage, recoverAddress } from "viem/utils";
-import type { DidEthr } from "#/core/did/types";
 
 /**
  * Creates a did:ethr Did from an Ethereum address.
@@ -71,11 +71,7 @@ export function parse(didString: string): DidEthr {
  * @param signature The signature to validate
  * @returns True if the message was signed by the provided did.
  */
-export async function validateSignature(
-  did: DidEthr,
-  message: Uint8Array,
-  signature: Uint8Array,
-): Promise<boolean> {
+export async function validateSignature(did: DidEthr, message: Uint8Array, signature: Uint8Array): Promise<boolean> {
   const messageHash = hashMessage({ raw: message });
   const recoveredAddress = await recoverAddress({
     hash: messageHash,

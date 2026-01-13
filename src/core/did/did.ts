@@ -1,6 +1,7 @@
 import { hexToBytes } from "@noble/hashes/utils.js";
 import _ from "es-toolkit/compat";
 import { z } from "zod";
+
 import * as ethr from "./ethr";
 import * as key from "./key";
 import * as nil from "./nil";
@@ -104,10 +105,7 @@ export namespace Did {
    * const legacyDid = Did.fromPublicKey(publicKey, "nil");
    * ```
    */
-  export function fromPublicKey(
-    publicKey: string,
-    method: "key" | "nil" = "key",
-  ): Did {
+  export function fromPublicKey(publicKey: string, method: "key" | "nil" = "key"): Did {
     if (method === "nil") {
       console.warn(
         'DEPRECATION WARNING: The "nil" Did method is deprecated and will be removed in a future version. Use the "key" method instead.',
@@ -143,10 +141,7 @@ export namespace Did {
    * const did = Did.Schema.parse("did:key:zDnae...");
    * ```
    */
-  export const Schema = z
-    .string()
-    .regex(DID_EXPRESSION, "invalid Did")
-    .transform(parse);
+  export const Schema = z.string().regex(DID_EXPRESSION, "invalid Did").transform(parse);
 }
 
 /**

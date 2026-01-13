@@ -1,9 +1,7 @@
 /**
  * Token requirement types
  */
-export type TokenRequirement =
-  | { type: "invocation"; audience: string }
-  | { type: "delegation"; audience: string };
+export type TokenRequirement = { type: "invocation"; audience: string } | { type: "delegation"; audience: string };
 
 /**
  * Validation parameters configuration

@@ -1,7 +1,7 @@
-import _ from "es-toolkit/compat";
-import { z } from "zod";
 import { Log } from "#/core/logger";
 import { applySelector, type Selector } from "#/nuc/selector";
+import _ from "es-toolkit/compat";
+import { z } from "zod";
 
 /**
  * Simple type aliases for operators
@@ -267,10 +267,7 @@ export namespace Policy {
     // For a policy (array of rules with implicit AND), analyze as if it were an AND connector
     if (policy.length === 1) {
       const result = analyzeRule(policy[0]);
-      Log.info(
-        { maxDepth: result.depth, maxWidth: result.width },
-        "Policy tree analysis complete",
-      );
+      Log.info({ maxDepth: result.depth, maxWidth: result.width }, "Policy tree analysis complete");
       return {
         maxDepth: result.depth,
         maxWidth: result.width,
@@ -283,10 +280,7 @@ export namespace Policy {
       maxWidth: Math.max(policy.length, ...results.map((r) => r.width)),
     };
 
-    Log.info(
-      { maxDepth: result.maxDepth, maxWidth: result.maxWidth },
-      "Policy tree analysis complete",
-    );
+    Log.info({ maxDepth: result.maxDepth, maxWidth: result.maxWidth }, "Policy tree analysis complete");
 
     return result;
   }
@@ -306,11 +300,7 @@ function evaluatePolicyRule(
   if (isOperator(rule)) {
     const [op, selector, value] = rule;
     const selectorValue = typeof selector === "string" ? selector : selector;
-    const selectedValue = applySelector(
-      selectorValue as Selector,
-      record,
-      context,
-    );
+    const selectedValue = applySelector(selectorValue as Selector, record, context);
 
     Log.debug(
       {
@@ -353,10 +343,7 @@ function evaluatePolicyRule(
 
       case "anyOf": {
         const result = value.some((option) => _.isEqual(selectedValue, option));
-        Log.debug(
-          { selector, actualValue: selectedValue, options: value, result },
-          "AnyOf check",
-        );
+        Log.debug({ selector, actualValue: selectedValue, options: value, result }, "AnyOf check");
         return result;
       }
     }
@@ -371,10 +358,7 @@ function evaluatePolicyRule(
       for (let i = 0; i < childPolicy.length; i++) {
         const result = evaluatePolicyRule(childPolicy[i], record, context);
         if (!result) {
-          Log.debug(
-            { failedAt: i, rule: childPolicy[i] },
-            "AND connector short-circuited",
-          );
+          Log.debug({ failedAt: i, rule: childPolicy[i] }, "AND connector short-circuited");
           return false;
         }
       }

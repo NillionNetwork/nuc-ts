@@ -1,5 +1,5 @@
-import { describe, expect, test } from "vitest";
 import { applySelector, SelectorSchema } from "#/nuc/selector";
+import { describe, expect, test } from "vitest";
 
 describe("Selector", () => {
   test.each([
@@ -11,8 +11,7 @@ describe("Selector", () => {
     { case: "multi context", input: "$.foo.bar" },
     {
       case: "entire_alphabet",
-      input:
-        ".abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_",
+      input: ".abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_",
     },
   ])("select $case ($input)", ({ input }) => {
     expect(() => SelectorSchema.parse(input)).not.toThrowError();

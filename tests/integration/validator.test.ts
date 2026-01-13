@@ -1,15 +1,10 @@
-import { describe, it } from "vitest";
 import { ONE_HOUR_MS } from "#/constants";
 import { Signer } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
 import { REVOKE_COMMAND } from "#/nuc/payload";
 import { Validator } from "#/validator/validator";
-import {
-  assertFailure,
-  assertSuccess,
-  ROOT_DIDS,
-  ROOT_KEYS,
-} from "#tests/helpers/assertions";
+import { assertFailure, assertSuccess, ROOT_DIDS, ROOT_KEYS } from "#tests/helpers/assertions";
+import { describe, it } from "vitest";
 
 describe("Validator", () => {
   // Use a consistent root signer for all tests, derived from the test seed

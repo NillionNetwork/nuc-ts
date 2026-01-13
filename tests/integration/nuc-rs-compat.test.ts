@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
 import { assertFailure, assertSuccess } from "#tests/helpers/assertions";
+import { describe, expect, it } from "vitest";
+
 import { NucRsCompatAssertions } from "./nuc-rs-compat";
 
 describe("nuc-rs compatibility tests", () => {

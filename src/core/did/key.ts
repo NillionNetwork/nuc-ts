@@ -1,6 +1,6 @@
+import type { DidKey } from "#/core/did/types";
 import { secp256k1 } from "@noble/curves/secp256k1.js";
 import { base58btc } from "multiformats/bases/base58";
-import type { DidKey } from "#/core/did/types";
 
 const SECP256K1_PREFIX = new Uint8Array([0xe7, 0x01]);
 const KEY_PREFIX = "did:key:";
@@ -33,9 +33,7 @@ export function parse(didString: string): DidKey {
  * @internal Used for testing
  */
 export function fromPublicKeyBytes(publicKeyBytes: Uint8Array): string {
-  const prefixedKey = new Uint8Array(
-    SECP256K1_PREFIX.length + publicKeyBytes.length,
-  );
+  const prefixedKey = new Uint8Array(SECP256K1_PREFIX.length + publicKeyBytes.length);
   prefixedKey.set(SECP256K1_PREFIX);
   prefixedKey.set(publicKeyBytes, SECP256K1_PREFIX.length);
   return `${KEY_PREFIX}${base58btc.encode(prefixedKey)}`;
@@ -49,11 +47,7 @@ export function fromPublicKeyBytes(publicKeyBytes: Uint8Array): string {
  * @param signature The signature to validate
  * @returns True if the message was signed by the provided did.
  */
-export function validateSignature(
-  did: DidKey,
-  message: Uint8Array,
-  signature: Uint8Array,
-): boolean {
+export function validateSignature(did: DidKey, message: Uint8Array, signature: Uint8Array): boolean {
   return secp256k1.verify(signature, message, did.publicKeyBytes, {
     prehash: true,
   });

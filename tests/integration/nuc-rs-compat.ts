@@ -1,13 +1,11 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { hexToBytes } from "@noble/hashes/utils.js";
-import { z } from "zod";
+
 import * as didKey from "#/core/did/key";
 import { Codec } from "#/nuc/codec";
-import type {
-  TokenRequirement,
-  ValidationParameters,
-} from "#/validator/validator";
+import type { TokenRequirement, ValidationParameters } from "#/validator/validator";
+import { hexToBytes } from "@noble/hashes/utils.js";
+import { z } from "zod";
 
 // Schema for parsing the `token_requirements` field from the text file.
 const TokenReqSchema = z.union([
@@ -54,9 +52,7 @@ const InputSchema = z
   })
   .transform((input) => ({
     token: input.token,
-    rootKeys: input.root_keys.map((hexKey) =>
-      didKey.fromPublicKeyBytes(hexToBytes(hexKey)),
-    ),
+    rootKeys: input.root_keys.map((hexKey) => didKey.fromPublicKeyBytes(hexToBytes(hexKey))),
     currentTime: input.current_time * 1000,
     context: input.context,
     parameters: input.parameters,

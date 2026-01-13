@@ -1,3 +1,5 @@
+import { type NucHeader, NucHeaderSchema, NucHeaders } from "#/nuc/header";
+import { Payload } from "#/nuc/payload";
 import { secp256k1 } from "@noble/curves/secp256k1.js";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
 import {
@@ -9,8 +11,7 @@ import {
   type WalletClient,
 } from "viem";
 import { mainnet } from "viem/chains";
-import { type NucHeader, NucHeaderSchema, NucHeaders } from "#/nuc/header";
-import { Payload } from "#/nuc/payload";
+
 import { Did } from "./did/did";
 import * as ethr from "./did/ethr";
 import { base64UrlDecode } from "./encoding";
@@ -68,12 +69,8 @@ export namespace Signer {
    * @param didMethod The Did method to use. Defaults to "key".
    * @returns A new Signer instance.
    */
-  export function fromPrivateKey(
-    privateKey: string | Uint8Array,
-    didMethod: "key" | "nil" = "key",
-  ): Signer {
-    const privateKeyBytes =
-      typeof privateKey === "string" ? hexToBytes(privateKey) : privateKey;
+  export function fromPrivateKey(privateKey: string | Uint8Array, didMethod: "key" | "nil" = "key"): Signer {
+    const privateKeyBytes = typeof privateKey === "string" ? hexToBytes(privateKey) : privateKey;
     const publicKeyBytes = secp256k1.getPublicKey(privateKeyBytes);
     const publicKeyHex = bytesToHex(publicKeyBytes);
 
@@ -94,8 +91,7 @@ export namespace Signer {
     return {
       header: NucHeaders.v1,
       getDid: async () => Did.fromPublicKey(publicKeyHex, "key"),
-      sign: async (data) =>
-        secp256k1.sign(data, privateKeyBytes, { prehash: true }) as Uint8Array,
+      sign: async (data) => secp256k1.sign(data, privateKeyBytes, { prehash: true }) as Uint8Array,
     };
   }
 
@@ -105,10 +101,7 @@ export namespace Signer {
    * @param options.chainId Optional chainId for the EIP-712 domain. Defaults to 1 (mainnet).
    * @returns A Signer instance that uses EIP-712 signing
    */
-  export function fromWeb3(
-    signer: Eip712Signer,
-    options?: { chainId?: number },
-  ): Signer {
+  export function fromWeb3(signer: Eip712Signer, options?: { chainId?: number }): Signer {
     const domain = {
       name: "NUC",
       version: "1",
@@ -120,26 +113,16 @@ export namespace Signer {
       getDid: async () => ethr.fromAddress(await signer.getAddress()),
       sign: async (data: Uint8Array): Promise<Uint8Array> => {
         // The `data` is `rawHeader.rawPayload`. We must parse the header from it.
-        const [rawHeader, payloadString] = new TextDecoder()
-          .decode(data)
-          .split(".");
+        const [rawHeader, payloadString] = new TextDecoder().decode(data).split(".");
         if (!rawHeader || !payloadString) {
-          throw new SigningError(
-            "Invalid data format for EIP-712 signing",
-            "ES256K",
-          );
+          throw new SigningError("Invalid data format for EIP-712 signing", "ES256K");
         }
 
-        const header = NucHeaderSchema.parse(
-          JSON.parse(base64UrlDecode(rawHeader)),
-        );
+        const header = NucHeaderSchema.parse(JSON.parse(base64UrlDecode(rawHeader)));
         const { meta } = header;
 
         if (!meta || !meta.domain || !meta.types || !meta.primaryType) {
-          throw new SigningError(
-            "EIP-712 metadata missing from header",
-            "ES256K",
-          );
+          throw new SigningError("EIP-712 metadata missing from header", "ES256K");
         }
 
         const decodedPayload = JSON.parse(base64UrlDecode(payloadString));
@@ -160,9 +143,7 @@ export namespace Signer {
         });
 
         // Remove 0x prefix if present and convert to bytes
-        const hexString = signatureHex.startsWith("0x")
-          ? signatureHex.slice(2)
-          : signatureHex;
+        const hexString = signatureHex.startsWith("0x") ? signatureHex.slice(2) : signatureHex;
         return hexToBytes(hexString);
       },
     };
@@ -189,14 +170,10 @@ export namespace Signer {
       transport: custom(provider),
     });
 
-    const [account] = options?.account
-      ? [options.account]
-      : await client.requestAddresses();
+    const [account] = options?.account ? [options.account] : await client.requestAddresses();
 
     if (!account) {
-      throw new Error(
-        "Failed to get address from provider. User may have rejected the request.",
-      );
+      throw new Error("Failed to get address from provider. User may have rejected the request.");
     }
 
     const eip712SignerAdapter: Eip712Signer = {
@@ -243,9 +220,7 @@ type Eip712InvocationPayload = {
  * Converts a standard Nuc Payload into an EIP-712 compatible format.
  * @internal
  */
-export function toEip712Payload(
-  payload: Payload,
-): Eip712DelegationPayload | Eip712InvocationPayload {
+export function toEip712Payload(payload: Payload): Eip712DelegationPayload | Eip712InvocationPayload {
   const common = {
     iss: Did.serialize(payload.iss),
     aud: Did.serialize(payload.aud),

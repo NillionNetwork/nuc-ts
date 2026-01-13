@@ -16,10 +16,7 @@ import { z } from "zod";
  */
 const SELECTOR_REGEX = /^(\$)?\.([a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)*)?$/;
 
-export const SelectorSchema = z
-  .string()
-  .regex(SELECTOR_REGEX, "Invalid selector format")
-  .brand<"Selector">();
+export const SelectorSchema = z.string().regex(SELECTOR_REGEX, "Invalid selector format").brand<"Selector">();
 
 export type Selector = z.infer<typeof SelectorSchema>;
 

@@ -3,9 +3,9 @@
  * @deprecated The "nil" Did method is deprecated and will be removed in a future version. Use the "key" method instead.
  */
 
+import type { DidNil } from "#/core/did/types";
 import { secp256k1 } from "@noble/curves/secp256k1.js";
 import { bytesToHex, hexToBytes } from "@noble/hashes/utils.js";
-import type { DidNil } from "#/core/did/types";
 
 const NIL_PREFIX = "did:nil:";
 
@@ -38,11 +38,7 @@ export function fromPublicKeyBytes(publicKeyBytes: Uint8Array): string {
  * @param signature The signature to validate
  * @returns True if the message was signed by the provided did.
  */
-export function validateSignature(
-  did: DidNil,
-  message: Uint8Array,
-  signature: Uint8Array,
-): boolean {
+export function validateSignature(did: DidNil, message: Uint8Array, signature: Uint8Array): boolean {
   return secp256k1.verify(signature, message, did.publicKeyBytes, {
     prehash: true,
   });

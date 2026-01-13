@@ -1,5 +1,5 @@
-import { describe, expect, test } from "vitest";
 import { Policy } from "#/nuc/policy";
+import { describe, expect, test } from "vitest";
 
 describe("Policy", () => {
   test.each([
@@ -156,9 +156,7 @@ describe("Policy", () => {
     },
     {
       case: "eq object",
-      policy: Policy.Schema.parse([
-        ["==", ".name", { first: "bob", last: "smith" }],
-      ]),
+      policy: Policy.Schema.parse([["==", ".name", { first: "bob", last: "smith" }]]),
     },
     {
       case: "eq value context",
@@ -256,9 +254,7 @@ describe("Policy", () => {
     },
     {
       case: "eq object",
-      policy: Policy.Schema.parse([
-        ["==", ".name", { first: "john", last: "smith" }],
-      ]),
+      policy: Policy.Schema.parse([["==", ".name", { first: "john", last: "smith" }]]),
     },
     {
       case: "eq value context",

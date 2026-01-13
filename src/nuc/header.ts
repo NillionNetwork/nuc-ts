@@ -1,6 +1,6 @@
+import { Payload } from "#/nuc/payload";
 import type { TypedDataDomain } from "abitype";
 import { z } from "zod";
-import { Payload } from "#/nuc/payload";
 
 /**
  * Nuc encoding types.
@@ -42,22 +42,16 @@ export const NucHeaderSchema = z
       ),
     alg: z
       .enum([NucHeaderAlgorithm.Es256k])
-      .describe(
-        '**Required.** The cryptographic algorithm used for the signature (e.g., "ES256K").',
-      ),
+      .describe('**Required.** The cryptographic algorithm used for the signature (e.g., "ES256K").'),
     ver: z
       .string()
       .regex(/^\d+\.\d+\.\d+$/, "Version must be in semver format")
       .optional()
-      .describe(
-        "**Optional.** The semantic version of the Nuc payload specification.",
-      ),
+      .describe("**Optional.** The semantic version of the Nuc payload specification."),
     meta: z
       .record(z.string(), z.unknown())
       .optional()
-      .describe(
-        "**Optional.** A container for metadata required by specific `typ` values.",
-      ),
+      .describe("**Optional.** A container for metadata required by specific `typ` values."),
   })
   .strict();
 
@@ -146,10 +140,7 @@ export const NucHeaders = {
 /**
  * Helper to get the correct EIP-712 header based on payload type.
  */
-export function getEip712Header(
-  payload: Payload,
-  domain: TypedDataDomain = NUC_EIP712_DOMAIN,
-): NucHeader {
+export function getEip712Header(payload: Payload, domain: TypedDataDomain = NUC_EIP712_DOMAIN): NucHeader {
   if (Payload.isDelegationPayload(payload)) {
     return NucHeaders.v1_eip712_delegation(domain);
   }

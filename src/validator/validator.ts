@@ -4,24 +4,15 @@ import { Codec } from "#/nuc/codec";
 import type { Envelope } from "#/nuc/envelope";
 import { Payload } from "#/nuc/payload";
 import { Policy } from "#/nuc/policy";
+
 import { sortProofs, validatePayloadChain, validateProofs } from "./chain";
 import { validateEnvelopeSignature } from "./signatures";
-import type {
-  TokenRequirement,
-  ValidationOptions,
-  ValidationParameters,
-} from "./types";
+import type { TokenRequirement, ValidationOptions, ValidationParameters } from "./types";
 
 // Re-export types
-export type {
-  TokenRequirement,
-  ValidationOptions,
-  ValidationParameters,
-} from "./types";
+export type { TokenRequirement, ValidationOptions, ValidationParameters } from "./types";
 
-const DEFAULT_VALIDATION_PARAMETERS: Required<
-  Omit<ValidationParameters, "tokenRequirements">
-> = {
+const DEFAULT_VALIDATION_PARAMETERS: Required<Omit<ValidationParameters, "tokenRequirements">> = {
   maxChainLength: 5,
   maxPolicyWidth: 10,
   maxPolicyDepth: 5,
@@ -36,8 +27,7 @@ export namespace Validator {
   export const MISSING_PROOF = "proof is missing";
   export const NOT_BEFORE_BACKWARDS = "`not before` cannot move backwards";
   export const PROOFS_MUST_BE_DELEGATIONS = "proofs must be delegations";
-  export const ROOT_KEY_SIGNATURE_MISSING =
-    "root NUC is not signed by a root issuer";
+  export const ROOT_KEY_SIGNATURE_MISSING = "root NUC is not signed by a root issuer";
   export const SUBJECT_NOT_IN_CHAIN = "subject not in chain";
   export const TOO_MANY_PROOFS = "up to one `prf` in a token is allowed";
   export const UNCHAINED_PROOFS = "extra proofs not part of chain provided";
@@ -67,10 +57,7 @@ export namespace Validator {
    * @returns A validated `Envelope` object.
    * @throws Throws an error if any part of the validation fails. See `Validator.validate` for a full list of possible errors.
    */
-  export async function parse(
-    tokenString: string,
-    options: ValidationOptions,
-  ): Promise<Envelope> {
+  export async function parse(tokenString: string, options: ValidationOptions): Promise<Envelope> {
     // The internal Codec function is "unsafe" because it doesn't validate.
     // We immediately pass its output to the validator to ensure no unvalidated
     // data is ever returned to the user from this function.
@@ -154,16 +141,8 @@ export namespace Validator {
    * }
    * ```
    */
-  export async function validate(
-    envelope: Envelope,
-    options: ValidationOptions,
-  ): Promise<void> {
-    const {
-      rootIssuers,
-      params = {},
-      context = {},
-      timeProvider = () => Date.now(),
-    } = options;
+  export async function validate(envelope: Envelope, options: ValidationOptions): Promise<void> {
+    const { rootIssuers, params = {}, context = {}, timeProvider = (): number => Date.now() } = options;
     const config = { ...DEFAULT_VALIDATION_PARAMETERS, ...params };
 
     if (envelope.proofs.length + 1 > config.maxChainLength) {
@@ -185,9 +164,7 @@ export namespace Validator {
       throw new Error(Validator.TOO_MANY_PROOFS);
     }
 
-    const proofs = proofBytes.flatMap((proofHash) =>
-      sortProofs(proofHash, envelope.proofs),
-    );
+    const proofs = proofBytes.flatMap((proofHash) => sortProofs(proofHash, envelope.proofs));
 
     const now = timeProvider();
 
@@ -226,28 +203,19 @@ function validatePayload(
  * Validates a delegation token against token requirements.
  * @internal
  */
-function validateDelegationPayload(
-  payload: Payload,
-  tokenRequirements?: TokenRequirement,
-): void {
+function validateDelegationPayload(payload: Payload, tokenRequirements?: TokenRequirement): void {
   if (!tokenRequirements) {
     return;
   }
 
   if (tokenRequirements.type === "invocation") {
-    Log.debug(
-      { expectedType: "invocation", actualType: "delegation" },
-      Validator.NEED_INVOCATION,
-    );
+    Log.debug({ expectedType: "invocation", actualType: "delegation" }, Validator.NEED_INVOCATION);
     throw new Error(Validator.NEED_INVOCATION);
   }
 
   if (tokenRequirements.type === "delegation") {
     if (!Did.areEqual(payload.aud, Did.parse(tokenRequirements.audience))) {
-      Log.debug(
-        { expected: tokenRequirements.audience, actual: payload.aud },
-        Validator.INVALID_AUDIENCE,
-      );
+      Log.debug({ expected: tokenRequirements.audience, actual: payload.aud }, Validator.INVALID_AUDIENCE);
       throw new Error(Validator.INVALID_AUDIENCE);
     }
   }
@@ -274,19 +242,13 @@ function validateInvocationPayload(
   }
 
   if (tokenRequirements.type === "delegation") {
-    Log.debug(
-      { expectedType: "delegation", actualType: "invocation" },
-      Validator.NEED_DELEGATION,
-    );
+    Log.debug({ expectedType: "delegation", actualType: "invocation" }, Validator.NEED_DELEGATION);
     throw new Error(Validator.NEED_DELEGATION);
   }
 
   if (tokenRequirements.type === "invocation") {
     if (!Did.areEqual(payload.aud, Did.parse(tokenRequirements.audience))) {
-      Log.debug(
-        { expected: tokenRequirements.audience, actual: payload.aud },
-        Validator.INVALID_AUDIENCE,
-      );
+      Log.debug({ expected: tokenRequirements.audience, actual: payload.aud }, Validator.INVALID_AUDIENCE);
       throw new Error(Validator.INVALID_AUDIENCE);
     }
   }
@@ -306,14 +268,8 @@ function validatePolicyEvaluates(
     throw new Error(Validator.PROOFS_MUST_BE_DELEGATIONS);
   }
 
-  if (
-    Payload.isDelegationPayload(proof) &&
-    !Policy.evaluatePolicy(proof.pol, payloadJson, context)
-  ) {
-    Log.debug(
-      { policy: proof.pol, payload: payloadJson, context },
-      Validator.POLICY_NOT_MET,
-    );
+  if (Payload.isDelegationPayload(proof) && !Policy.evaluatePolicy(proof.pol, payloadJson, context)) {
+    Log.debug({ policy: proof.pol, payload: payloadJson, context }, Validator.POLICY_NOT_MET);
     throw new Error(Validator.POLICY_NOT_MET);
   }
 }

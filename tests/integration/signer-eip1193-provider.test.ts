@@ -1,8 +1,8 @@
-import type { EIP1193Provider } from "viem";
-import { describe, expect, it, vi } from "vitest";
 import { ONE_HOUR_MS } from "#/constants";
 import { Signer } from "#/core/signer";
 import { Builder } from "#/nuc/builder";
+import type { EIP1193Provider } from "viem";
+import { describe, expect, it, vi } from "vitest";
 
 const MOCK_ADDRESS = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
 const MOCK_SIGNATURE =
