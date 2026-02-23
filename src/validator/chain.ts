@@ -65,9 +65,10 @@ export function validatePayloadChain(
   }
 
   if (payloads.length >= 2) {
-    const payload = payloads[1];
-    if (!Did.areEqual(payload.iss, payload.sub)) {
-      Log.debug({ issuer: payload.iss, subject: payload.sub }, SUBJECT_NOT_IN_CHAIN);
+    const subject = payloads[0].sub;
+    const isSubjectAnIssuer = payloads.some((p) => Did.areEqual(p.iss, subject));
+    if (!isSubjectAnIssuer) {
+      Log.debug({ subject, issuers: payloads.map((p) => p.iss) }, SUBJECT_NOT_IN_CHAIN);
       throw new Error(SUBJECT_NOT_IN_CHAIN);
     }
   }
