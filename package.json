@@ -1,6 +1,6 @@
 {
   "name": "@nillion/nuc",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "license": "MIT",
   "repository": "https://github.com/NillionNetwork/nuc-ts",
   "files": [
@@ -30,35 +30,35 @@
     "@noble/curves": "^2.0.1",
     "@noble/hashes": "^2.0.1",
     "@scure/base": "^2.0.0",
-    "es-toolkit": "^1.43.0",
+    "es-toolkit": "^1.44.0",
     "multiformats": "^13.4.2",
-    "viem": "^2.44.1",
-    "zod": "^4.3.5"
+    "viem": "^2.46.2",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@commitlint/cli": "^20.3.1",
-    "@commitlint/config-conventional": "^20.3.1",
-    "@commitlint/types": "^20.3.1",
+    "@commitlint/cli": "^20.4.2",
+    "@commitlint/config-conventional": "^20.4.2",
+    "@commitlint/types": "^20.4.0",
     "@types/debug": "^4.1.12",
-    "@types/node": "^25.0.7",
+    "@types/node": "^25.3.0",
     "@types/semver": "^7.7.1",
-    "@typescript/native-preview": "7.0.0-dev.20260113.1",
-    "@vitest/coverage-v8": "^4.0.17",
+    "@typescript/native-preview": "7.0.0-dev.20260223.1",
+    "@vitest/coverage-v8": "^4.0.18",
     "abitype": "^1.2.3",
     "fast-check": "^4.5.3",
-    "lefthook": "^2.0.14",
-    "oxfmt": "^0.24.0",
-    "oxlint": "^1.39.0",
-    "oxlint-tsgolint": "^0.11.0",
-    "semver": "^7.7.3",
-    "tsdown": "0.20.0-beta.1",
+    "lefthook": "^2.1.1",
+    "oxfmt": "^0.35.0",
+    "oxlint": "^1.50.0",
+    "oxlint-tsgolint": "^0.14.2",
+    "semver": "^7.7.4",
+    "tsdown": "0.20.3",
     "tsx": "^4.21.0",
-    "type-fest": "^5.4.0",
-    "typedoc": "^0.28.16",
+    "type-fest": "^5.4.4",
+    "typedoc": "^0.28.17",
     "typescript": "^5.9.3",
     "vite": "^7.3.1",
-    "vite-tsconfig-paths": "^6.0.4",
-    "vitest": "^4.0.17"
+    "vite-tsconfig-paths": "^6.1.1",
+    "vitest": "^4.0.18"
   },
   "peerDependencies": {
     "pino": "^10.1.0"
@@ -70,10 +70,11 @@
     },
     "clean": true,
     "entry": "./src/lib.ts",
-    "format": "esm"
+    "format": "esm",
+    "inlineOnly": false
   },
   "engines": {
     "node": ">=24"
   },
-  "packageManager": "pnpm@10.28.0"
+  "packageManager": "pnpm@10.30.1+sha512.3590e550d5384caa39bd5c7c739f72270234b2f6059e13018f975c313b1eb9fefcc09714048765d4d9efe961382c312e624572c0420762bdc5d5940cdf9be73a"
 }

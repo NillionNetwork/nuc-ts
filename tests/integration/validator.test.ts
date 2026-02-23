@@ -269,6 +269,28 @@ describe("Validator", () => {
     });
   });
 
+  it("should pass when subject is not an issuer in the chain (delegated auth)", async () => {
+    // Root (nilauth) delegates to a session key, with sub=builder
+    // The builder never appears as an issuer — trust flows from root
+    const sessionSigner = Signer.generate();
+    const sessionDid = await sessionSigner.getDid();
+    const builderDid = await Signer.generate().getDid(); // builder never signs
+
+    const rootDelegation = await Builder.delegation()
+      .audience(sessionDid)
+      .subject(builderDid)
+      .command("/nil")
+      .expiresIn(ONE_HOUR_MS)
+      .sign(rootSigner);
+
+    const invocation = await Builder.invocationFrom(rootDelegation)
+      .audience(await Signer.generate().getDid())
+      .expiresIn(ONE_HOUR_MS / 2)
+      .sign(sessionSigner);
+
+    assertSuccess(invocation, { rootDids: ROOT_DIDS });
+  });
+
   it("should permit a namespace jump to the REVOKE_COMMAND", async () => {
     const testRootSigner = Signer.generate();
     const userSigner = Signer.generate();

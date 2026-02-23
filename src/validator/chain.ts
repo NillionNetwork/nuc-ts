@@ -17,7 +17,6 @@ export const MISSING_PROOF = "proof is missing";
 export const NOT_BEFORE_BACKWARDS = "`not before` cannot move backwards";
 export const PROOFS_MUST_BE_DELEGATIONS = "proofs must be delegations";
 export const ROOT_KEY_SIGNATURE_MISSING = "root NUC is not signed by a root issuer";
-export const SUBJECT_NOT_IN_CHAIN = "subject not in chain";
 export const TOO_MANY_PROOFS = "up to one `prf` in a token is allowed";
 export const UNCHAINED_PROOFS = "extra proofs not part of chain provided";
 
@@ -61,14 +60,6 @@ export function validatePayloadChain(
     validateTemporalProperties(payload, now);
     if (Payload.isDelegationPayload(payload)) {
       validatePolicyProperties(payload.pol, config);
-    }
-  }
-
-  if (payloads.length >= 2) {
-    const payload = payloads[1];
-    if (!Did.areEqual(payload.iss, payload.sub)) {
-      Log.debug({ issuer: payload.iss, subject: payload.sub }, SUBJECT_NOT_IN_CHAIN);
-      throw new Error(SUBJECT_NOT_IN_CHAIN);
     }
   }
 }
