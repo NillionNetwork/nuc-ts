@@ -28,7 +28,6 @@ export namespace Validator {
   export const NOT_BEFORE_BACKWARDS = "`not before` cannot move backwards";
   export const PROOFS_MUST_BE_DELEGATIONS = "proofs must be delegations";
   export const ROOT_KEY_SIGNATURE_MISSING = "root NUC is not signed by a root issuer";
-  export const SUBJECT_NOT_IN_CHAIN = "subject not in chain";
   export const TOO_MANY_PROOFS = "up to one `prf` in a token is allowed";
   export const UNCHAINED_PROOFS = "extra proofs not part of chain provided";
   // Policy validation errors
@@ -92,7 +91,6 @@ export namespace Validator {
    * @throws {Error} MISSING_PROOF - Required proof is missing
    * @throws {Error} NOT_BEFORE_BACKWARDS - notBefore times go backwards in chain
    * @throws {Error} ROOT_KEY_SIGNATURE_MISSING - Root signature is missing
-   * @throws {Error} SUBJECT_NOT_IN_CHAIN - Subject is not found in chain
    * @throws {Error} UNCHAINED_PROOFS - Proofs are not properly chained
    * @throws {Error} INVALID_SIGNATURES - Any signature in the chain is invalid
    * @throws {Error} POLICY_NOT_MET - Policy evaluation fails
