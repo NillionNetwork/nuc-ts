@@ -22,10 +22,7 @@ jobs:
       version: ${{ steps.check-version.outputs.local_version }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-      - uses: pnpm/action-setup@v4
+      - uses: jdx/mise-action@v2
       - run: pnpm install
       - id: check-version
         run: pnpm exec tsx bin/check-version.ts

@@ -22,7 +22,6 @@
     "check": "pnpm exec oxfmt --check && pnpm exec oxlint --type-aware && pnpm exec tsgo -b",
     "fix": "pnpm exec oxfmt && pnpm exec oxlint --fix --type-aware && pnpm exec tsgo -b",
     "fmt": "pnpm exec oxfmt",
-    "install-hooks": "lefthook install",
     "test": "vitest --run",
     "build": "tsdown"
   },
@@ -46,7 +45,6 @@
     "@vitest/coverage-v8": "^4.0.18",
     "abitype": "^1.2.3",
     "fast-check": "^4.5.3",
-    "lefthook": "^2.1.1",
     "oxfmt": "^0.35.0",
     "oxlint": "^1.50.0",
     "oxlint-tsgolint": "^0.14.2",

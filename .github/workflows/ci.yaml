@@ -17,25 +17,19 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: "recursive"
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-      - uses: pnpm/action-setup@v4
+      - uses: jdx/mise-action@v2
       - run: pnpm install
-      - run: pnpm build
-      - run: pnpm check
+      - run: mise run build
+      - run: mise run check
 
   test:
     needs: check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-      - uses: pnpm/action-setup@v4
+      - uses: jdx/mise-action@v2
       - run: pnpm install
-      - run: pnpm vitest --coverage
+      - run: mise run test-coverage
       - uses: davelosert/vitest-coverage-report-action@v2
         if: always()
         with:

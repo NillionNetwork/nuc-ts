@@ -1,0 +1,62 @@
+[tools]
+node = "24"
+pnpm = "10"
+prek = "latest"
+actionlint = "latest"
+
+[tasks.install]
+description = "Install dependencies"
+run = "pnpm install"
+
+[tasks.init]
+description = "Setup repository (install deps and git hooks)"
+depends = ["install"]
+run = "prek install"
+
+# --- Quality ---
+
+[tasks.fmt]
+description = "Format all files"
+run = "pnpm exec oxfmt"
+
+[tasks."fmt:check"]
+description = "Check formatting"
+run = "pnpm exec oxfmt --check"
+
+[tasks.lint]
+description = "Lint and auto-fix"
+run = "pnpm exec oxlint --fix --type-aware"
+
+[tasks."lint:check"]
+description = "Lint (no auto-fix)"
+run = "pnpm exec oxlint --type-aware"
+
+[tasks.typecheck]
+description = "Type check"
+run = "pnpm exec tsgo -b"
+
+[tasks.actionlint]
+description = "Lint GitHub Actions workflows"
+run = "actionlint"
+
+[tasks.check]
+description = "Format check + lint + type check + CI workflows"
+depends = ["fmt:check", "lint:check", "typecheck", "actionlint"]
+
+[tasks.fix]
+description = "Auto-fix formatting and lint issues"
+depends = ["fmt", "lint", "typecheck"]
+
+# --- Build & Test ---
+
+[tasks.build]
+description = "Build library"
+run = "pnpm exec tsdown"
+
+[tasks.test]
+description = "Run tests"
+run = "pnpm exec vitest --run"
+
+[tasks.test-coverage]
+description = "Run tests with coverage"
+run = "pnpm exec vitest --run --coverage"
